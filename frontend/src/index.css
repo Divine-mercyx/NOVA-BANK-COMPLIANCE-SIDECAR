@@ -1,0 +1,143 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --surface: 249 250 251;
+    --surface-raised: 255 255 255;
+    --surface-overlay: 243 244 246;
+    --border: 229 231 235;
+    --border-strong: 209 213 219;
+    --content: 17 24 39;
+    --content-muted: 107 114 128;
+    --content-subtle: 156 163 175;
+    --brand: 124 58 237;
+    --brand-hover: 109 40 217;
+    --brand-muted: 237 233 254;
+    --brand-foreground: 255 255 255;
+    --success: 34 197 94;
+    --warning: 249 115 22;
+    --danger: 239 68 68;
+    --info: 59 130 246;
+    --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.05);
+    --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.06), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
+  }
+
+  .dark {
+    --surface: 17 24 39;
+    --surface-raised: 31 41 55;
+    --surface-overlay: 55 65 81;
+    --border: 55 65 81;
+    --border-strong: 75 85 99;
+    --content: 249 250 251;
+    --content-muted: 156 163 175;
+    --content-subtle: 107 114 128;
+    --brand: 167 139 250;
+    --brand-hover: 196 181 253;
+    --brand-muted: 46 16 101;
+    --brand-foreground: 255 255 255;
+    --success: 74 222 128;
+    --warning: 251 146 60;
+    --danger: 248 113 113;
+    --info: 96 165 250;
+    --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-card: 0 4px 6px rgba(0, 0, 0, 0.25);
+    --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.35);
+  }
+
+  html {
+    @apply scroll-smooth;
+  }
+
+  body {
+    @apply min-h-screen bg-surface text-content antialiased;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-xl border border-border bg-surface-raised shadow-card;
+  }
+
+  .card-muted {
+    @apply rounded-xl border border-border bg-surface-overlay/50;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-brand px-4 py-2.5 text-sm font-semibold text-brand-foreground shadow-soft transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-surface-raised px-4 py-2.5 text-sm font-medium text-content transition hover:bg-surface-overlay disabled:opacity-50;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-content-muted transition hover:bg-surface-overlay hover:text-content;
+  }
+
+  .input {
+    @apply w-full rounded-lg border border-border bg-surface-raised px-3.5 py-2.5 text-sm text-content outline-none transition placeholder:text-content-subtle focus:border-brand focus:ring-2 focus:ring-brand/15;
+  }
+
+  .label {
+    @apply mb-1.5 block text-sm font-medium text-content;
+  }
+
+  .data-table {
+    @apply w-full text-left text-sm;
+  }
+
+  .data-table thead {
+    @apply border-b border-border bg-surface text-xs font-medium text-content-muted;
+  }
+
+  .data-table th {
+    @apply px-4 py-3;
+  }
+
+  .data-table td {
+    @apply px-4 py-4 text-content;
+  }
+
+  .data-table tbody tr {
+    @apply border-b border-border/70 transition hover:bg-surface-overlay/40;
+  }
+
+  .tab-active {
+    @apply border-b-2 border-brand text-brand;
+  }
+
+  .tab-inactive {
+    @apply border-b-2 border-transparent text-content-muted hover:text-content;
+  }
+
+  /* Auth pages — PalmPay-inspired split layout */
+  .auth-panel-left {
+    background: linear-gradient(145deg, #1a0533 0%, #4c1d95 35%, #7c2d12 70%, #ea580c 100%);
+  }
+
+  .auth-panel-glow {
+    background:
+      radial-gradient(ellipse 80% 60% at 20% 30%, rgba(236, 72, 153, 0.45) 0%, transparent 55%),
+      radial-gradient(ellipse 70% 50% at 80% 70%, rgba(249, 115, 22, 0.5) 0%, transparent 50%),
+      radial-gradient(ellipse 60% 40% at 50% 100%, rgba(124, 58, 237, 0.6) 0%, transparent 45%);
+  }
+
+  .auth-glass-card {
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35);
+  }
+
+  .auth-input {
+    @apply w-full rounded-lg border border-neutral-200 bg-white px-4 py-3 text-sm text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:border-brand focus:ring-2 focus:ring-brand/20;
+  }
+
+  .auth-submit-btn {
+    @apply w-full rounded-lg bg-brand py-3.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-50;
+  }
+}
