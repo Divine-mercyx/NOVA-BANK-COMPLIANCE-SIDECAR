@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     # Finacle DB users often use 10G password verifiers — requires thick mode (Instant Client).
     finacle_oracle_thick_mode: bool = False
     finacle_oracle_client_lib_dir: str = ""
+    finacle_oracle_default_days: int = 1
     finacle_schema: str = "CUSTOM"
     finacle_admin_schema: str = "TBAADM"
     finacle_oracle_source: str = "htd"

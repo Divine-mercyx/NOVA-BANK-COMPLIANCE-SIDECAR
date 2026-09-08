@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+import logging
+from datetime import datetime, timedelta, timezone
 
 from app.core.config import settings
 from app.schemas.compliance import RawTransaction, TransactionChannel
@@ -15,6 +16,8 @@ from app.services.etl.finacle_mappers import (
 )
 from app.services.etl.htd_mapper import map_htd_rows
 from app.services.etl.oracle_client import get_oracledb
+
+logger = logging.getLogger(__name__)
 
 
 class OracleFinacleSource:
@@ -88,9 +91,28 @@ class OracleFinacleSource:
             raise RuntimeError("FINACLE_ORACLE_DSN is not configured")
 
         source = settings.finacle_oracle_source.lower()
+        date_from, date_to = self._resolve_dates(date_from, date_to)
         if source == "htd":
             return self._extract_htd(date_from, date_to, oracledb)
         return self._extract_channels(channels, date_from, date_to, oracledb)
+
+    @staticmethod
+    def _resolve_dates(
+        date_from: datetime | None,
+        date_to: datetime | None,
+    ) -> tuple[datetime, datetime]:
+        end = date_to or datetime.now(timezone.utc)
+        if date_from is None:
+            days = max(settings.finacle_oracle_default_days, 1)
+            start = end - timedelta(days=days)
+            logger.info(
+                "No date range supplied — defaulting Oracle extract to last %s day(s): %s → %s",
+                days,
+                start.isoformat(),
+                end.isoformat(),
+            )
+            return start, end
+        return date_from, end
 
     def _extract_htd(
         self,
@@ -101,6 +123,12 @@ class OracleFinacleSource:
         customers = CustomerRegistry.default()
         admin_schema = settings.finacle_admin_schema
         sql = self.HTD_QUERY.format(admin_schema=admin_schema)
+        logger.info(
+            "Querying %s.HTD from %s to %s (this can take a few minutes on VPN)",
+            admin_schema,
+            date_from.isoformat(),
+            date_to.isoformat(),
+        )
 
         with oracledb.connect(
             user=settings.finacle_oracle_user,
@@ -108,9 +136,11 @@ class OracleFinacleSource:
             dsn=settings.finacle_oracle_dsn,
         ) as conn:
             with conn.cursor() as cursor:
+                cursor.arraysize = 5000
                 cursor.execute(sql, date_from=date_from, date_to=date_to)
                 cols = [d[0].lower() for d in cursor.description]
                 rows = [dict(zip(cols, row)) for row in cursor.fetchall()]
+        logger.info("Fetched %s HTD leg rows from Oracle", len(rows))
         return map_htd_rows(rows, customers)
 
     def _extract_channels(

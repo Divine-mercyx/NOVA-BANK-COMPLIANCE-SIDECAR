@@ -42,8 +42,27 @@ class ETLPipeline:
         self.db.add(run)
         await self.db.flush()
 
-        await self._log(run.id, "INFO", None, f"Starting extraction from Finacle ({settings_mode()})")
-        await self._log(run.id, "INFO", None, f"Channels: {', '.join(channel_values)}")
+        mode = settings_mode()
+        await self._log(run.id, "INFO", None, f"Starting extraction from Finacle ({mode})")
+        if mode == "oracle":
+            from app.core.config import settings
+
+            await self._log(
+                run.id,
+                "INFO",
+                None,
+                f"Oracle source: {settings.finacle_oracle_source} "
+                f"(default window: last {settings.finacle_oracle_default_days} day(s) if no dates sent)",
+            )
+        if date_from or date_to:
+            await self._log(
+                run.id,
+                "INFO",
+                None,
+                f"Date range: {date_from.isoformat() if date_from else '…'} → {date_to.isoformat() if date_to else '…'}",
+            )
+        elif mode != "oracle":
+            await self._log(run.id, "INFO", None, f"Channels: {', '.join(channel_values)}")
 
         try:
             raw_records = await self.extractor.extract(channels, date_from, date_to)
