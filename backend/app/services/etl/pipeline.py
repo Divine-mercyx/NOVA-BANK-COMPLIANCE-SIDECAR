@@ -67,6 +67,14 @@ class ETLPipeline:
         try:
             raw_records = await self.extractor.extract(channels, date_from, date_to)
             await self._log(run.id, "INFO", None, f"Extracted {len(raw_records)} raw records")
+            if len(raw_records) == 0 and mode == "oracle":
+                await self._log(
+                    run.id,
+                    "WARN",
+                    None,
+                    "Oracle returned 0 rows — widen FINACLE_ORACLE_DEFAULT_DAYS or check "
+                    "SELECT MIN(NVL(PSTD_DATE,TRAN_DATE)), MAX(NVL(PSTD_DATE,TRAN_DATE)) FROM TBAADM.HTD",
+                )
 
             valid_count = 0
             invalid_count = 0

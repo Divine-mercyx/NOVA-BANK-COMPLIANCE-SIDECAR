@@ -139,10 +139,10 @@ def map_htd_rows(rows: list[dict[str, Any]], customers: CustomerRegistry | None 
         if not tran_id:
             continue
         key = (tran_id, amount)
-        part_type = str(row.get("part_tran_type") or row.get("PART_TRAN_TYPE") or "").upper()
-        if part_type == "D":
+        part_type = str(row.get("part_tran_type") or row.get("PART_TRAN_TYPE") or "").strip().upper()
+        if part_type.startswith("D"):
             debits[key] = row
-        elif part_type == "C":
+        elif part_type.startswith("C"):
             credits[key] = row
 
     out: list[RawTransaction] = []

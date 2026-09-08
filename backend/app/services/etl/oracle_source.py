@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, time
+from zoneinfo import ZoneInfo
 
 from app.core.config import settings
 from app.schemas.compliance import RawTransaction, TransactionChannel
@@ -40,8 +41,8 @@ class OracleFinacleSource:
         LEFT JOIN {admin_schema}.GAM g
           ON h.ACID = g.ACID
          AND NVL(g.DEL_FLG, 'N') = 'N'
-        WHERE (:date_from IS NULL OR h.PSTD_DATE >= :date_from)
-          AND (:date_to IS NULL OR h.PSTD_DATE <= :date_to)
+        WHERE NVL(h.PSTD_DATE, h.TRAN_DATE) >= :date_from
+          AND NVL(h.PSTD_DATE, h.TRAN_DATE) < :date_to_exclusive
         ORDER BY h.TRAN_ID, h.PART_TRAN_SRL_NUM
     """
 
@@ -91,43 +92,64 @@ class OracleFinacleSource:
             raise RuntimeError("FINACLE_ORACLE_DSN is not configured")
 
         source = settings.finacle_oracle_source.lower()
-        date_from, date_to = self._resolve_dates(date_from, date_to)
+        date_from, date_to_exclusive = self._resolve_dates(date_from, date_to)
         if source == "htd":
-            return self._extract_htd(date_from, date_to, oracledb)
-        return self._extract_channels(channels, date_from, date_to, oracledb)
+            return self._extract_htd(date_from, date_to_exclusive, oracledb)
+        return self._extract_channels(channels, date_from, date_to_exclusive, oracledb)
 
     @staticmethod
+    def _bank_tz() -> ZoneInfo:
+        return ZoneInfo(settings.finacle_timezone)
+
+    @classmethod
     def _resolve_dates(
+        cls,
         date_from: datetime | None,
         date_to: datetime | None,
     ) -> tuple[datetime, datetime]:
-        end = date_to or datetime.now(timezone.utc)
+        """Return naive datetimes for Oracle DATE binds (bank local calendar days)."""
+        tz = cls._bank_tz()
+        end = date_to or datetime.now(tz)
+        if end.tzinfo is None:
+            end = end.replace(tzinfo=tz)
+        else:
+            end = end.astimezone(tz)
+
         if date_from is None:
             days = max(settings.finacle_oracle_default_days, 1)
             start = end - timedelta(days=days)
-            logger.info(
-                "No date range supplied — defaulting Oracle extract to last %s day(s): %s → %s",
-                days,
-                start.isoformat(),
-                end.isoformat(),
-            )
-            return start, end
-        return date_from, end
+        else:
+            start = date_from
+            if start.tzinfo is None:
+                start = start.replace(tzinfo=tz)
+            else:
+                start = start.astimezone(tz)
+
+        start_naive = datetime.combine(start.date(), time.min)
+        end_exclusive = datetime.combine(end.date() + timedelta(days=1), time.min)
+        logger.info(
+            "Oracle HTD window (%s): %s → %s (exclusive end %s)",
+            settings.finacle_timezone,
+            start_naive.isoformat(sep=" "),
+            datetime.combine(end.date(), time.max).isoformat(sep=" "),
+            end_exclusive.isoformat(sep=" "),
+        )
+        return start_naive, end_exclusive
 
     def _extract_htd(
         self,
-        date_from: datetime | None,
-        date_to: datetime | None,
+        date_from: datetime,
+        date_to_exclusive: datetime,
         oracledb,
     ) -> list[RawTransaction]:
         customers = CustomerRegistry.default()
         admin_schema = settings.finacle_admin_schema
         sql = self.HTD_QUERY.format(admin_schema=admin_schema)
         logger.info(
-            "Querying %s.HTD from %s to %s (this can take a few minutes on VPN)",
+            "Querying %s.HTD with NVL(PSTD_DATE, TRAN_DATE) from %s to %s",
             admin_schema,
-            date_from.isoformat(),
-            date_to.isoformat(),
+            date_from,
+            date_to_exclusive,
         )
 
         with oracledb.connect(
@@ -137,11 +159,17 @@ class OracleFinacleSource:
         ) as conn:
             with conn.cursor() as cursor:
                 cursor.arraysize = 5000
-                cursor.execute(sql, date_from=date_from, date_to=date_to)
+                cursor.execute(
+                    sql,
+                    date_from=date_from,
+                    date_to_exclusive=date_to_exclusive,
+                )
                 cols = [d[0].lower() for d in cursor.description]
                 rows = [dict(zip(cols, row)) for row in cursor.fetchall()]
         logger.info("Fetched %s HTD leg rows from Oracle", len(rows))
-        return map_htd_rows(rows, customers)
+        mapped = map_htd_rows(rows, customers)
+        logger.info("Mapped %s HTD leg rows to %s transactions", len(rows), len(mapped))
+        return mapped
 
     def _extract_channels(
         self,

@@ -27,8 +27,28 @@ def main() -> int:
     ) as conn:
         with conn.cursor() as cur:
             cur.execute("SELECT COUNT(*) FROM TBAADM.HTD")
-            count = cur.fetchone()[0]
-            print(f"OK — TBAADM.HTD rows: {count:,}")
+            total = cur.fetchone()[0]
+            print(f"OK — TBAADM.HTD total rows: {total:,}")
+
+            cur.execute(
+                """
+                SELECT MIN(NVL(PSTD_DATE, TRAN_DATE)), MAX(NVL(PSTD_DATE, TRAN_DATE))
+                FROM TBAADM.HTD
+                """
+            )
+            min_d, max_d = cur.fetchone()
+            print(f"Date range in HTD: {min_d} → {max_d}")
+
+            days = settings.finacle_oracle_default_days
+            cur.execute(
+                f"""
+                SELECT COUNT(*)
+                FROM TBAADM.HTD
+                WHERE NVL(PSTD_DATE, TRAN_DATE) >= TRUNC(SYSDATE) - {days}
+                """
+            )
+            recent = cur.fetchone()[0]
+            print(f"Rows in last {days} day(s) (Oracle SYSDATE): {recent:,}")
 
     return 0
 
