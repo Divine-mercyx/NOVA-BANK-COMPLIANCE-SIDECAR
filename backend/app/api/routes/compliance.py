@@ -8,7 +8,6 @@ from app.core.database import get_db
 from app.models.entities import (
     ExtractionLog,
     ExtractionRun,
-    ExtractionStatus,
     RegulatoryReport,
     ReportStatus,
     StagingTransaction,
