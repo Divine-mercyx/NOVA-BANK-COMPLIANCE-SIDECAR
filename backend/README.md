@@ -51,6 +51,18 @@ cd backend
 python scripts/test_oracle_connection.py
 ```
 
+### Fetch a specific HTD date range (debug ETL on VPN)
+
+Uses the **same query and mapper** as the app — good for isolating app vs Oracle issues:
+
+```powershell
+cd backend
+python scripts/fetch_htd_range.py
+python scripts/fetch_htd_range.py --from 2023-02-01 --to 2023-02-03
+```
+
+Prints per-day Oracle `COUNT(*)`, mapped transaction count, and sample rows.
+
 Alternative: ask the DBA to reset the Oracle user password (`ALTER USER customer IDENTIFIED BY ...`) so a modern 11G/12C verifier is stored.
 
 Legacy CUSTOM channel tables (offline CSV / fallback):
