@@ -10,12 +10,16 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.execute(
-        """
-        ALTER TABLE staging_transactions
-        ADD COLUMN IF NOT EXISTS reportable_str BOOLEAN NOT NULL DEFAULT false
-        """
-    )
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    if not inspector.has_table("staging_transactions"):
+        return
+    columns = {col["name"] for col in inspector.get_columns("staging_transactions")}
+    if "reportable_str" not in columns:
+        op.add_column(
+            "staging_transactions",
+            sa.Column("reportable_str", sa.Boolean(), nullable=False, server_default=sa.false()),
+        )
 
 
 def downgrade() -> None:

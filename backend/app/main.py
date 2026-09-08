@@ -17,9 +17,10 @@ from app.services.etl.scheduler import start_etl_scheduler, stop_etl_scheduler
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    run_migrations()
+    # create_all must run before Alembic upgrades on fresh installs — 002 alters staging_transactions.
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    run_migrations()
     await seed_database()
     start_etl_scheduler()
     yield

@@ -14,15 +14,6 @@ async def ensure_schema() -> None:
                 columns = {col["name"] for col in inspector.get_columns("users")}
                 if "password_hash" not in columns:
                     sync_conn.execute(text("ALTER TABLE users ADD COLUMN password_hash VARCHAR(255)"))
-            if inspector.has_table("staging_transactions"):
-                columns = {col["name"] for col in inspector.get_columns("staging_transactions")}
-                if "reportable_str" not in columns:
-                    sync_conn.execute(
-                        text(
-                            "ALTER TABLE staging_transactions "
-                            "ADD COLUMN reportable_str BOOLEAN NOT NULL DEFAULT false"
-                        )
-                    )
 
         await conn.run_sync(migrate)
 
