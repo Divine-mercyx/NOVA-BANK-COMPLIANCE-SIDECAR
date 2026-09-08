@@ -262,8 +262,20 @@ export const api = {
       method: "POST",
       body: JSON.stringify(params ?? {}),
     }),
+  getRun: (id: string) => request<ExtractionRun>(`/api/v1/etl/runs/${id}`),
   listRuns: () => request<ExtractionRun[]>("/api/v1/etl/runs"),
   runLogs: (id: string) => request<ExtractionLog[]>(`/api/v1/etl/runs/${id}/logs`),
+  waitForEtlRun: async (
+    runId: string,
+    onUpdate?: (run: ExtractionRun, logs: ExtractionLog[]) => void,
+  ): Promise<ExtractionRun> => {
+    while (true) {
+      const [run, logs] = await Promise.all([api.getRun(runId), api.runLogs(runId)]);
+      onUpdate?.(run, logs);
+      if (run.status !== "running") return run;
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    }
+  },
   transactions: (validOnly = false, channel?: string) => {
     const params = new URLSearchParams({ valid_only: String(validOnly) });
     if (channel) params.set("channel", channel);

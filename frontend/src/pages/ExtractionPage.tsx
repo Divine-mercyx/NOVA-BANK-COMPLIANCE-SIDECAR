@@ -17,6 +17,7 @@ export function ExtractionPage() {
   const [running, setRunning] = useState(false);
   const [extractOpen, setExtractOpen] = useState(false);
   const [finacleMode, setFinacleMode] = useState<string | undefined>();
+  const [progressMessage, setProgressMessage] = useState<string | null>(null);
   const [search, setSearch] = useState("");
 
   const load = async () => {
@@ -37,18 +38,47 @@ export function ExtractionPage() {
 
   useEffect(() => {
     if (!selected) return;
-    api.runLogs(selected).then(setLogs);
+    let cancelled = false;
+
+    const poll = async () => {
+      try {
+        const [run, runLogs] = await Promise.all([api.getRun(selected), api.runLogs(selected)]);
+        if (cancelled) return;
+        setLogs(runLogs);
+        setRuns((prev) => prev.map((r) => (r.id === run.id ? run : r)));
+        const last = runLogs[runLogs.length - 1];
+        if (last && run.status === "running") setProgressMessage(last.message);
+      } catch {
+        /* run may not exist yet */
+      }
+    };
+
+    poll();
+    const timer = window.setInterval(poll, 2000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
   }, [selected]);
 
   const runPipeline = async (params: ExtractionRunParams) => {
     setRunning(true);
+    setProgressMessage("Starting extraction…");
     try {
       const run = await api.runEtl(params);
       setExtractOpen(false);
-      await load();
       setSelected(run.id);
+      setRuns((prev) => [run, ...prev.filter((r) => r.id !== run.id)]);
+      await api.waitForEtlRun(run.id, (updated, runLogs) => {
+        setLogs(runLogs);
+        setRuns((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
+        const last = runLogs[runLogs.length - 1];
+        if (last) setProgressMessage(last.message);
+      });
+      await load();
     } finally {
       setRunning(false);
+      setProgressMessage(null);
     }
   };
 
@@ -83,7 +113,14 @@ export function ExtractionPage() {
         onRun={runPipeline}
         finacleMode={finacleMode}
         running={running}
+        progressMessage={progressMessage}
       />
+
+      {running && progressMessage && (
+        <div className="mb-4 rounded-lg border border-brand/30 bg-brand-muted/40 px-4 py-3 text-sm text-content">
+          <span className="font-medium">Extraction in progress:</span> {progressMessage}
+        </div>
+      )}
 
       {loading ? (
         <div className="card h-64 animate-pulse bg-surface-overlay/50" />

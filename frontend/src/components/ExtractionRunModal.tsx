@@ -29,9 +29,10 @@ interface ExtractionRunModalProps {
   onRun: (params: ExtractionRunParams) => Promise<void>;
   finacleMode?: string;
   running?: boolean;
+  progressMessage?: string | null;
 }
 
-export function ExtractionRunModal({ open, onClose, onRun, finacleMode, running }: ExtractionRunModalProps) {
+export function ExtractionRunModal({ open, onClose, onRun, finacleMode, running, progressMessage }: ExtractionRunModalProps) {
   const [preset, setPreset] = useState<ExtractionPreset>("last7");
   const [from, setFrom] = useState<CalendarDate>(() => presetRange("last7").from);
   const [to, setTo] = useState<CalendarDate>(() => presetRange("last7").to);
@@ -194,6 +195,12 @@ export function ExtractionRunModal({ open, onClose, onRun, finacleMode, running 
           )}
 
           {error && <p className="text-sm font-medium text-danger">{error}</p>}
+
+          {running && progressMessage && (
+            <div className="rounded-lg border border-brand/30 bg-brand-muted/30 px-3 py-2 text-sm text-content-muted">
+              {progressMessage}
+            </div>
+          )}
         </div>
 
         <div className="flex flex-col-reverse gap-2 border-t border-border px-6 py-4 sm:flex-row sm:justify-end">

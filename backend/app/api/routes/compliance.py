@@ -8,6 +8,7 @@ from app.core.database import get_db
 from app.models.entities import (
     ExtractionLog,
     ExtractionRun,
+    ExtractionStatus,
     RegulatoryReport,
     ReportStatus,
     StagingTransaction,
@@ -28,6 +29,7 @@ from app.schemas.compliance import (
     UserOut,
 )
 from app.services.analytics import AnalyticsService, AuditService, ReportWorkflowService
+from app.services.etl.background import schedule_etl_background
 from app.services.etl.pipeline import ETLPipeline
 from app.services.reports.generator import ReportGenerator
 
@@ -77,10 +79,27 @@ async def dashboard(db: AsyncSession = Depends(get_db)):
 async def run_etl(
     body: ExtractionRequest,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_analyst()),
+    user: User = Depends(require_analyst()),
 ):
+    """Start extraction in the background — poll GET /etl/runs/{id} and /logs for progress."""
     pipeline = ETLPipeline(db)
-    run = await pipeline.run(body.channels, body.date_from, body.date_to)
+    run = await pipeline.start_run(body.channels, body.date_from, body.date_to)
+    schedule_etl_background(
+        run.id,
+        body.channels,
+        body.date_from,
+        body.date_to,
+        actor_name=user.full_name or user.email,
+    )
+    return ExtractionRunSummary.model_validate(run)
+
+
+@router.get("/etl/runs/{run_id}", response_model=ExtractionRunSummary)
+async def get_run(run_id: str, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(ExtractionRun).where(ExtractionRun.id == run_id))
+    run = result.scalar_one_or_none()
+    if not run:
+        raise HTTPException(status_code=404, detail="Extraction run not found")
     return ExtractionRunSummary.model_validate(run)
 
 

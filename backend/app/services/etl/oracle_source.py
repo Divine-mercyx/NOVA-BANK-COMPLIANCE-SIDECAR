@@ -136,21 +136,30 @@ class OracleFinacleSource:
         )
         return start_naive, end_exclusive
 
-    def _extract_htd(
+    def iter_day_windows(
+        self,
+        start_naive: datetime,
+        end_exclusive: datetime,
+    ):
+        """Yield one calendar day at a time for chunked HTD extract."""
+        current = start_naive
+        while current < end_exclusive:
+            next_day = datetime.combine(current.date() + timedelta(days=1), time.min)
+            yield current, min(next_day, end_exclusive)
+            current = next_day
+
+    def extract_htd_window(
         self,
         date_from: datetime,
         date_to_exclusive: datetime,
         oracledb,
     ) -> list[RawTransaction]:
+        """Fetch one HTD window in batches (one day recommended for D/C pairing)."""
         customers = CustomerRegistry.default()
         admin_schema = settings.finacle_admin_schema
         sql = self.HTD_QUERY.format(admin_schema=admin_schema)
-        logger.info(
-            "Querying %s.HTD with NVL(PSTD_DATE, TRAN_DATE) from %s to %s",
-            admin_schema,
-            date_from,
-            date_to_exclusive,
-        )
+        batch_size = max(settings.finacle_oracle_fetch_batch_size, 500)
+        rows: list[dict] = []
 
         with oracledb.connect(
             user=settings.finacle_oracle_user,
@@ -158,17 +167,35 @@ class OracleFinacleSource:
             dsn=settings.finacle_oracle_dsn,
         ) as conn:
             with conn.cursor() as cursor:
-                cursor.arraysize = 5000
+                cursor.arraysize = batch_size
                 cursor.execute(
                     sql,
                     date_from=date_from,
                     date_to_exclusive=date_to_exclusive,
                 )
                 cols = [d[0].lower() for d in cursor.description]
-                rows = [dict(zip(cols, row)) for row in cursor.fetchall()]
-        logger.info("Fetched %s HTD leg rows from Oracle", len(rows))
-        mapped = map_htd_rows(rows, customers)
-        logger.info("Mapped %s HTD leg rows to %s transactions", len(rows), len(mapped))
+                while True:
+                    chunk = cursor.fetchmany(batch_size)
+                    if not chunk:
+                        break
+                    rows.extend(dict(zip(cols, row)) for row in chunk)
+
+        return map_htd_rows(rows, customers)
+
+    def _extract_htd(
+        self,
+        date_from: datetime,
+        date_to_exclusive: datetime,
+        oracledb,
+    ) -> list[RawTransaction]:
+        logger.info(
+            "Querying %s.HTD with NVL(PSTD_DATE, TRAN_DATE) from %s to %s",
+            settings.finacle_admin_schema,
+            date_from,
+            date_to_exclusive,
+        )
+        mapped = self.extract_htd_window(date_from, date_to_exclusive, oracledb)
+        logger.info("Mapped HTD window to %s transactions", len(mapped))
         return mapped
 
     def _extract_channels(

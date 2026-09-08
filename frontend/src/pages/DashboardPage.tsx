@@ -25,6 +25,7 @@ export function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
   const [extractOpen, setExtractOpen] = useState(false);
+  const [progressMessage, setProgressMessage] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -41,12 +42,18 @@ export function DashboardPage() {
 
   const runPipeline = async (params: ExtractionRunParams) => {
     setRunning(true);
+    setProgressMessage("Starting extraction…");
     try {
-      await api.runEtl(params);
+      const run = await api.runEtl(params);
       setExtractOpen(false);
+      await api.waitForEtlRun(run.id, (_updated, logs) => {
+        const last = logs[logs.length - 1];
+        if (last) setProgressMessage(last.message);
+      });
       await load();
     } finally {
       setRunning(false);
+      setProgressMessage(null);
     }
   };
 
@@ -86,7 +93,14 @@ export function DashboardPage() {
         onRun={runPipeline}
         finacleMode={data?.finacle_mode}
         running={running}
+        progressMessage={progressMessage}
       />
+
+      {running && progressMessage && (
+        <div className="mb-4 rounded-lg border border-brand/30 bg-brand-muted/40 px-4 py-3 text-sm text-content">
+          <span className="font-medium">Extraction in progress:</span> {progressMessage}
+        </div>
+      )}
 
       {loading ? (
         <LoadingGrid />

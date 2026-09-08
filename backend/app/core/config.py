@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     finacle_oracle_client_lib_dir: str = ""
     finacle_oracle_default_days: int = 1
     finacle_timezone: str = "Africa/Lagos"
+    finacle_oracle_fetch_batch_size: int = 5000
+    etl_skip_duplicates: bool = True
     finacle_schema: str = "CUSTOM"
     finacle_admin_schema: str = "TBAADM"
     finacle_oracle_source: str = "htd"
