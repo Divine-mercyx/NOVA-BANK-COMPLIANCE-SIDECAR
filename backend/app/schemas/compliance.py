@@ -71,6 +71,8 @@ class ExtractionRunSummary(BaseModel):
     status: ExtractionStatus
     source: str = "finacle_replica"
     channels: list
+    date_from: datetime | None = None
+    date_to: datetime | None = None
     records_extracted: int
     records_valid: int
     records_invalid: int

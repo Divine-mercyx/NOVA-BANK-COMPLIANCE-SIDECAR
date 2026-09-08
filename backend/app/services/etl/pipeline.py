@@ -38,13 +38,22 @@ class ETLPipeline:
         run = ExtractionRun(
             status=ExtractionStatus.RUNNING,
             channels=channel_values,
+            date_from=date_from,
+            date_to=date_to,
         )
         self.db.add(run)
         await self.db.flush()
 
         mode = settings_mode()
         await self._log(run.id, "INFO", None, f"Starting extraction from Finacle ({mode})")
-        if mode == "oracle":
+        if date_from and date_to:
+            await self._log(
+                run.id,
+                "INFO",
+                None,
+                f"Date range: {date_from.isoformat()} → {date_to.isoformat()}",
+            )
+        elif mode == "oracle":
             from app.core.config import settings
 
             await self._log(
@@ -52,16 +61,9 @@ class ETLPipeline:
                 "INFO",
                 None,
                 f"Oracle source: {settings.finacle_oracle_source} "
-                f"(default window: last {settings.finacle_oracle_default_days} day(s) if no dates sent)",
+                f"(default window: last {settings.finacle_oracle_default_days} day(s) — no dates in request)",
             )
-        if date_from or date_to:
-            await self._log(
-                run.id,
-                "INFO",
-                None,
-                f"Date range: {date_from.isoformat() if date_from else '…'} → {date_to.isoformat() if date_to else '…'}",
-            )
-        elif mode != "oracle":
+        else:
             await self._log(run.id, "INFO", None, f"Channels: {', '.join(channel_values)}")
 
         try:
@@ -142,6 +144,8 @@ class ETLPipeline:
                         "records_valid": run.records_valid,
                         "records_invalid": run.records_invalid,
                         "channels": channel_values,
+                        "date_from": run.date_from.isoformat() if run.date_from else None,
+                        "date_to": run.date_to.isoformat() if run.date_to else None,
                     },
                 )
             )

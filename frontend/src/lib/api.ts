@@ -10,6 +10,8 @@ export interface ExtractionRun {
   status: ExtractionStatus;
   source: string;
   channels: string[];
+  date_from: string | null;
+  date_to: string | null;
   records_extracted: number;
   records_valid: number;
   records_invalid: number;
@@ -255,7 +257,11 @@ export const api = {
   removeStaff: (id: string) =>
     request<User>(`/api/v1/auth/staff/${id}`, { method: "DELETE" }),
   dashboard: () => request<DashboardStats>("/api/v1/dashboard"),
-  runEtl: () => request<ExtractionRun>("/api/v1/etl/run", { method: "POST", body: "{}" }),
+  runEtl: (params?: { date_from: string; date_to: string }) =>
+    request<ExtractionRun>("/api/v1/etl/run", {
+      method: "POST",
+      body: JSON.stringify(params ?? {}),
+    }),
   listRuns: () => request<ExtractionRun[]>("/api/v1/etl/runs"),
   runLogs: (id: string) => request<ExtractionLog[]>(`/api/v1/etl/runs/${id}/logs`),
   transactions: (validOnly = false, channel?: string) => {

@@ -80,6 +80,15 @@ export function formatRelative(value: string | null | undefined) {
   return `${days}d ago`;
 }
 
+export function formatDateRange(from: string | null | undefined, to: string | null | undefined) {
+  if (!from && !to) return "Default window";
+  const opts: Intl.DateTimeFormatOptions = { dateStyle: "medium", timeZone: "Africa/Lagos" };
+  const fmt = (v: string) => new Intl.DateTimeFormat("en-NG", opts).format(new Date(v));
+  if (from && to) return `${fmt(from)} → ${fmt(to)}`;
+  if (from) return `From ${fmt(from)}`;
+  return `Until ${fmt(to!)}`;
+}
+
 export function roleLabel(role: string) {
   return role.charAt(0).toUpperCase() + role.slice(1);
 }

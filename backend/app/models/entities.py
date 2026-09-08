@@ -83,6 +83,8 @@ class ExtractionRun(Base):
     status: Mapped[ExtractionStatus] = mapped_column(Enum(ExtractionStatus), default=ExtractionStatus.RUNNING)
     source: Mapped[str] = mapped_column(String(50), default="finacle_replica")
     channels: Mapped[list] = mapped_column(JSONB, default=list)
+    date_from: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    date_to: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     records_extracted: Mapped[int] = mapped_column(Integer, default=0)
     records_valid: Mapped[int] = mapped_column(Integer, default=0)
     records_invalid: Mapped[int] = mapped_column(Integer, default=0)

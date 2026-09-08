@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Play, Plus, RefreshCw } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { ExtractionRunModal } from "../components/ExtractionRunModal";
 import {
   EmptyState,
   KpiCard,
@@ -13,7 +14,8 @@ import {
   Tag,
 } from "../components/ui";
 import { api, DashboardStats } from "../lib/api";
-import { actionLabel, formatNumber, formatRelative } from "../lib/format";
+import type { ExtractionRunParams } from "../lib/dates";
+import { actionLabel, formatDateRange, formatNumber, formatRelative } from "../lib/format";
 import { canRunEtl, extractModeLabel, extractSourceLabel } from "../lib/roles";
 import { useAuth } from "../lib/auth";
 
@@ -22,6 +24,7 @@ export function DashboardPage() {
   const [data, setData] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
+  const [extractOpen, setExtractOpen] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -36,10 +39,11 @@ export function DashboardPage() {
     load();
   }, []);
 
-  const runPipeline = async () => {
+  const runPipeline = async (params: ExtractionRunParams) => {
     setRunning(true);
     try {
-      await api.runEtl();
+      await api.runEtl(params);
+      setExtractOpen(false);
       await load();
     } finally {
       setRunning(false);
@@ -67,13 +71,21 @@ export function DashboardPage() {
               Refresh
             </button>
             {canRunEtl(user?.role) && (
-              <button className="btn-primary" onClick={runPipeline} disabled={running}>
+              <button className="btn-primary" onClick={() => setExtractOpen(true)} disabled={running}>
                 {running ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
                 Run extraction
               </button>
             )}
           </>
         }
+      />
+
+      <ExtractionRunModal
+        open={extractOpen}
+        onClose={() => !running && setExtractOpen(false)}
+        onRun={runPipeline}
+        finacleMode={data?.finacle_mode}
+        running={running}
       />
 
       {loading ? (
@@ -98,55 +110,64 @@ export function DashboardPage() {
               label="Submitted to NFIU"
               value={formatNumber(data.submitted_reports)}
               change="goAML portal"
-              changeUp
+              changeUp={data.submitted_reports > 0}
             />
             <KpiCard
               label="Validation rate"
               value={`${data.data_quality.validation_rate}%`}
-              change={`${data.data_quality.invalid_records} invalid`}
-              changeUp={data.data_quality.invalid_records === 0}
-              ringPercent={data.data_quality.validation_rate}
+              change={`${formatNumber(data.data_quality.valid_records)} valid records`}
+              changeUp={data.data_quality.validation_rate >= 80}
             />
           </div>
 
           <div className="grid gap-6 lg:grid-cols-3">
-            <div className="card overflow-hidden lg:col-span-2">
+            <div className="card lg:col-span-2">
               <div className="border-b border-border px-5 py-4">
-                <h2 className="font-semibold text-content">Report eligibility</h2>
-                <p className="text-sm text-content-muted">Transactions ready for NFIU report types</p>
+                <h2 className="font-semibold text-content">Compliance readiness</h2>
+                <p className="text-sm text-content-muted">Staging quality and reportable transaction flags</p>
               </div>
-              <table className="data-table">
+              <div className="grid gap-4 p-5 sm:grid-cols-2">
+                <div className="flex items-center gap-4 rounded-lg bg-surface-overlay/40 p-4">
+                  <ScoreRing value={data.data_quality.validation_rate} />
+                  <div>
+                    <p className="text-sm font-medium text-content">Data quality score</p>
+                    <p className="text-xs text-content-muted">
+                      {formatNumber(data.data_quality.invalid_records)} invalid of{" "}
+                      {formatNumber(data.data_quality.total_records)}
+                    </p>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <ProgressBar value={Math.min(100, data.data_quality.ctr_eligible)} color="info" />
+                  <p className="text-xs text-content-muted">CTR-eligible ({data.data_quality.ctr_eligible})</p>
+                  <ProgressBar value={Math.min(100, data.data_quality.ftr_eligible)} color="warning" />
+                  <p className="text-xs text-content-muted">FTR-eligible ({data.data_quality.ftr_eligible})</p>
+                  <ProgressBar value={Math.min(100, data.data_quality.pep_eligible)} color="brand" />
+                  <p className="text-xs text-content-muted">PEP-flagged ({data.data_quality.pep_eligible})</p>
+                </div>
+              </div>
+              <table className="w-full text-sm">
                 <thead>
-                  <tr>
-                    <th>Report type</th>
-                    <th>Eligible records</th>
-                    <th>Readiness</th>
-                    <th>Status</th>
+                  <tr className="border-t border-border bg-surface-overlay/30 text-left text-xs uppercase tracking-wide text-content-subtle">
+                    <th className="px-5 py-3">Flag</th>
+                    <th className="px-5 py-3">Count</th>
+                    <th className="px-5 py-3">Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {[
-                    { type: "CTR", count: data.data_quality.ctr_eligible, tag: "Cash threshold", pct: 75 },
-                    { type: "FTR", count: data.data_quality.ftr_eligible, tag: "Foreign currency", pct: 60 },
-                    { type: "PEP", count: data.data_quality.pep_eligible, tag: "PEP registry", pct: 40 },
-                    { type: "STR", count: data.data_quality.str_eligible, tag: "Suspicious activity", pct: 30 },
-                  ].map((row) => (
-                    <tr key={row.type}>
-                      <td>
-                        <div className="flex items-center gap-3">
-                          <ScoreRing value={row.pct} size={40} />
-                          <div>
-                            <p className="font-medium text-content">{row.type}</p>
-                            <Tag color="purple">{row.tag}</Tag>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="font-semibold">{formatNumber(row.count)}</td>
-                      <td className="w-40">
-                        <ProgressBar value={row.pct} color="brand" />
-                      </td>
-                      <td>
-                        <StatusBadge status={row.count > 0 ? "active" : "idle"} />
+                    ["CTR", data.data_quality.ctr_eligible],
+                    ["FTR", data.data_quality.ftr_eligible],
+                    ["PEP", data.data_quality.pep_eligible],
+                    ["STR", data.data_quality.str_eligible],
+                  ].map(([flag, count]) => (
+                    <tr key={flag as string} className="border-t border-border/60">
+                      <td className="px-5 py-3 font-medium">{flag}</td>
+                      <td className="px-5 py-3">{formatNumber(count as number)}</td>
+                      <td className="px-5 py-3">
+                        <Tag color={(count as number) > 0 ? "purple" : "gray"}>
+                          {(count as number) > 0 ? "Eligible" : "None"}
+                        </Tag>
                       </td>
                     </tr>
                   ))}
@@ -179,6 +200,12 @@ export function DashboardPage() {
                 </div>
                 {data.last_extraction && (
                   <div className="mt-4 space-y-2 text-sm">
+                    <div className="flex justify-between gap-4">
+                      <span className="text-content-muted">Period</span>
+                      <span className="text-right font-medium">
+                        {formatDateRange(data.last_extraction.date_from, data.last_extraction.date_to)}
+                      </span>
+                    </div>
                     <div className="flex justify-between">
                       <span className="text-content-muted">Extracted</span>
                       <span className="font-medium">{data.last_extraction.records_extracted}</span>
@@ -187,12 +214,6 @@ export function DashboardPage() {
                       <span className="text-content-muted">Valid</span>
                       <span className="font-medium text-success">{data.last_extraction.records_valid}</span>
                     </div>
-                    {data.last_extraction.channels.length > 0 && (
-                      <div className="flex justify-between gap-4">
-                        <span className="text-content-muted">Channels</span>
-                        <span className="text-right font-medium">{data.last_extraction.channels.join(", ")}</span>
-                      </div>
-                    )}
                   </div>
                 )}
               </div>
@@ -245,7 +266,7 @@ export function DashboardPage() {
                 title="No data yet"
                 description="Run your first Finacle extraction to populate the staging warehouse."
                 action={
-                  <button className="btn-primary" onClick={runPipeline} disabled={running}>
+                  <button className="btn-primary" onClick={() => setExtractOpen(true)} disabled={running}>
                     Run extraction
                   </button>
                 }
