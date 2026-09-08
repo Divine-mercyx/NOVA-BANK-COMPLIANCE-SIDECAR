@@ -59,9 +59,10 @@ Uses the **same query and mapper** as the app — good for isolating app vs Orac
 cd backend
 python scripts/fetch_htd_range.py
 python scripts/fetch_htd_range.py --from 2023-02-01 --to 2023-02-03
+python scripts/fetch_htd_range.py --show-legs   # also print each raw HTD leg row
 ```
 
-Prints per-day Oracle `COUNT(*)`, mapped transaction count, and sample rows.
+Prints **each mapped transaction live** as debit/credit pairs complete (same query + mapper as ETL).
 
 Alternative: ask the DBA to reset the Oracle user password (`ALTER USER customer IDENTIFIED BY ...`) so a modern 11G/12C verifier is stored.
 

@@ -1,4 +1,4 @@
-"""Fetch TBAADM.HTD for a fixed date range — same logic as the ETL pipeline.
+"""Fetch TBAADM.HTD for a fixed date range — streams each transaction as it is mapped.
 
 Use on the VPN laptop to verify Oracle data vs app extraction:
 
@@ -6,7 +6,6 @@ Use on the VPN laptop to verify Oracle data vs app extraction:
     .\\.venv\\Scripts\\Activate.ps1
     python scripts/fetch_htd_range.py
 
-    # custom range
     python scripts/fetch_htd_range.py --from 2023-02-01 --to 2023-02-03
 """
 
@@ -16,45 +15,108 @@ import argparse
 import os
 import sys
 import time
-from datetime import datetime, time as dt_time, timedelta
+from datetime import datetime
 from zoneinfo import ZoneInfo
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.core.config import settings
+from app.schemas.compliance import RawTransaction
+from app.services.etl.customer_registry import CustomerRegistry
+from app.services.etl.htd_mapper import map_htd_rows
 from app.services.etl.oracle_client import get_oracledb
 from app.services.etl.oracle_source import OracleFinacleSource
 
 
 def parse_cli_date(value: str) -> datetime:
-    """Parse YYYY-MM-DD into bank-local midnight."""
     tz = ZoneInfo(settings.finacle_timezone)
     parsed = datetime.strptime(value, "%Y-%m-%d")
     return parsed.replace(tzinfo=tz)
 
 
-def oracle_count_for_day(
-    conn,
-    admin_schema: str,
+def format_transaction(tx: RawTransaction) -> str:
+    tx_date = tx.transaction_date.strftime("%Y-%m-%d %H:%M") if tx.transaction_date else "?"
+    return (
+        f"{tx.finacle_ref} | {tx_date} | {tx.channel.value} | "
+        f"{tx.amount:,.2f} {tx.currency} | "
+        f"{tx.sender_account} {tx.sender_name[:30]} → "
+        f"{tx.receiver_account} {tx.receiver_name[:30]}"
+    )
+
+
+def stream_htd_day(
+    oracledb,
+    source: OracleFinacleSource,
     day_start: datetime,
     day_end_exclusive: datetime,
-) -> int:
-    sql = f"""
-        SELECT COUNT(*)
-        FROM {admin_schema}.HTD h
-        WHERE NVL(h.PSTD_DATE, h.TRAN_DATE) >= :date_from
-          AND NVL(h.PSTD_DATE, h.TRAN_DATE) < :date_to_exclusive
-    """
-    with conn.cursor() as cur:
-        cur.execute(sql, date_from=day_start, date_to_exclusive=day_end_exclusive)
-        return int(cur.fetchone()[0])
+    *,
+    show_legs: bool = False,
+) -> tuple[int, int]:
+    """Fetch HTD legs in batches; print each mapped transaction as soon as D/C pair is complete."""
+    admin_schema = settings.finacle_admin_schema
+    sql = source.HTD_QUERY.format(admin_schema=admin_schema)
+    batch_size = max(settings.finacle_oracle_fetch_batch_size, 500)
+    customers = CustomerRegistry.default()
+
+    rows: list[dict] = []
+    printed_refs: set[str] = set()
+    leg_total = 0
+    tx_total = 0
+
+    with oracledb.connect(
+        user=settings.finacle_oracle_user,
+        password=settings.finacle_oracle_password,
+        dsn=settings.finacle_oracle_dsn,
+    ) as conn:
+        with conn.cursor() as cursor:
+            cursor.arraysize = batch_size
+            cursor.execute(
+                sql,
+                date_from=day_start,
+                date_to_exclusive=day_end_exclusive,
+            )
+            cols = [d[0].lower() for d in cursor.description]
+
+            while True:
+                chunk = cursor.fetchmany(batch_size)
+                if not chunk:
+                    break
+
+                for row in chunk:
+                    leg = dict(zip(cols, row))
+                    leg_total += 1
+                    rows.append(leg)
+                    if show_legs:
+                        tran_id = leg.get("tran_id", "?")
+                        part = leg.get("part_tran_type", "?")
+                        amt = leg.get("tran_amt", "?")
+                        print(f"    LEG {leg_total}: {tran_id} {part} {amt}", flush=True)
+
+                mapped = map_htd_rows(rows, customers)
+                for tx in mapped:
+                    if tx.finacle_ref in printed_refs:
+                        continue
+                    printed_refs.add(tx.finacle_ref)
+                    tx_total += 1
+                    print(f"  TX {tx_total}: {format_transaction(tx)}", flush=True)
+
+                print(
+                    f"  … batch done — {leg_total:,} legs fetched, {tx_total:,} transactions mapped so far",
+                    flush=True,
+                )
+
+    return leg_total, tx_total
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Fetch HTD legs using the same ETL query as the app")
+    parser = argparse.ArgumentParser(description="Stream HTD transactions (same ETL query + mapper)")
     parser.add_argument("--from", dest="date_from", default="2023-02-01", help="Start date YYYY-MM-DD")
     parser.add_argument("--to", dest="date_to", default="2023-02-03", help="End date YYYY-MM-DD (inclusive)")
-    parser.add_argument("--sample", type=int, default=3, help="Sample mapped transactions to print per day")
+    parser.add_argument(
+        "--show-legs",
+        action="store_true",
+        help="Also print each raw HTD leg row as it arrives (very verbose)",
+    )
     args = parser.parse_args()
 
     if not settings.finacle_oracle_dsn:
@@ -70,78 +132,62 @@ def main() -> int:
     source = OracleFinacleSource()
     start_naive, end_exclusive = source._resolve_dates(date_from, date_to)
     oracledb = get_oracledb()
-    admin_schema = settings.finacle_admin_schema
     days = list(source.iter_day_windows(start_naive, end_exclusive))
 
     mode = "thick" if settings.finacle_oracle_thick_mode else "thin"
-    print("=" * 60)
-    print("HTD range fetch (same code path as ETL)")
-    print("=" * 60)
-    print(f"DSN:      {settings.finacle_oracle_dsn}")
-    print(f"User:     {settings.finacle_oracle_user!r}")
-    print(f"Schema:   {admin_schema}")
-    print(f"Mode:     {mode}")
-    print(f"Timezone: {settings.finacle_timezone}")
-    print(f"Range:    {args.date_from} → {args.date_to} ({len(days)} day(s))")
-    print(f"Resolved: {start_naive} → {end_exclusive} (exclusive end)")
-    print(f"Batch:    {settings.finacle_oracle_fetch_batch_size}")
-    print("=" * 60)
+    print("=" * 60, flush=True)
+    print("HTD streaming fetch (same query + mapper as ETL)", flush=True)
+    print("=" * 60, flush=True)
+    print(f"DSN:      {settings.finacle_oracle_dsn}", flush=True)
+    print(f"User:     {settings.finacle_oracle_user!r}", flush=True)
+    print(f"Mode:     {mode}", flush=True)
+    print(f"Range:    {args.date_from} → {args.date_to} ({len(days)} day(s))", flush=True)
+    print(f"Batch:    {settings.finacle_oracle_fetch_batch_size}", flush=True)
+    print("=" * 60, flush=True)
+    print("Transactions print live as debit/credit pairs complete.\n", flush=True)
 
     total_legs = 0
-    total_mapped = 0
+    total_tx = 0
     t0 = time.perf_counter()
 
-    with oracledb.connect(
-        user=settings.finacle_oracle_user,
-        password=settings.finacle_oracle_password,
-        dsn=settings.finacle_oracle_dsn,
-    ) as conn:
-        for index, (day_start, day_end) in enumerate(days, start=1):
-            day_label = day_start.date().isoformat()
-            print(f"\n[{index}/{len(days)}] {day_label}")
-            print("-" * 40)
+    for index, (day_start, day_end) in enumerate(days, start=1):
+        day_label = day_start.date().isoformat()
+        print(f"[{index}/{len(days)}] === {day_label} ===", flush=True)
+        day_t0 = time.perf_counter()
 
-            day_t0 = time.perf_counter()
-            try:
-                oracle_count = oracle_count_for_day(conn, admin_schema, day_start, day_end)
-                print(f"  Oracle COUNT(*):     {oracle_count:,} leg rows")
-            except Exception as exc:
-                print(f"  Oracle COUNT failed: {exc}")
-                oracle_count = -1
+        try:
+            legs, txs = stream_htd_day(
+                oracledb,
+                source,
+                day_start,
+                day_end,
+                show_legs=args.show_legs,
+            )
+            total_legs += legs
+            total_tx += txs
+            elapsed = time.perf_counter() - day_t0
+            print(
+                f"  Day summary: {legs:,} legs → {txs:,} transactions ({elapsed:.1f}s)\n",
+                flush=True,
+            )
+        except Exception as exc:
+            print(f"  FAILED: {exc}", flush=True)
+            import traceback
 
-            try:
-                mapped = source.extract_htd_window(day_start, day_end, oracledb)
-                elapsed = time.perf_counter() - day_t0
-                print(f"  App query + map:     {len(mapped):,} transactions ({elapsed:.1f}s)")
-
-                if oracle_count >= 0 and len(mapped) == 0 and oracle_count > 0:
-                    print("  WARN: Oracle has legs but mapper returned 0 — check PART_TRAN_TYPE D/C pairing")
-
-                if args.sample and mapped:
-                    print("  Sample transactions:")
-                    for tx in mapped[: args.sample]:
-                        print(
-                            f"    {tx.finacle_ref} | {tx.channel.value} | "
-                            f"{tx.amount} {tx.currency} | {tx.sender_name[:40]}"
-                        )
-
-                total_mapped += len(mapped)
-            except Exception as exc:
-                print(f"  App extract FAILED: {exc}")
-                import traceback
-
-                traceback.print_exc()
-                return 1
+            traceback.print_exc()
+            return 1
 
     elapsed_total = time.perf_counter() - t0
-    print("\n" + "=" * 60)
-    print(f"DONE — {total_mapped:,} mapped transactions in {elapsed_total:.1f}s")
-    print("=" * 60)
+    print("=" * 60, flush=True)
+    print(
+        f"DONE — {total_tx:,} transactions from {total_legs:,} legs in {elapsed_total:.1f}s",
+        flush=True,
+    )
+    print("=" * 60, flush=True)
 
-    if total_mapped == 0:
-        print("\nNo transactions mapped. Try:")
-        print("  python scripts/test_oracle_connection.py")
-        print("  Pick dates between MIN and MAX from that output.")
+    if total_tx == 0:
+        print("\nNo transactions mapped. Check MIN/MAX dates:", flush=True)
+        print("  python scripts/test_oracle_connection.py", flush=True)
         return 2
 
     return 0
