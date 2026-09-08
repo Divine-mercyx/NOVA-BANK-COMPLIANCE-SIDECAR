@@ -1,3 +1,4 @@
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -21,7 +22,13 @@ class Settings(BaseSettings):
     finacle_oracle_client_lib_dir: str = ""
     finacle_oracle_default_days: int = 1
     finacle_timezone: str = "Africa/Lagos"
-    finacle_oracle_fetch_batch_size: int = 5000
+    finacle_oracle_fetch_batch_size: int = Field(
+        default=5000,
+        validation_alias=AliasChoices(
+            "FINACLE_ORACLE_FETCH_BATCH_SIZE",
+            "FINACLE_ORACLE_FETCH_BATCH",
+        ),
+    )
     etl_skip_duplicates: bool = True
     finacle_schema: str = "CUSTOM"
     finacle_admin_schema: str = "TBAADM"
