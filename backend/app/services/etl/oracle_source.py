@@ -14,6 +14,7 @@ from app.services.etl.finacle_mappers import (
     map_withdrawal_rows,
 )
 from app.services.etl.htd_mapper import map_htd_rows
+from app.services.etl.oracle_client import get_oracledb
 
 
 class OracleFinacleSource:
@@ -81,7 +82,7 @@ class OracleFinacleSource:
         date_from: datetime | None = None,
         date_to: datetime | None = None,
     ) -> list[RawTransaction]:
-        import oracledb
+        oracledb = get_oracledb()
 
         if not settings.finacle_oracle_dsn:
             raise RuntimeError("FINACLE_ORACLE_DSN is not configured")
