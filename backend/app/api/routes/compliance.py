@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -28,7 +28,7 @@ from app.schemas.compliance import (
     UserOut,
 )
 from app.services.analytics import AnalyticsService, AuditService, ReportWorkflowService
-from app.services.etl.background import schedule_etl_background
+from app.services.etl.background import execute_etl_background
 from app.services.etl.pipeline import ETLPipeline
 from app.services.reports.generator import ReportGenerator
 
@@ -77,18 +77,20 @@ async def dashboard(db: AsyncSession = Depends(get_db)):
 @router.post("/etl/run", response_model=ExtractionRunSummary)
 async def run_etl(
     body: ExtractionRequest,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_analyst()),
 ):
     """Start extraction in the background — poll GET /etl/runs/{id} and /logs for progress."""
     pipeline = ETLPipeline(db)
     run = await pipeline.start_run(body.channels, body.date_from, body.date_to)
-    schedule_etl_background(
+    background_tasks.add_task(
+        execute_etl_background,
         run.id,
         body.channels,
         body.date_from,
         body.date_to,
-        actor_name=user.full_name or user.email,
+        user.full_name or user.email,
     )
     return ExtractionRunSummary.model_validate(run)
 

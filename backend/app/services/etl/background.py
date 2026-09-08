@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from datetime import datetime, timezone
 
@@ -23,28 +22,20 @@ async def execute_etl_background(
     date_to: datetime | None,
     actor_name: str = "System",
 ) -> None:
+    logger.info("Background ETL worker started for run %s", run_id)
     async with AsyncSessionLocal() as db:
         pipeline = ETLPipeline(db)
         try:
+            await pipeline._log(run_id, "INFO", None, "Background worker started — connecting to Oracle…")
+            await db.commit()
             await pipeline.execute_run(run_id, channels, date_from, date_to, actor_name)
-        except Exception:
+        except Exception as exc:
             logger.exception("Background ETL failed for run %s", run_id)
             result = await db.execute(select(ExtractionRun).where(ExtractionRun.id == run_id))
             run = result.scalar_one_or_none()
             if run and run.status == ExtractionStatus.RUNNING:
                 run.status = ExtractionStatus.FAILED
                 run.completed_at = datetime.now(timezone.utc)
-                run.error_summary = run.error_summary or "Background ETL failed"
+                run.error_summary = str(exc)
+                await pipeline._log(run_id, "ERROR", None, str(exc))
                 await db.commit()
-
-
-def schedule_etl_background(
-    run_id: str,
-    channels: list[TransactionChannel] | None,
-    date_from: datetime | None,
-    date_to: datetime | None,
-    actor_name: str = "System",
-) -> None:
-    asyncio.create_task(
-        execute_etl_background(run_id, channels, date_from, date_to, actor_name)
-    )
