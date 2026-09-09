@@ -75,13 +75,18 @@ FINACLE_SCHEMA=CUSTOM
 
 See [docs/finacle/FIELD_MAPPING.md](../docs/finacle/FIELD_MAPPING.md).
 
-## Partner APIs (Module 4)
+## Export API (Module 4)
 
-Machine-to-machine endpoints use `X-API-Key` (create keys in the portal or via admin API).
+Nova Bank IT pulls translated, NFIU-ready transactions using `X-API-Key` (create keys in the portal).
 
-- `POST /api/v1/ingest/transactions`
-- `GET /api/v1/ingest/batches/{batch_id}`
-- `POST /api/v1/screening/check`
+- `GET /api/v1/export/verify` — validate API key
+- `GET /api/v1/export/summary` — eligibility counts for a date range
+- `GET /api/v1/export/transactions` — paginated pull with `nfiu_payload`
+- `GET /api/v1/export/transactions/{finacle_ref}` — single transaction
+- `GET /api/v1/export/reports` — list generated reports
+- `GET /api/v1/export/reports/{id}/download?format=xml|csv` — download report file
+
+Interactive docs and live testing: portal → **Integration → API Docs**.
 
 ### Smoke test
 

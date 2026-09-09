@@ -39,7 +39,7 @@ export function ApiKeysPage() {
   };
 
   const onRevoke = async (id: string) => {
-    if (!confirm("Revoke this API key? Nova middleware using it will stop working immediately.")) return;
+    if (!confirm("Revoke this API key? Systems pulling export data with it will stop working immediately.")) return;
     setError("");
     try {
       await api.revokeApiKey(id);
@@ -70,7 +70,7 @@ export function ApiKeysPage() {
     <div>
       <PageHeader
         title="API Keys"
-        subtitle="Issue keys for Nova middleware to push transactions and run screening checks."
+        subtitle="Issue keys for Nova Bank IT to pull translated transactions and download regulatory reports."
         count={`${keys.filter((k) => k.is_active).length} active`}
         actions={
           <button type="button" className="btn-primary" onClick={() => setCreated(null)}>
@@ -104,7 +104,7 @@ export function ApiKeysPage() {
             <h2 className="text-sm font-semibold text-content">Issued keys</h2>
           </div>
           {keys.length === 0 ? (
-            <EmptyState icon={Key} title="No API keys yet" description="Create a key for Nova middleware integration." />
+            <EmptyState icon={Key} title="No API keys yet" description="Create a key for the Export API (pull translated transactions)." />
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">

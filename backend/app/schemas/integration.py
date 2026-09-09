@@ -1,45 +1,88 @@
-"""Partner integration API schemas."""
+"""Partner integration API schemas — pull translated transactions for NFIU filing."""
 
 from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-from app.schemas.compliance import RawTransaction, TransactionChannel
+from app.models.entities import ReportType
 
 
-class IngestTransactionIn(BaseModel):
+class ReportFlags(BaseModel):
+    ctr: bool
+    ftr: bool
+    pep: bool
+    str: bool
+
+
+class ExportedTransaction(BaseModel):
+    id: str
     finacle_ref: str
-    channel: TransactionChannel
+    channel: str
     transaction_date: datetime
     amount: float
-    currency: str = "NGN"
+    currency: str
     sender_name: str
     sender_account: str
     receiver_name: str
     receiver_account: str
-    branch_code: str = "001"
+    branch_code: str | None = None
     narration: str | None = None
+    is_valid: bool
+    validation_errors: list | None = None
+    report_flags: ReportFlags
+    nfiu_payload: dict = Field(..., description="NFIU-ready translated transaction payload")
 
 
-class IngestBatchRequest(BaseModel):
-    batch_id: str = Field(..., min_length=1, max_length=100, description="Unique batch id from Nova middleware")
-    transactions: list[IngestTransactionIn] = Field(..., min_length=1)
+class ExportMeta(BaseModel):
+    period_start: datetime
+    period_end: datetime
+    report_type: str | None = None
+    total_matching: int
+    returned: int
+    offset: int
+    limit: int
+    generated_at: datetime
 
 
-class IngestRecordResult(BaseModel):
-    finacle_ref: str
+class ExportTransactionsResponse(BaseModel):
+    meta: ExportMeta
+    transactions: list[ExportedTransaction]
+
+
+class ExportSummaryResponse(BaseModel):
+    period_start: datetime
+    period_end: datetime
+    total_valid: int
+    ctr_eligible: int
+    ftr_eligible: int
+    pep_eligible: int
+    str_eligible: int
+    generated_at: datetime
+
+
+class ExportedReportSummary(BaseModel):
+    id: str
+    report_type: str
     status: str
-    errors: list[str] | None = None
+    period_start: datetime
+    period_end: datetime
+    record_count: int
+    created_at: datetime
+    has_xml: bool
+    has_csv: bool
 
 
-class IngestBatchResponse(BaseModel):
-    batch_id: str
-    run_id: str
+class ExportReportsResponse(BaseModel):
+    reports: list[ExportedReportSummary]
+    returned: int
+
+
+class PartnerVerifyResponse(BaseModel):
     status: str
-    accepted: int
-    rejected: int
-    duplicate: int
-    records: list[IngestRecordResult]
+    client_name: str
+    key_prefix: str
+    scopes: list[str]
+    message: str
 
 
 class ScreeningCheckRequest(BaseModel):
@@ -86,7 +129,17 @@ class ApiKeyCreated(ApiKeyOut):
     api_key: str
 
 
+class IntegrationEndpointDoc(BaseModel):
+    method: str
+    path: str
+    summary: str
+    auth: str = "X-API-Key"
+
+
 class IntegrationInfo(BaseModel):
     base_url: str
     openapi_url: str
     finacle_mode: str
+    purpose: str
+    auth_header: str
+    endpoints: list[IntegrationEndpointDoc]

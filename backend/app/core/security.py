@@ -38,12 +38,26 @@ def decode_access_token(token: str) -> dict:
 
 
 def generate_api_key() -> tuple[str, str, str]:
-    """Return (full_key, prefix, hash)."""
-    raw = token_urlsafe(32)
-    full_key = f"nova_{raw}"
-    prefix = full_key[:12]
+    """Return (full_key, lookup_prefix, hash).
+
+    Format: nova_{lookup}_{secret} — lookup is stored in DB for O(1) key resolution.
+    """
+    lookup = token_urlsafe(8)[:11]
+    secret = token_urlsafe(32)
+    full_key = f"nova_{lookup}_{secret}"
     key_hash = hash_api_key(full_key)
-    return full_key, prefix, key_hash
+    return full_key, lookup, key_hash
+
+
+def parse_api_key_lookup(raw: str) -> list[str]:
+    """Return candidate DB key_prefix values for legacy and current key formats."""
+    key = (raw or "").strip()
+    if not key.startswith("nova_"):
+        return []
+    body = key[5:]
+    if "_" in body:
+        return [body.split("_", 1)[0]]
+    return [key[:12]]
 
 
 def hash_api_key(api_key: str) -> str:

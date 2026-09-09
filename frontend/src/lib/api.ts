@@ -185,10 +185,20 @@ export interface ScreeningAuditEvent {
   created_at: string;
 }
 
+export interface IntegrationEndpointDoc {
+  method: string;
+  path: string;
+  summary: string;
+  auth: string;
+}
+
 export interface IntegrationInfo {
   base_url: string;
   openapi_url: string;
   finacle_mode: string;
+  purpose: string;
+  auth_header: string;
+  endpoints: IntegrationEndpointDoc[];
 }
 
 export interface ApiKey {
