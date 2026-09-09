@@ -67,6 +67,12 @@ export function formatCalendarDateLabel(date: CalendarDate): string {
   return `${MONTHS[date.month - 1]} ${date.day}, ${date.year}`;
 }
 
+export function calendarDateFromIso(iso: string): CalendarDate | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  if (!match) return null;
+  return clampDay({ year: Number(match[1]), month: Number(match[2]), day: Number(match[3]) });
+}
+
 export function toLagosIso(date: CalendarDate, endOfDay = false): string {
   const pad = (n: number) => String(n).padStart(2, "0");
   const time = endOfDay ? "23:59:59" : "00:00:00";
