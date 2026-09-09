@@ -16,6 +16,7 @@ from app.services.etl.finacle_mappers import (
     map_withdrawal_rows,
 )
 from app.services.etl.customer_registry import CustomerRegistry
+from app.services.etl.htd_mapper import map_htd_rows
 
 
 class CsvFinacleSource:
@@ -36,6 +37,10 @@ class CsvFinacleSource:
         date_from: datetime | None = None,
         date_to: datetime | None = None,
     ) -> list[RawTransaction]:
+        htd_path = self.samples_dir / "HTD.csv"
+        if htd_path.is_file() and settings.finacle_oracle_source.lower() == "htd":
+            return self._extract_htd_csv(htd_path, date_from, date_to)
+
         selected = channels or list(self.TABLE_FILES.keys())
         records: list[RawTransaction] = []
 
@@ -66,6 +71,25 @@ class CsvFinacleSource:
                 records.append(tx)
 
         return records
+
+    def _extract_htd_csv(
+        self,
+        path: Path,
+        date_from: datetime | None,
+        date_to: datetime | None,
+    ) -> list[RawTransaction]:
+        rows = _read_csv(path)
+        mapped = map_htd_rows(rows, self.customers)
+        if not date_from and not date_to:
+            return mapped
+        out: list[RawTransaction] = []
+        for tx in mapped:
+            if date_from and tx.transaction_date < date_from:
+                continue
+            if date_to and tx.transaction_date > date_to:
+                continue
+            out.append(tx)
+        return out
 
 
 def _read_csv(path: Path) -> list[dict]:
