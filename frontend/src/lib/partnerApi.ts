@@ -61,3 +61,13 @@ export async function partnerGet<T = unknown>(
     };
   }
 }
+
+export function buildExportCurl(path: string, apiKey: string, params?: Record<string, string | number | boolean | undefined>): string {
+  const url = new URL(path, window.location.origin);
+  if (params) {
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== "") url.searchParams.set(key, String(value));
+    });
+  }
+  return `curl -s "${url.toString()}" \\\n  -H "X-API-Key: ${apiKey || "YOUR_API_KEY"}"`;
+}
