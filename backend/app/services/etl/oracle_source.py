@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, time
 from zoneinfo import ZoneInfo
 
@@ -19,6 +20,35 @@ from app.services.etl.htd_mapper import map_htd_rows
 from app.services.etl.oracle_client import connect_oracle, get_oracledb
 
 logger = logging.getLogger(__name__)
+
+HTD_PAGE_SIZE = 50
+HTD_COUNT_TIMEOUT_MS = 25_000
+
+
+@dataclass
+class HtdDayCursor:
+    last_id: str | None = None
+    last_srl: int = 0
+    leftover: list[dict] = field(default_factory=list)
+    legs_fetched: int = 0
+    pages_fetched: int = 0
+    done: bool = False
+
+
+def split_htd_flush(
+    combined: list[dict],
+    page: list[dict],
+    page_size: int,
+) -> tuple[list[dict], list[dict], bool]:
+    """Hold the last TRAN_ID on a full page so D/C pairing is not split across flushes."""
+    if not page:
+        return combined, [], True
+    if len(page) < page_size:
+        return combined, [], True
+    last_tid = str(page[-1].get("tran_id") or page[-1].get("TRAN_ID") or "")
+    ready = [row for row in combined if str(row.get("tran_id") or row.get("TRAN_ID") or "") != last_tid]
+    leftover = [row for row in combined if str(row.get("tran_id") or row.get("TRAN_ID") or "") == last_tid]
+    return ready, leftover, False
 
 
 class OracleFinacleSource:
@@ -74,6 +104,15 @@ class OracleFinacleSource:
               )
         ORDER BY TRAN_ID, NVL(PART_TRAN_SRL_NUM, 0)
         FETCH FIRST {page_size} ROWS ONLY
+    """
+
+    HTD_COUNT_QUERY = """
+        SELECT COUNT(*)
+        FROM {admin_schema}.HTD
+        WHERE (
+                (PSTD_DATE >= :date_from AND PSTD_DATE < :date_to_exclusive)
+             OR (PSTD_DATE IS NULL AND TRAN_DATE >= :date_from AND TRAN_DATE < :date_to_exclusive)
+              )
     """
 
     CHANNEL_QUERIES: dict[TransactionChannel, str] = {
@@ -187,11 +226,73 @@ class OracleFinacleSource:
         """Fetch one HTD window in batches (one day recommended for D/C pairing)."""
         customers = CustomerRegistry.default()
         admin_schema = settings.finacle_admin_schema
-        page_size = 50
         logger.info("Opening Oracle session to %s", settings.finacle_oracle_dsn)
-        rows = self._fetch_htd_pages(oracledb, admin_schema, date_from, date_to_exclusive, page_size)
+        rows = self._fetch_htd_pages(
+            oracledb, admin_schema, date_from, date_to_exclusive, HTD_PAGE_SIZE
+        )
         rows = self._attach_gam_names(oracledb, admin_schema, rows)
         return map_htd_rows(rows, customers)
+
+    def count_htd_legs(self, date_from, date_to_exclusive, oracledb) -> int | None:
+        """Best-effort COUNT(*) for a progress denominator. Never required for staging."""
+        sql = self.HTD_COUNT_QUERY.format(admin_schema=settings.finacle_admin_schema)
+        try:
+            with connect_oracle(oracledb) as conn:
+                if hasattr(conn, "call_timeout"):
+                    conn.call_timeout = HTD_COUNT_TIMEOUT_MS
+                with conn.cursor() as cursor:
+                    cursor.execute(sql, date_from=date_from, date_to_exclusive=date_to_exclusive)
+                    row = cursor.fetchone()
+                    if not row:
+                        return None
+                    return int(row[0])
+        except Exception as exc:
+            logger.warning("HTD COUNT skipped: %s", exc)
+            return None
+
+    def fetch_htd_flush_page(
+        self,
+        oracledb,
+        admin_schema: str,
+        date_from,
+        date_to_exclusive,
+        cursor: HtdDayCursor,
+    ) -> tuple[list[dict], HtdDayCursor]:
+        """Fetch one HTD page, attach GAM names, and return rows ready to map/stage."""
+        if cursor.done:
+            return [], cursor
+
+        sql = self.HTD_PAGE_QUERY.format(admin_schema=admin_schema, page_size=HTD_PAGE_SIZE)
+        page = self._fetch_one_htd_page(
+            oracledb, sql, date_from, date_to_exclusive, cursor.last_id, cursor.last_srl
+        )
+        if not page:
+            ready, leftover, done = split_htd_flush(cursor.leftover, [], HTD_PAGE_SIZE)
+            cursor.leftover = leftover
+            cursor.done = done
+            return self._attach_gam_names(oracledb, admin_schema, ready), cursor
+
+        cursor.pages_fetched += 1
+        cursor.legs_fetched += len(page)
+        last = page[-1]
+        cursor.last_id = str(last.get("tran_id") or "")
+        try:
+            cursor.last_srl = int(last.get("part_tran_srl_num") or 0)
+        except (TypeError, ValueError):
+            cursor.last_srl = 0
+
+        combined = cursor.leftover + page
+        ready, leftover, done = split_htd_flush(combined, page, HTD_PAGE_SIZE)
+        cursor.leftover = leftover
+        cursor.done = done
+        logger.info(
+            "Paged HTD fetch: %s legs (last TRAN_ID=%s, flush=%s, leftover=%s)",
+            cursor.legs_fetched,
+            cursor.last_id,
+            len(ready),
+            len(leftover),
+        )
+        return self._attach_gam_names(oracledb, admin_schema, ready), cursor
 
     def _fetch_htd_pages(
         self,
@@ -255,7 +356,14 @@ class OracleFinacleSource:
         return []
 
     def _attach_gam_names(self, oracledb, admin_schema: str, rows: list[dict]) -> list[dict]:
+        if not rows:
+            return rows
         acids = sorted({str(r.get("acid") or "") for r in rows if r.get("acid")})
+        if not acids:
+            for row in rows:
+                row.setdefault("foracid", "")
+                row.setdefault("acct_name", "")
+            return rows
         names: dict[str, tuple[str, str]] = {}
         with connect_oracle(oracledb) as conn:
             with conn.cursor() as cursor:

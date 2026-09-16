@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from datetime import datetime, timezone
 
@@ -19,9 +20,11 @@ from app.models.entities import (
     TransactionChannel as DbChannel,
 )
 from app.schemas.compliance import RawTransaction, TransactionChannel
+from app.services.etl.customer_registry import CustomerRegistry
 from app.services.etl.extractor import FinacleExtractor
+from app.services.etl.htd_mapper import map_htd_rows
 from app.services.etl.oracle_client import get_oracledb
-from app.services.etl.oracle_source import OracleFinacleSource
+from app.services.etl.oracle_source import HtdDayCursor, OracleFinacleSource
 from app.services.etl.transformer import TransactionTransformer
 
 logger = logging.getLogger(__name__)
@@ -89,7 +92,7 @@ class ETLPipeline:
                 run.id,
                 "INFO",
                 None,
-                "Chunked mode: one day at a time — progress saved after each day; duplicates skipped",
+                "HTD paging: 50-row pages staged as they complete. COUNT is optional and does not block fetch.",
             )
 
         await self.db.commit()
@@ -147,33 +150,93 @@ class ETLPipeline:
         total_new = total_skipped = total_valid = total_invalid = 0
 
         await self._log(run.id, "INFO", None, f"Processing {len(days)} day(s) from Oracle HTD")
+        customers = CustomerRegistry.default()
 
         for index, (day_start, day_end) in enumerate(days, start=1):
             day_label = day_start.date().isoformat()
             await self._log(run.id, "INFO", None, f"[{index}/{len(days)}] Connecting to Oracle for {day_label}…")
 
-            raw_records = await asyncio.to_thread(
-                source.extract_htd_window,
-                day_start,
-                day_end,
-                oracledb,
+            count_task = asyncio.create_task(
+                self._count_htd_legs_optional(source, day_start, day_end, oracledb)
             )
-            new, skipped, valid, invalid = await self._load_records(run.id, raw_records)
-            total_new += new
-            total_skipped += skipped
-            total_valid += valid
-            total_invalid += invalid
+            cursor = HtdDayCursor()
+            day_new = day_skipped = 0
+            day_mapped = 0
+            legs_total: int | None = None
+            count_logged = False
 
-            run.records_extracted = total_new
-            run.records_valid = total_valid
-            run.records_invalid = total_invalid
+            while not cursor.done:
+                flush_rows, cursor = await asyncio.to_thread(
+                    source.fetch_htd_flush_page,
+                    oracledb,
+                    settings.finacle_admin_schema,
+                    day_start,
+                    day_end,
+                    cursor,
+                )
+                if count_task.done() and not count_logged:
+                    legs_total = self._count_task_result(count_task)
+                    if legs_total is not None:
+                        await self._log(
+                            run.id,
+                            "INFO",
+                            None,
+                            f"[{index}/{len(days)}] {day_label}: Oracle COUNT returned {legs_total} HTD legs (best-effort)",
+                        )
+                    count_logged = True
+
+                raw_records = map_htd_rows(flush_rows, customers) if flush_rows else []
+                new = skipped = valid = invalid = 0
+                if raw_records:
+                    new, skipped, valid, invalid = await self._load_records(run.id, raw_records)
+
+                day_new += new
+                day_skipped += skipped
+                day_mapped += len(raw_records)
+                total_new += new
+                total_skipped += skipped
+                total_valid += valid
+                total_invalid += invalid
+
+                run.records_extracted = total_new
+                run.records_valid = total_valid
+                run.records_invalid = total_invalid
+
+                await self._log(
+                    run.id,
+                    "INFO",
+                    None,
+                    self._htd_progress_message(
+                        day=day_label,
+                        day_index=index,
+                        days=len(days),
+                        page=cursor.pages_fetched,
+                        legs_fetched=cursor.legs_fetched,
+                        legs_total=legs_total,
+                        staged=total_new,
+                        skipped=total_skipped,
+                        invalid=total_invalid,
+                        valid=total_valid,
+                    ),
+                )
+                await self.db.commit()
+
+            if not count_task.done():
+                count_task.cancel()
+                try:
+                    await count_task
+                except (asyncio.CancelledError, Exception):
+                    pass
+            elif not count_logged:
+                legs_total = self._count_task_result(count_task)
 
             await self._log(
                 run.id,
                 "INFO",
                 None,
-                f"[{index}/{len(days)}] {day_label}: {len(raw_records)} mapped, "
-                f"{new} loaded, {skipped} duplicates skipped",
+                f"[{index}/{len(days)}] {day_label}: {day_mapped} mapped, "
+                f"{day_new} loaded, {day_skipped} duplicates skipped"
+                + (f", {legs_total} HTD legs counted" if legs_total is not None else ""),
             )
             await self.db.commit()
 
@@ -191,6 +254,65 @@ class ETLPipeline:
                 None,
                 f"Total duplicates skipped (already in staging): {total_skipped}",
             )
+
+    async def _count_htd_legs_optional(
+        self,
+        source: OracleFinacleSource,
+        date_from,
+        date_to_exclusive,
+        oracledb,
+    ) -> int | None:
+        try:
+            return await asyncio.wait_for(
+                asyncio.to_thread(source.count_htd_legs, date_from, date_to_exclusive, oracledb),
+                timeout=30,
+            )
+        except Exception as exc:
+            logger.warning("HTD COUNT unavailable: %s", exc)
+            return None
+
+    @staticmethod
+    def _count_task_result(task: asyncio.Task[int | None]) -> int | None:
+        if task.cancelled():
+            return None
+        try:
+            return task.result()
+        except Exception:
+            return None
+
+    @staticmethod
+    def _htd_progress_message(
+        *,
+        day: str,
+        day_index: int,
+        days: int,
+        page: int,
+        legs_fetched: int,
+        legs_total: int | None,
+        staged: int,
+        skipped: int,
+        invalid: int,
+        valid: int,
+    ) -> str:
+        payload = {
+            "kind": "htd_progress",
+            "day": day,
+            "day_index": day_index,
+            "days": days,
+            "page": page,
+            "legs_fetched": legs_fetched,
+            "legs_total": legs_total,
+            "staged": staged,
+            "skipped": skipped,
+            "invalid": invalid,
+            "valid": valid,
+        }
+        legs = f"{legs_fetched}/{legs_total}" if legs_total is not None else str(legs_fetched)
+        return (
+            f"PROGRESS {json.dumps(payload, separators=(',', ':'))} "
+            f"{day_index}/{days} {day} page {page} · legs {legs} · "
+            f"entered {staged} · skipped {skipped} · invalid {invalid}"
+        )
 
     async def _load_records(
         self,

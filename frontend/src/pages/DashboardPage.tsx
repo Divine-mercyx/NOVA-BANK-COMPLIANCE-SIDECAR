@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Play, Plus, RefreshCw } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { ExtractionProgressBanner } from "../components/ExtractionProgressBanner";
 import { ExtractionRunModal } from "../components/ExtractionRunModal";
 import {
   EmptyState,
@@ -13,8 +14,9 @@ import {
   StatusBadge,
   Tag,
 } from "../components/ui";
-import { api, DashboardStats } from "../lib/api";
+import { api, DashboardStats, ExtractionLog } from "../lib/api";
 import type { ExtractionRunParams } from "../lib/dates";
+import { progressLabel } from "../lib/extractionProgress";
 import { actionLabel, formatDateRange, formatNumber, formatRelative } from "../lib/format";
 import { canRunEtl, extractModeLabel, extractSourceLabel } from "../lib/roles";
 import { useAuth } from "../lib/auth";
@@ -24,8 +26,11 @@ export function DashboardPage() {
   const [data, setData] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
+  const [starting, setStarting] = useState(false);
   const [extractOpen, setExtractOpen] = useState(false);
   const [progressMessage, setProgressMessage] = useState<string | null>(null);
+  const [runLogs, setRunLogs] = useState<ExtractionLog[]>([]);
+  const watchingId = useRef<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -40,18 +45,59 @@ export function DashboardPage() {
     load();
   }, []);
 
+  useEffect(() => {
+    const run = data?.last_extraction;
+    const active = data?.pipeline_status === "running" && run?.id;
+    if (!active) {
+      if (!starting) {
+        setRunning(false);
+        watchingId.current = null;
+      }
+      return;
+    }
+    setRunning(true);
+    setStarting(false);
+    if (watchingId.current === run.id) return;
+    watchingId.current = run.id;
+    let cancelled = false;
+    void api
+      .waitForEtlRun(run.id, (updated, logs) => {
+        if (cancelled) return;
+        setRunLogs(logs);
+        setProgressMessage(progressLabel(logs, null));
+        setData((prev) =>
+          prev
+            ? {
+                ...prev,
+                pipeline_status: updated.status,
+                last_extraction: updated,
+              }
+            : prev,
+        );
+      })
+      .then(async () => {
+        if (cancelled) return;
+        watchingId.current = null;
+        setRunning(false);
+        await load();
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [data?.pipeline_status, data?.last_extraction?.id, starting]);
+
   const runPipeline = async (params: ExtractionRunParams) => {
+    setStarting(true);
     setRunning(true);
     setProgressMessage("Starting extraction…");
     try {
       const run = await api.runEtl(params);
       setExtractOpen(false);
-      await api.waitForEtlRun(run.id, (_updated, logs) => {
-        const last = logs[logs.length - 1];
-        if (last) setProgressMessage(last.message);
-      });
-      await load();
-    } finally {
+      setData((prev) =>
+        prev ? { ...prev, pipeline_status: "running", last_extraction: run } : prev,
+      );
+    } catch {
+      setStarting(false);
       setRunning(false);
       setProgressMessage(null);
     }
@@ -96,10 +142,13 @@ export function DashboardPage() {
         progressMessage={progressMessage}
       />
 
-      {running && progressMessage && (
-        <div className="mb-4 rounded-lg border border-brand/30 bg-brand-muted/40 px-4 py-3 text-sm text-content">
-          <span className="font-medium">Extraction in progress:</span> {progressMessage}
-        </div>
+      {running && (
+        <ExtractionProgressBanner
+          running={running}
+          run={data?.last_extraction}
+          logs={runLogs}
+          fallbackMessage={progressMessage}
+        />
       )}
 
       {loading ? (
@@ -227,6 +276,10 @@ export function DashboardPage() {
                     <div className="flex justify-between">
                       <span className="text-content-muted">Valid</span>
                       <span className="font-medium text-success">{data.last_extraction.records_valid}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-content-muted">Invalid</span>
+                      <span className="font-medium">{data.last_extraction.records_invalid}</span>
                     </div>
                   </div>
                 )}

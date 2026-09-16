@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { Activity, Play, RefreshCw } from "lucide-react";
+import { ExtractionProgressBanner } from "../components/ExtractionProgressBanner";
 import { ExtractionRunModal } from "../components/ExtractionRunModal";
 import { EmptyState, PageHeader, StatusBadge, TableToolbar, Tag } from "../components/ui";
 import { api, ExtractionLog, ExtractionRun } from "../lib/api";
 import type { ExtractionRunParams } from "../lib/dates";
+import { displayLogMessage } from "../lib/extractionProgress";
 import { channelLabel, formatDate, formatDateRange, formatNumber } from "../lib/format";
 import { canRunEtl, extractSourceLabel } from "../lib/roles";
 import { useAuth } from "../lib/auth";
@@ -15,6 +17,7 @@ export function ExtractionPage() {
   const [selected, setSelected] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
+  const [starting, setStarting] = useState(false);
   const [extractOpen, setExtractOpen] = useState(false);
   const [finacleMode, setFinacleMode] = useState<string | undefined>();
   const [progressMessage, setProgressMessage] = useState<string | null>(null);
@@ -26,7 +29,13 @@ export function ExtractionPage() {
       const [data, dashboard] = await Promise.all([api.listRuns(), api.dashboard()]);
       setRuns(data);
       setFinacleMode(dashboard.finacle_mode);
-      if (data.length && !selected) setSelected(data[0].id);
+      const active = data.find((r) => r.status === "running");
+      if (active) {
+        setSelected(active.id);
+        setRunning(true);
+      } else if (data.length && !selected) {
+        setSelected(data[0].id);
+      }
     } finally {
       setLoading(false);
     }
@@ -35,6 +44,20 @@ export function ExtractionPage() {
   useEffect(() => {
     load();
   }, []);
+
+  useEffect(() => {
+    const active = runs.find((r) => r.status === "running");
+    if (active) {
+      setRunning(true);
+      setStarting(false);
+      if (selected !== active.id) setSelected(active.id);
+      return;
+    }
+    if (!starting) {
+      setRunning(false);
+      setProgressMessage(null);
+    }
+  }, [runs, starting, selected]);
 
   useEffect(() => {
     if (!selected) return;
@@ -47,7 +70,7 @@ export function ExtractionPage() {
         setLogs(runLogs);
         setRuns((prev) => prev.map((r) => (r.id === run.id ? run : r)));
         const last = runLogs[runLogs.length - 1];
-        if (last && run.status === "running") setProgressMessage(last.message);
+        if (last && run.status === "running") setProgressMessage(displayLogMessage(last.message));
       } catch {
         /* run may not exist yet */
       }
@@ -62,6 +85,7 @@ export function ExtractionPage() {
   }, [selected]);
 
   const runPipeline = async (params: ExtractionRunParams) => {
+    setStarting(true);
     setRunning(true);
     setProgressMessage("Starting extraction…");
     try {
@@ -69,14 +93,8 @@ export function ExtractionPage() {
       setExtractOpen(false);
       setSelected(run.id);
       setRuns((prev) => [run, ...prev.filter((r) => r.id !== run.id)]);
-      await api.waitForEtlRun(run.id, (updated, runLogs) => {
-        setLogs(runLogs);
-        setRuns((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
-        const last = runLogs[runLogs.length - 1];
-        if (last) setProgressMessage(last.message);
-      });
-      await load();
-    } finally {
+    } catch {
+      setStarting(false);
       setRunning(false);
       setProgressMessage(null);
     }
@@ -116,10 +134,13 @@ export function ExtractionPage() {
         progressMessage={progressMessage}
       />
 
-      {running && progressMessage && (
-        <div className="mb-4 rounded-lg border border-brand/30 bg-brand-muted/40 px-4 py-3 text-sm text-content">
-          <span className="font-medium">Extraction in progress:</span> {progressMessage}
-        </div>
+      {running && (
+        <ExtractionProgressBanner
+          running={running}
+          run={activeRun}
+          logs={logs}
+          fallbackMessage={progressMessage}
+        />
       )}
 
       {loading ? (
@@ -173,7 +194,9 @@ export function ExtractionPage() {
               {activeRun && (
                 <div className="mt-2 flex flex-wrap gap-2">
                   <Tag color="purple">{formatDateRange(activeRun.date_from, activeRun.date_to)}</Tag>
+                  <Tag color="gray">{formatNumber(activeRun.records_extracted)} entered</Tag>
                   <Tag color="gray">{formatNumber(activeRun.records_valid)} valid</Tag>
+                  <Tag color="gray">{formatNumber(activeRun.records_invalid)} invalid</Tag>
                 </div>
               )}
             </div>
@@ -184,7 +207,7 @@ export function ExtractionPage() {
                     [{log.level}]
                   </span>
                   {log.channel && <span className="text-brand">[{channelLabel(log.channel)}]</span>}
-                  <span className="text-content-muted">{log.message}</span>
+                  <span className="text-content-muted">{displayLogMessage(log.message)}</span>
                 </div>
               ))}
             </div>
