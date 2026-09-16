@@ -15,6 +15,7 @@ Usage (from backend/, with .env loaded):
 from __future__ import annotations
 
 import argparse
+import logging
 import os
 import socket
 import sys
@@ -71,6 +72,7 @@ def main() -> int:
     parser.add_argument("--to-date", default="2023-02-03", help="Inclusive end YYYY-MM-DD (default 2023-02-03)")
     parser.add_argument("--htd-probe", default=None, help="Deprecated: use --from-date / --to-date")
     args = parser.parse_args()
+    logging.basicConfig(level=logging.INFO, format="    %(message)s")
 
     from app.core.config import settings
 
@@ -163,26 +165,12 @@ def main() -> int:
         from_d = datetime.strptime(args.from_date, "%Y-%m-%d")
         to_d = datetime.strptime(args.to_date, "%Y-%m-%d")
         schema = settings.finacle_admin_schema
-        sql_one = f"""
-            SELECT TRAN_ID, NVL(PSTD_DATE, TRAN_DATE) AS TX_DATE, TRAN_AMT, PART_TRAN_TYPE
-            FROM {schema}.HTD
-            WHERE (
-                    (PSTD_DATE >= :date_from AND PSTD_DATE < :date_to_exclusive)
-                 OR (PSTD_DATE IS NULL AND TRAN_DATE >= :date_from AND TRAN_DATE < :date_to_exclusive)
-                  )
-            FETCH FIRST 1 ROW ONLY
-        """
-        sql_day = f"""
-            SELECT TRAN_ID, TRAN_DATE, PSTD_DATE, TRAN_AMT, PART_TRAN_TYPE, ACID
-            FROM {schema}.HTD
-            WHERE (
-                    (PSTD_DATE >= :date_from AND PSTD_DATE < :date_to_exclusive)
-                 OR (PSTD_DATE IS NULL AND TRAN_DATE >= :date_from AND TRAN_DATE < :date_to_exclusive)
-                  )
-        """
-        _step(6, f"HTD extract {args.from_date} → {args.to_date} (one day at a time)")
-        print("    FETCH FIRST 1 is fast (Oracle stops after one row).", flush=True)
-        print("    A full-day fetch waits on fetchmany — that is the VPN bottleneck, not login.", flush=True)
+        from app.services.etl.oracle_source import OracleFinacleSource
+
+        source = OracleFinacleSource()
+        _step(6, f"HTD extract {args.from_date} → {args.to_date} (50-row pages, new session each page)")
+        print("    Not HTTP 413 — this is Oracle TCP. FETCH FIRST 1 is tiny; a long cursor gets ORA-03113.", flush=True)
+        print("    Each page logs in, pulls 50 legs, disconnects. VPN cannot kill a 50-row round trip.", flush=True)
 
         grand = 0
         day = from_d
@@ -192,42 +180,12 @@ def main() -> int:
                 end = start + timedelta(days=1)
                 label = day.date().isoformat()
                 print(f"\n    --- {label} ---", flush=True)
-
                 t0 = time.perf_counter()
-                with conn.cursor() as cur:
-                    cur.execute(sql_one, date_from=start, date_to_exclusive=end)
-                    probe = cur.fetchone()
-                print(f"    FETCH FIRST 1: {time.perf_counter() - t0:.1f}s  {probe}", flush=True)
-                if not probe:
-                    print("    No HTD legs this day — skipping full fetch.", flush=True)
-                    day += timedelta(days=1)
-                    continue
-
-                t1 = time.perf_counter()
-                day_total = 0
-                print("    Full-day fetch (20 rows at a time)…", flush=True)
-                with conn.cursor() as cur:
-                    cur.arraysize = 20
-                    if hasattr(cur, "prefetchrows"):
-                        cur.prefetchrows = 20
-                    cur.execute(sql_day, date_from=start, date_to_exclusive=end)
-                    cols = [d[0].lower() for d in cur.description]
-                    first = True
-                    while True:
-                        chunk = cur.fetchmany(20)
-                        if not chunk:
-                            break
-                        if first:
-                            sample = dict(zip(cols, chunk[0]))
-                            print(
-                                f"    First full-fetch row in {time.perf_counter() - t1:.1f}s  TRAN_ID={sample.get('tran_id')!r}",
-                                flush=True,
-                            )
-                            first = False
-                        day_total += len(chunk)
-                        grand += len(chunk)
-                        print(f"    {label}: {day_total} legs ({time.perf_counter() - t1:.1f}s)", flush=True)
-                print(f"    {label} done: {day_total} legs", flush=True)
+                rows = source._fetch_htd_pages(oracledb, schema, start, end, 50)
+                elapsed = time.perf_counter() - t0
+                grand += len(rows)
+                sample = rows[0]["tran_id"] if rows else None
+                print(f"    {label}: {len(rows)} legs in {elapsed:.1f}s  first TRAN_ID={sample!r}", flush=True)
                 day += timedelta(days=1)
         except Exception as exc:
             return _fail(f"HTD range fetch died after {grand} legs: {exc}")
@@ -236,8 +194,7 @@ def main() -> int:
         conn.close()
 
     print("\n=== SUCCESS — Oracle session works ===", flush=True)
-    print("If FETCH FIRST 1 is fast but full-day fetch stalls, VPN cannot carry HTD volume.", flush=True)
-    print("Use CSV mode for demos until DBA indexes / replica are in place.", flush=True)
+    print("Restart the backend so portal extract uses the same 50-row reconnect paging.", flush=True)
     return 0
 
 

@@ -48,7 +48,7 @@ class OracleFinacleSource:
               )
     """
 
-    HTD_LEGS_ONLY_QUERY = """
+    HTD_PAGE_QUERY = """
         SELECT
             TRAN_ID,
             TRAN_DATE,
@@ -67,6 +67,13 @@ class OracleFinacleSource:
                 (PSTD_DATE >= :date_from AND PSTD_DATE < :date_to_exclusive)
              OR (PSTD_DATE IS NULL AND TRAN_DATE >= :date_from AND TRAN_DATE < :date_to_exclusive)
               )
+          AND (
+                :last_id IS NULL
+             OR TRAN_ID > :last_id
+             OR (TRAN_ID = :last_id AND NVL(PART_TRAN_SRL_NUM, 0) > :last_srl)
+              )
+        ORDER BY TRAN_ID, NVL(PART_TRAN_SRL_NUM, 0)
+        FETCH FIRST {page_size} ROWS ONLY
     """
 
     CHANNEL_QUERIES: dict[TransactionChannel, str] = {
@@ -180,64 +187,92 @@ class OracleFinacleSource:
         """Fetch one HTD window in batches (one day recommended for D/C pairing)."""
         customers = CustomerRegistry.default()
         admin_schema = settings.finacle_admin_schema
-        batch_size = max(settings.finacle_oracle_fetch_batch_size, 500)
+        page_size = 50
         logger.info("Opening Oracle session to %s", settings.finacle_oracle_dsn)
-        try:
-            with connect_oracle(oracledb) as conn:
-                logger.info("Oracle session open — HTD legs then GAM lookup %s → %s", date_from, date_to_exclusive)
-                rows = self._fetch_htd_then_gam(conn, admin_schema, date_from, date_to_exclusive, batch_size)
-        except Exception as exc:
-            logger.warning("First HTD fetch failed (%s) — reconnecting and retrying once", exc)
-            with connect_oracle(oracledb) as conn:
-                rows = self._fetch_htd_then_gam(conn, admin_schema, date_from, date_to_exclusive, batch_size)
-
+        rows = self._fetch_htd_pages(oracledb, admin_schema, date_from, date_to_exclusive, page_size)
+        rows = self._attach_gam_names(oracledb, admin_schema, rows)
         return map_htd_rows(rows, customers)
 
-    def _fetch_htd_rows(self, conn, sql: str, date_from, date_to_exclusive, batch_size: int) -> list[dict]:
-        rows: list[dict] = []
-        # Small arraysize so the first VPN round-trip is 20 rows, not 5000.
-        fetch_size = min(max(batch_size, 20), 50)
-        with conn.cursor() as cursor:
-            cursor.arraysize = fetch_size
-            if hasattr(cursor, "prefetchrows"):
-                cursor.prefetchrows = fetch_size
-            cursor.execute(sql, date_from=date_from, date_to_exclusive=date_to_exclusive)
-            cols = [d[0].lower() for d in cursor.description]
-            while True:
-                chunk = cursor.fetchmany(fetch_size)
-                if not chunk:
-                    break
-                rows.extend(dict(zip(cols, row)) for row in chunk)
-                logger.info("Fetched %s HTD legs so far", len(rows))
-        return rows
-
-    def _fetch_htd_then_gam(
+    def _fetch_htd_pages(
         self,
-        conn,
+        oracledb,
         admin_schema: str,
         date_from,
         date_to_exclusive,
-        batch_size: int,
+        page_size: int,
     ) -> list[dict]:
-        sql = self.HTD_LEGS_ONLY_QUERY.format(admin_schema=admin_schema)
-        rows = self._fetch_htd_rows(conn, sql, date_from, date_to_exclusive, batch_size)
+        """Reconnect every page so VPN/Oracle cannot kill a long-lived cursor (ORA-03113)."""
+        sql = self.HTD_PAGE_QUERY.format(admin_schema=admin_schema, page_size=page_size)
+        rows: list[dict] = []
+        last_id: str | None = None
+        last_srl = 0
+        while True:
+            page = self._fetch_one_htd_page(
+                oracledb, sql, date_from, date_to_exclusive, last_id, last_srl
+            )
+            if not page:
+                break
+            rows.extend(page)
+            last = page[-1]
+            last_id = str(last.get("tran_id") or "")
+            try:
+                last_srl = int(last.get("part_tran_srl_num") or 0)
+            except (TypeError, ValueError):
+                last_srl = 0
+            logger.info("Paged HTD fetch: %s legs (last TRAN_ID=%s)", len(rows), last_id)
+            if len(page) < page_size:
+                break
+        return rows
+
+    def _fetch_one_htd_page(
+        self,
+        oracledb,
+        sql: str,
+        date_from,
+        date_to_exclusive,
+        last_id: str | None,
+        last_srl: int,
+    ) -> list[dict]:
+        last_error: Exception | None = None
+        for attempt in range(3):
+            try:
+                with connect_oracle(oracledb) as conn:
+                    with conn.cursor() as cursor:
+                        cursor.execute(
+                            sql,
+                            date_from=date_from,
+                            date_to_exclusive=date_to_exclusive,
+                            last_id=last_id,
+                            last_srl=last_srl,
+                        )
+                        cols = [d[0].lower() for d in cursor.description]
+                        return [dict(zip(cols, row)) for row in cursor.fetchall()]
+            except Exception as exc:
+                last_error = exc
+                logger.warning("HTD page retry %s/3 after %s", attempt + 1, exc)
+        if last_error:
+            raise last_error
+        return []
+
+    def _attach_gam_names(self, oracledb, admin_schema: str, rows: list[dict]) -> list[dict]:
         acids = sorted({str(r.get("acid") or "") for r in rows if r.get("acid")})
         names: dict[str, tuple[str, str]] = {}
-        with conn.cursor() as cursor:
-            for i in range(0, len(acids), 200):
-                chunk = acids[i : i + 200]
-                binds = ",".join(f":a{j}" for j in range(len(chunk)))
-                cursor.execute(
-                    f"""
-                    SELECT ACID, FORACID, ACCT_NAME
-                    FROM {admin_schema}.GAM
-                    WHERE ACID IN ({binds})
-                      AND NVL(DEL_FLG, 'N') = 'N'
-                    """,
-                    {f"a{j}": v for j, v in enumerate(chunk)},
-                )
-                for acid, foracid, acct_name in cursor.fetchall():
-                    names[str(acid)] = (str(foracid or ""), str(acct_name or ""))
+        with connect_oracle(oracledb) as conn:
+            with conn.cursor() as cursor:
+                for i in range(0, len(acids), 50):
+                    chunk = acids[i : i + 50]
+                    binds = ",".join(f":a{j}" for j in range(len(chunk)))
+                    cursor.execute(
+                        f"""
+                        SELECT ACID, FORACID, ACCT_NAME
+                        FROM {admin_schema}.GAM
+                        WHERE ACID IN ({binds})
+                          AND NVL(DEL_FLG, 'N') = 'N'
+                        """,
+                        {f"a{j}": v for j, v in enumerate(chunk)},
+                    )
+                    for acid, foracid, acct_name in cursor.fetchall():
+                        names[str(acid)] = (str(foracid or ""), str(acct_name or ""))
         for row in rows:
             foracid, acct_name = names.get(str(row.get("acid") or ""), ("", ""))
             row["foracid"] = foracid
