@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, time
+from datetime import datetime, timedelta, time as dt_time
 from zoneinfo import ZoneInfo
 
 from app.core.config import settings
@@ -22,7 +23,9 @@ from app.services.etl.oracle_client import connect_oracle, get_oracledb
 logger = logging.getLogger(__name__)
 
 HTD_PAGE_SIZE = 50
-HTD_COUNT_TIMEOUT_MS = 25_000
+HTD_PAGE_ATTEMPTS = 5
+HTD_RETRY_BACKOFF_SEC = (2, 5, 10, 20)
+HTD_BETWEEN_PAGES_SEC = 1
 
 
 @dataclass
@@ -106,15 +109,6 @@ class OracleFinacleSource:
         FETCH FIRST {page_size} ROWS ONLY
     """
 
-    HTD_COUNT_QUERY = """
-        SELECT COUNT(*)
-        FROM {admin_schema}.HTD
-        WHERE (
-                (PSTD_DATE >= :date_from AND PSTD_DATE < :date_to_exclusive)
-             OR (PSTD_DATE IS NULL AND TRAN_DATE >= :date_from AND TRAN_DATE < :date_to_exclusive)
-              )
-    """
-
     CHANNEL_QUERIES: dict[TransactionChannel, str] = {
         TransactionChannel.NIP: """
             SELECT REF_NUM, CREDIT_ACCNT, TRAN_AMT, DEBIT_ACCNT, TRAN_DATE, TRANSID,
@@ -194,13 +188,13 @@ class OracleFinacleSource:
             else:
                 start = start.astimezone(tz)
 
-        start_naive = datetime.combine(start.date(), time.min)
-        end_exclusive = datetime.combine(end.date() + timedelta(days=1), time.min)
+        start_naive = datetime.combine(start.date(), dt_time.min)
+        end_exclusive = datetime.combine(end.date() + timedelta(days=1), dt_time.min)
         logger.info(
             "Oracle HTD window (%s): %s → %s (exclusive end %s)",
             settings.finacle_timezone,
             start_naive.isoformat(sep=" "),
-            datetime.combine(end.date(), time.max).isoformat(sep=" "),
+            datetime.combine(end.date(), dt_time.max).isoformat(sep=" "),
             end_exclusive.isoformat(sep=" "),
         )
         return start_naive, end_exclusive
@@ -213,7 +207,7 @@ class OracleFinacleSource:
         """Yield one calendar day at a time for chunked HTD extract."""
         current = start_naive
         while current < end_exclusive:
-            next_day = datetime.combine(current.date() + timedelta(days=1), time.min)
+            next_day = datetime.combine(current.date() + timedelta(days=1), dt_time.min)
             yield current, min(next_day, end_exclusive)
             current = next_day
 
@@ -233,23 +227,6 @@ class OracleFinacleSource:
         rows = self._attach_gam_names(oracledb, admin_schema, rows)
         return map_htd_rows(rows, customers)
 
-    def count_htd_legs(self, date_from, date_to_exclusive, oracledb) -> int | None:
-        """Best-effort COUNT(*) for a progress denominator. Never required for staging."""
-        sql = self.HTD_COUNT_QUERY.format(admin_schema=settings.finacle_admin_schema)
-        try:
-            with connect_oracle(oracledb) as conn:
-                if hasattr(conn, "call_timeout"):
-                    conn.call_timeout = HTD_COUNT_TIMEOUT_MS
-                with conn.cursor() as cursor:
-                    cursor.execute(sql, date_from=date_from, date_to_exclusive=date_to_exclusive)
-                    row = cursor.fetchone()
-                    if not row:
-                        return None
-                    return int(row[0])
-        except Exception as exc:
-            logger.warning("HTD COUNT skipped: %s", exc)
-            return None
-
     def fetch_htd_flush_page(
         self,
         oracledb,
@@ -258,19 +235,23 @@ class OracleFinacleSource:
         date_to_exclusive,
         cursor: HtdDayCursor,
     ) -> tuple[list[dict], HtdDayCursor]:
-        """Fetch one HTD page, attach GAM names, and return rows ready to map/stage."""
+        """One Oracle session: fetch 50 HTD legs, enrich from GAM, then close.
+
+        Staging happens in the pipeline after this returns. Do not open a second
+        session here — COUNT and a separate GAM connect contend with VPN.
+        """
         if cursor.done:
             return [], cursor
 
         sql = self.HTD_PAGE_QUERY.format(admin_schema=admin_schema, page_size=HTD_PAGE_SIZE)
-        page = self._fetch_one_htd_page(
-            oracledb, sql, date_from, date_to_exclusive, cursor.last_id, cursor.last_srl
+        page = self._open_page_session(
+            oracledb, admin_schema, sql, date_from, date_to_exclusive, cursor.last_id, cursor.last_srl
         )
         if not page:
             ready, leftover, done = split_htd_flush(cursor.leftover, [], HTD_PAGE_SIZE)
             cursor.leftover = leftover
             cursor.done = done
-            return self._attach_gam_names(oracledb, admin_schema, ready), cursor
+            return ready, cursor
 
         cursor.pages_fetched += 1
         cursor.legs_fetched += len(page)
@@ -286,13 +267,14 @@ class OracleFinacleSource:
         cursor.leftover = leftover
         cursor.done = done
         logger.info(
-            "Paged HTD fetch: %s legs (last TRAN_ID=%s, flush=%s, leftover=%s)",
+            "Closed Oracle session after HTD page %s (%s legs, flush=%s, leftover=%s, last TRAN_ID=%s)",
+            cursor.pages_fetched,
             cursor.legs_fetched,
-            cursor.last_id,
             len(ready),
             len(leftover),
+            cursor.last_id,
         )
-        return self._attach_gam_names(oracledb, admin_schema, ready), cursor
+        return ready, cursor
 
     def _fetch_htd_pages(
         self,
@@ -325,6 +307,71 @@ class OracleFinacleSource:
                 break
         return rows
 
+    def _open_page_session(
+        self,
+        oracledb,
+        admin_schema: str,
+        sql: str,
+        date_from,
+        date_to_exclusive,
+        last_id: str | None,
+        last_srl: int,
+    ) -> list[dict]:
+        """Connect, read one page, optionally enrich GAM, close. Retry connect/query only."""
+        last_error: Exception | None = None
+        for attempt in range(HTD_PAGE_ATTEMPTS):
+            try:
+                with connect_oracle(oracledb) as conn:
+                    page = self._execute_htd_page(
+                        conn, sql, date_from, date_to_exclusive, last_id, last_srl
+                    )
+                    if page:
+                        try:
+                            self._attach_gam_names(oracledb, admin_schema, page, conn=conn)
+                        except Exception as gam_exc:
+                            logger.warning(
+                                "GAM enrich failed after HTD fetch; staging without account names: %s",
+                                gam_exc,
+                            )
+                            self._blank_gam(page)
+                    return page
+            except Exception as exc:
+                last_error = exc
+                if attempt + 1 >= HTD_PAGE_ATTEMPTS:
+                    break
+                delay = HTD_RETRY_BACKOFF_SEC[min(attempt, len(HTD_RETRY_BACKOFF_SEC) - 1)]
+                logger.warning(
+                    "Oracle page session retry %s/%s in %ss after %s",
+                    attempt + 1,
+                    HTD_PAGE_ATTEMPTS,
+                    delay,
+                    exc,
+                )
+                time.sleep(delay)
+        if last_error:
+            raise last_error
+        return []
+
+    def _execute_htd_page(
+        self,
+        conn,
+        sql: str,
+        date_from,
+        date_to_exclusive,
+        last_id: str | None,
+        last_srl: int,
+    ) -> list[dict]:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                sql,
+                date_from=date_from,
+                date_to_exclusive=date_to_exclusive,
+                last_id=last_id,
+                last_srl=last_srl,
+            )
+            cols = [d[0].lower() for d in cursor.description]
+            return [dict(zip(cols, row)) for row in cursor.fetchall()]
+
     def _fetch_one_htd_page(
         self,
         oracledb,
@@ -335,38 +382,46 @@ class OracleFinacleSource:
         last_srl: int,
     ) -> list[dict]:
         last_error: Exception | None = None
-        for attempt in range(3):
+        for attempt in range(HTD_PAGE_ATTEMPTS):
             try:
                 with connect_oracle(oracledb) as conn:
-                    with conn.cursor() as cursor:
-                        cursor.execute(
-                            sql,
-                            date_from=date_from,
-                            date_to_exclusive=date_to_exclusive,
-                            last_id=last_id,
-                            last_srl=last_srl,
-                        )
-                        cols = [d[0].lower() for d in cursor.description]
-                        return [dict(zip(cols, row)) for row in cursor.fetchall()]
+                    return self._execute_htd_page(
+                        conn, sql, date_from, date_to_exclusive, last_id, last_srl
+                    )
             except Exception as exc:
                 last_error = exc
-                logger.warning("HTD page retry %s/3 after %s", attempt + 1, exc)
+                if attempt + 1 >= HTD_PAGE_ATTEMPTS:
+                    break
+                delay = HTD_RETRY_BACKOFF_SEC[min(attempt, len(HTD_RETRY_BACKOFF_SEC) - 1)]
+                logger.warning("HTD page retry %s/%s in %ss after %s", attempt + 1, HTD_PAGE_ATTEMPTS, delay, exc)
+                time.sleep(delay)
         if last_error:
             raise last_error
         return []
 
-    def _attach_gam_names(self, oracledb, admin_schema: str, rows: list[dict]) -> list[dict]:
+    @staticmethod
+    def _blank_gam(rows: list[dict]) -> None:
+        for row in rows:
+            row.setdefault("foracid", "")
+            row.setdefault("acct_name", "")
+
+    def _attach_gam_names(
+        self,
+        oracledb,
+        admin_schema: str,
+        rows: list[dict],
+        conn=None,
+    ) -> list[dict]:
         if not rows:
             return rows
         acids = sorted({str(r.get("acid") or "") for r in rows if r.get("acid")})
         if not acids:
-            for row in rows:
-                row.setdefault("foracid", "")
-                row.setdefault("acct_name", "")
+            self._blank_gam(rows)
             return rows
-        names: dict[str, tuple[str, str]] = {}
-        with connect_oracle(oracledb) as conn:
-            with conn.cursor() as cursor:
+
+        def enrich(session) -> dict[str, tuple[str, str]]:
+            names: dict[str, tuple[str, str]] = {}
+            with session.cursor() as cursor:
                 for i in range(0, len(acids), 50):
                     chunk = acids[i : i + 50]
                     binds = ",".join(f":a{j}" for j in range(len(chunk)))
@@ -381,6 +436,13 @@ class OracleFinacleSource:
                     )
                     for acid, foracid, acct_name in cursor.fetchall():
                         names[str(acid)] = (str(foracid or ""), str(acct_name or ""))
+            return names
+
+        if conn is not None:
+            names = enrich(conn)
+        else:
+            with connect_oracle(oracledb) as session:
+                names = enrich(session)
         for row in rows:
             foracid, acct_name = names.get(str(row.get("acid") or ""), ("", ""))
             row["foracid"] = foracid

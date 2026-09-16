@@ -5,7 +5,7 @@ import { ExtractionRunModal } from "../components/ExtractionRunModal";
 import { EmptyState, PageHeader, StatusBadge, TableToolbar, Tag } from "../components/ui";
 import { api, ExtractionLog, ExtractionRun } from "../lib/api";
 import type { ExtractionRunParams } from "../lib/dates";
-import { displayLogMessage } from "../lib/extractionProgress";
+import { displayLogMessage, latestHtdProgress } from "../lib/extractionProgress";
 import { channelLabel, formatDate, formatDateRange, formatNumber } from "../lib/format";
 import { canRunEtl, extractSourceLabel } from "../lib/roles";
 import { useAuth } from "../lib/auth";
@@ -24,7 +24,6 @@ export function ExtractionPage() {
   const [search, setSearch] = useState("");
 
   const load = async () => {
-    setLoading(true);
     try {
       const [data, dashboard] = await Promise.all([api.listRuns(), api.dashboard()]);
       setRuns(data);
@@ -77,12 +76,12 @@ export function ExtractionPage() {
     };
 
     poll();
-    const timer = window.setInterval(poll, 2000);
+    const timer = window.setInterval(poll, running ? 1000 : 2000);
     return () => {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [selected]);
+  }, [selected, running]);
 
   const runPipeline = async (params: ExtractionRunParams) => {
     setStarting(true);
@@ -102,6 +101,7 @@ export function ExtractionPage() {
 
   const filtered = runs.filter((r) => r.id.toLowerCase().includes(search.toLowerCase()));
   const activeRun = runs.find((r) => r.id === selected);
+  const progress = latestHtdProgress(logs);
 
   return (
     <div>
@@ -111,7 +111,7 @@ export function ExtractionPage() {
         count={`${runs.length} runs`}
         actions={
           <>
-            <button className="btn-secondary" onClick={load}>
+            <button className="btn-secondary" onClick={() => load()}>
               <RefreshCw className="h-4 w-4" />
               Refresh
             </button>
@@ -195,6 +195,7 @@ export function ExtractionPage() {
                 <div className="mt-2 flex flex-wrap gap-2">
                   <Tag color="purple">{formatDateRange(activeRun.date_from, activeRun.date_to)}</Tag>
                   <Tag color="gray">{formatNumber(activeRun.records_extracted)} entered</Tag>
+                  <Tag color="gray">{formatNumber(progress?.skipped ?? 0)} already in staging</Tag>
                   <Tag color="gray">{formatNumber(activeRun.records_valid)} valid</Tag>
                   <Tag color="gray">{formatNumber(activeRun.records_invalid)} invalid</Tag>
                 </div>

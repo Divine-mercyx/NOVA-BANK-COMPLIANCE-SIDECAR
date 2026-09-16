@@ -26,7 +26,7 @@ async def execute_etl_background(
     async with AsyncSessionLocal() as db:
         pipeline = ETLPipeline(db)
         try:
-            await pipeline._log(run_id, "INFO", None, "Background worker started — connecting to Oracle…")
+            await pipeline._log(run_id, "INFO", None, "Background worker started")
             await db.commit()
             await pipeline.execute_run(run_id, channels, date_from, date_to, actor_name)
         except Exception as exc:

@@ -51,3 +51,21 @@ def test_progress_message_includes_counts():
     assert "skipped 3" in message
     assert "invalid 1" in message
     assert "56/1286" in message
+
+
+def test_progress_message_without_count_total():
+    message = ETLPipeline._htd_progress_message(
+        day="2023-02-03",
+        day_index=1,
+        days=1,
+        page=7,
+        legs_fetched=350,
+        legs_total=None,
+        staged=0,
+        skipped=177,
+        invalid=0,
+        valid=0,
+    )
+    assert "legs 350" in message
+    assert "already in staging" not in message
+    assert "skipped 177" in message

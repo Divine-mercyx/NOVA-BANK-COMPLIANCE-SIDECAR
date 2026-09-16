@@ -24,10 +24,14 @@ from app.services.etl.customer_registry import CustomerRegistry
 from app.services.etl.extractor import FinacleExtractor
 from app.services.etl.htd_mapper import map_htd_rows
 from app.services.etl.oracle_client import get_oracledb
-from app.services.etl.oracle_source import HtdDayCursor, OracleFinacleSource
+from app.services.etl.oracle_source import (
+    HTD_BETWEEN_PAGES_SEC,
+    HtdDayCursor,
+    OracleFinacleSource,
+)
 from app.services.etl.transformer import TransactionTransformer
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("nova.etl")
 
 
 class ETLPipeline:
@@ -92,7 +96,7 @@ class ETLPipeline:
                 run.id,
                 "INFO",
                 None,
-                "HTD paging: 50-row pages staged as they complete. COUNT is optional and does not block fetch.",
+                "One Oracle session per 50-row page: fetch, close, stage, then reconnect. No COUNT.",
             )
 
         await self.db.commit()
@@ -114,7 +118,14 @@ class ETLPipeline:
         try:
             mode = settings_mode()
             if mode == "oracle" and settings.finacle_oracle_source.lower() == "htd":
-                await self._run_oracle_htd_by_day(run, date_from, date_to)
+                incomplete_error, skipped = await self._run_oracle_htd_by_day(run, date_from, date_to)
+                await self._finalize_run(
+                    run,
+                    channel_values,
+                    actor_name,
+                    incomplete_error=incomplete_error,
+                    skipped=skipped,
+                )
             else:
                 raw_records = await self.extractor.extract(channels, date_from, date_to)
                 await self._log(run.id, "INFO", None, f"Extracted {len(raw_records)} raw records")
@@ -124,8 +135,8 @@ class ETLPipeline:
                 run.records_invalid = invalid
                 if skipped:
                     await self._log(run.id, "INFO", None, f"Skipped {skipped} duplicate finacle_ref(s)")
+                await self._finalize_run(run, channel_values, actor_name, skipped=skipped)
 
-            await self._finalize_run(run, channel_values, actor_name)
             await self.db.commit()
 
         except Exception as exc:
@@ -141,54 +152,105 @@ class ETLPipeline:
         run: ExtractionRun,
         date_from: datetime | None,
         date_to: datetime | None,
-    ) -> None:
+    ) -> tuple[str | None, int]:
         source = OracleFinacleSource()
         start_naive, end_exclusive = source._resolve_dates(date_from, date_to)
         await self._log(run.id, "INFO", None, "Loading Oracle Instant Client…")
+        await self.db.commit()
         oracledb = get_oracledb()
         days = list(source.iter_day_windows(start_naive, end_exclusive))
         total_new = total_skipped = total_valid = total_invalid = 0
+        incomplete_error: str | None = None
 
         await self._log(run.id, "INFO", None, f"Processing {len(days)} day(s) from Oracle HTD")
+        await self.db.commit()
         customers = CustomerRegistry.default()
 
         for index, (day_start, day_end) in enumerate(days, start=1):
             day_label = day_start.date().isoformat()
-            await self._log(run.id, "INFO", None, f"[{index}/{len(days)}] Connecting to Oracle for {day_label}…")
-
-            count_task = asyncio.create_task(
-                self._count_htd_legs_optional(source, day_start, day_end, oracledb)
-            )
             cursor = HtdDayCursor()
             day_new = day_skipped = 0
             day_mapped = 0
-            legs_total: int | None = None
-            count_logged = False
 
             while not cursor.done:
-                flush_rows, cursor = await asyncio.to_thread(
-                    source.fetch_htd_flush_page,
-                    oracledb,
-                    settings.finacle_admin_schema,
-                    day_start,
-                    day_end,
-                    cursor,
+                page_no = cursor.pages_fetched + 1
+                logger.info(
+                    "[HTD %s] %s opening Oracle for page %s%s",
+                    run.id[:8],
+                    day_label,
+                    page_no,
+                    f" after TRAN_ID={cursor.last_id}" if cursor.last_id else "",
                 )
-                if count_task.done() and not count_logged:
-                    legs_total = self._count_task_result(count_task)
-                    if legs_total is not None:
-                        await self._log(
-                            run.id,
-                            "INFO",
-                            None,
-                            f"[{index}/{len(days)}] {day_label}: Oracle COUNT returned {legs_total} HTD legs (best-effort)",
-                        )
-                    count_logged = True
+                await self._log(
+                    run.id,
+                    "INFO",
+                    None,
+                    f"[{index}/{len(days)}] {day_label}: opening Oracle for page {page_no}"
+                    + (f" after TRAN_ID={cursor.last_id}" if cursor.last_id else "")
+                    + " — session closes before staging",
+                )
+                await self.db.commit()
+                try:
+                    flush_rows, cursor = await asyncio.to_thread(
+                        source.fetch_htd_flush_page,
+                        oracledb,
+                        settings.finacle_admin_schema,
+                        day_start,
+                        day_end,
+                        cursor,
+                    )
+                except Exception as exc:
+                    incomplete_error = str(exc)
+                    logger.error(
+                        "[HTD %s] %s page %s Oracle failed: %s",
+                        run.id[:8],
+                        day_label,
+                        page_no,
+                        exc,
+                    )
+                    await self._log(
+                        run.id,
+                        "ERROR",
+                        None,
+                        f"Oracle dropped on page {page_no}: {exc}. "
+                        f"Already staged pages are kept ({total_new} new, {total_skipped} already in staging). "
+                        "Re-run the same dates to continue; duplicates are skipped.",
+                    )
+                    await self.db.commit()
+                    break
+
+                logger.info(
+                    "[HTD %s] %s page %s fetched: %s HTD legs to map (%s leftover held), Oracle session closed",
+                    run.id[:8],
+                    day_label,
+                    cursor.pages_fetched or page_no,
+                    len(flush_rows),
+                    len(cursor.leftover),
+                )
 
                 raw_records = map_htd_rows(flush_rows, customers) if flush_rows else []
+                logger.info(
+                    "[HTD %s] %s page %s mapped: %s HTD legs → %s transactions",
+                    run.id[:8],
+                    day_label,
+                    cursor.pages_fetched or page_no,
+                    len(flush_rows),
+                    len(raw_records),
+                )
+
                 new = skipped = valid = invalid = 0
                 if raw_records:
                     new, skipped, valid, invalid = await self._load_records(run.id, raw_records)
+                logger.info(
+                    "[HTD %s] %s page %s staged: %s new, %s already in warehouse, %s valid, %s invalid",
+                    run.id[:8],
+                    day_label,
+                    cursor.pages_fetched or page_no,
+                    new,
+                    skipped,
+                    valid,
+                    invalid,
+                )
 
                 day_new += new
                 day_skipped += skipped
@@ -212,7 +274,7 @@ class ETLPipeline:
                         days=len(days),
                         page=cursor.pages_fetched,
                         legs_fetched=cursor.legs_fetched,
-                        legs_total=legs_total,
+                        legs_total=None,
                         staged=total_new,
                         skipped=total_skipped,
                         invalid=total_invalid,
@@ -220,65 +282,56 @@ class ETLPipeline:
                     ),
                 )
                 await self.db.commit()
+                logger.info(
+                    "[HTD %s] %s page %s committed: run totals new=%s already_staged=%s valid=%s invalid=%s legs=%s done=%s",
+                    run.id[:8],
+                    day_label,
+                    cursor.pages_fetched or page_no,
+                    total_new,
+                    total_skipped,
+                    total_valid,
+                    total_invalid,
+                    cursor.legs_fetched,
+                    cursor.done,
+                )
+                if not cursor.done:
+                    logger.info(
+                        "[HTD %s] %s waiting %ss before next Oracle connect",
+                        run.id[:8],
+                        day_label,
+                        HTD_BETWEEN_PAGES_SEC,
+                    )
+                    await asyncio.sleep(HTD_BETWEEN_PAGES_SEC)
 
-            if not count_task.done():
-                count_task.cancel()
-                try:
-                    await count_task
-                except (asyncio.CancelledError, Exception):
-                    pass
-            elif not count_logged:
-                legs_total = self._count_task_result(count_task)
+            if incomplete_error:
+                break
 
             await self._log(
                 run.id,
                 "INFO",
                 None,
                 f"[{index}/{len(days)}] {day_label}: {day_mapped} mapped, "
-                f"{day_new} loaded, {day_skipped} duplicates skipped"
-                + (f", {legs_total} HTD legs counted" if legs_total is not None else ""),
+                f"{day_new} loaded, {day_skipped} already in staging",
             )
             await self.db.commit()
 
+        if incomplete_error:
+            return incomplete_error, total_skipped
         if total_new == 0 and len(days) > 0:
             await self._log(
                 run.id,
                 "WARN",
                 None,
-                "No new rows loaded — widen the date range or check HTD MIN/MAX dates in Oracle",
+                "No new rows loaded — they may already be in staging, or HTD has no rows for this range",
             )
         elif total_skipped:
             await self._log(
                 run.id,
                 "INFO",
                 None,
-                f"Total duplicates skipped (already in staging): {total_skipped}",
+                f"Total already in staging (skipped duplicates): {total_skipped}",
             )
-
-    async def _count_htd_legs_optional(
-        self,
-        source: OracleFinacleSource,
-        date_from,
-        date_to_exclusive,
-        oracledb,
-    ) -> int | None:
-        try:
-            return await asyncio.wait_for(
-                asyncio.to_thread(source.count_htd_legs, date_from, date_to_exclusive, oracledb),
-                timeout=30,
-            )
-        except Exception as exc:
-            logger.warning("HTD COUNT unavailable: %s", exc)
-            return None
-
-    @staticmethod
-    def _count_task_result(task: asyncio.Task[int | None]) -> int | None:
-        if task.cancelled():
-            return None
-        try:
-            return task.result()
-        except Exception:
-            return None
+        return None, total_skipped
 
     @staticmethod
     def _htd_progress_message(
@@ -387,16 +440,24 @@ class ETLPipeline:
         run: ExtractionRun,
         channel_values: list[str],
         actor_name: str,
+        *,
+        incomplete_error: str | None = None,
+        skipped: int = 0,
     ) -> None:
         run.completed_at = datetime.now(timezone.utc)
-        run.status = (
-            ExtractionStatus.SUCCESS
-            if run.records_invalid == 0
-            else ExtractionStatus.PARTIAL
-            if run.records_valid > 0
-            else ExtractionStatus.FAILED
-        )
-        if run.records_invalid:
+        if incomplete_error:
+            run.error_summary = incomplete_error
+            made_progress = run.records_extracted > 0 or run.records_valid > 0 or skipped > 0
+            run.status = ExtractionStatus.PARTIAL if made_progress else ExtractionStatus.FAILED
+        elif run.records_invalid == 0:
+            run.status = ExtractionStatus.SUCCESS
+        elif run.records_valid > 0:
+            run.status = ExtractionStatus.PARTIAL
+        else:
+            run.status = ExtractionStatus.FAILED
+            run.error_summary = f"{run.records_invalid} records failed validation"
+
+        if run.records_invalid and not incomplete_error:
             run.error_summary = f"{run.records_invalid} records failed validation"
 
         await self._log(
@@ -404,7 +465,8 @@ class ETLPipeline:
             "INFO",
             None,
             f"Load complete — {run.records_valid} valid, {run.records_invalid} invalid, "
-            f"{run.records_extracted} new records",
+            f"{run.records_extracted} new, {skipped} already in staging"
+            + ("; Oracle stopped early" if incomplete_error else ""),
         )
 
         self.db.add(
@@ -417,6 +479,8 @@ class ETLPipeline:
                     "records_extracted": run.records_extracted,
                     "records_valid": run.records_valid,
                     "records_invalid": run.records_invalid,
+                    "records_skipped": skipped,
+                    "incomplete": bool(incomplete_error),
                     "channels": channel_values,
                     "date_from": run.date_from.isoformat() if run.date_from else None,
                     "date_to": run.date_to.isoformat() if run.date_to else None,

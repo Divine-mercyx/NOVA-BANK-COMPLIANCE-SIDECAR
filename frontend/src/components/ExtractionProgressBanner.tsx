@@ -50,7 +50,7 @@ export function ExtractionProgressBanner({
               Entered <span className="font-medium text-content">{formatNumber(progress?.staged ?? run?.records_extracted ?? 0)}</span>
             </span>
             <span>
-              Skipped <span className="font-medium text-content">{formatNumber(progress?.skipped ?? 0)}</span>
+              Already in staging <span className="font-medium text-content">{formatNumber(progress?.skipped ?? 0)}</span>
             </span>
             <span>
               Invalid <span className="font-medium text-danger">{formatNumber(progress?.invalid ?? run?.records_invalid ?? 0)}</span>

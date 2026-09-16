@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -15,8 +16,19 @@ from app.seed.bootstrap import seed_database
 from app.services.etl.scheduler import start_etl_scheduler, stop_etl_scheduler
 
 
+def _configure_etl_logging() -> None:
+    etl = logging.getLogger("nova.etl")
+    etl.setLevel(logging.INFO)
+    if not any(isinstance(h, logging.StreamHandler) for h in etl.handlers):
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+        etl.addHandler(handler)
+    etl.propagate = False
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    _configure_etl_logging()
     # create_all must run before Alembic upgrades on fresh installs — 002 alters staging_transactions.
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
