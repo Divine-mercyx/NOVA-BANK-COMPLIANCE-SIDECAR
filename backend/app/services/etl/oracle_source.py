@@ -161,11 +161,15 @@ class OracleFinacleSource:
         batch_size = max(settings.finacle_oracle_fetch_batch_size, 500)
         rows: list[dict] = []
 
+        logger.info("Opening Oracle session to %s", settings.finacle_oracle_dsn)
         with oracledb.connect(
             user=settings.finacle_oracle_user,
             password=settings.finacle_oracle_password,
             dsn=settings.finacle_oracle_dsn,
+            tcp_connect_timeout=25,
+            timeout=180,
         ) as conn:
+            logger.info("Oracle session open — running HTD window %s → %s", date_from, date_to_exclusive)
             with conn.cursor() as cursor:
                 cursor.arraysize = batch_size
                 cursor.execute(
@@ -221,6 +225,8 @@ class OracleFinacleSource:
             user=settings.finacle_oracle_user,
             password=settings.finacle_oracle_password,
             dsn=settings.finacle_oracle_dsn,
+            tcp_connect_timeout=25,
+            timeout=180,
         ) as conn:
             with conn.cursor() as cursor:
                 for channel in selected:

@@ -141,6 +141,7 @@ class ETLPipeline:
     ) -> None:
         source = OracleFinacleSource()
         start_naive, end_exclusive = source._resolve_dates(date_from, date_to)
+        await self._log(run.id, "INFO", None, "Loading Oracle Instant Client…")
         oracledb = get_oracledb()
         days = list(source.iter_day_windows(start_naive, end_exclusive))
         total_new = total_skipped = total_valid = total_invalid = 0
@@ -149,7 +150,7 @@ class ETLPipeline:
 
         for index, (day_start, day_end) in enumerate(days, start=1):
             day_label = day_start.date().isoformat()
-            await self._log(run.id, "INFO", None, f"[{index}/{len(days)}] Fetching {day_label}…")
+            await self._log(run.id, "INFO", None, f"[{index}/{len(days)}] Connecting to Oracle for {day_label}…")
 
             raw_records = await asyncio.to_thread(
                 source.extract_htd_window,
