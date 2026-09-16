@@ -195,14 +195,16 @@ class OracleFinacleSource:
 
     def _fetch_htd_rows(self, conn, sql: str, date_from, date_to_exclusive, batch_size: int) -> list[dict]:
         rows: list[dict] = []
+        # Small arraysize so the first VPN round-trip is 20 rows, not 5000.
+        fetch_size = min(max(batch_size, 20), 50)
         with conn.cursor() as cursor:
-            cursor.arraysize = batch_size
+            cursor.arraysize = fetch_size
             if hasattr(cursor, "prefetchrows"):
-                cursor.prefetchrows = min(batch_size, 1000)
+                cursor.prefetchrows = fetch_size
             cursor.execute(sql, date_from=date_from, date_to_exclusive=date_to_exclusive)
             cols = [d[0].lower() for d in cursor.description]
             while True:
-                chunk = cursor.fetchmany(batch_size)
+                chunk = cursor.fetchmany(fetch_size)
                 if not chunk:
                     break
                 rows.extend(dict(zip(cols, row)) for row in chunk)

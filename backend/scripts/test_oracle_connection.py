@@ -25,8 +25,6 @@ from pathlib import Path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 TCP_TIMEOUT = 12
-CONNECT_TIMEOUT = 25
-CALL_TIMEOUT = 60
 
 
 def _step(n: int, title: str) -> None:
@@ -94,7 +92,6 @@ def main() -> int:
     host, dsn_port = parse_dsn_host_port(settings.finacle_oracle_dsn)
     tcp_port = args.port or dsn_port
 
-    # --- 1 Instant Client path ---
     _step(1, "Instant Client (thick mode)")
     if settings.finacle_oracle_thick_mode:
         lib = settings.finacle_oracle_client_lib_dir
@@ -108,7 +105,6 @@ def main() -> int:
     else:
         print("    Thick mode is OFF — Finacle 10G password verifiers usually need it ON", flush=True)
 
-    # --- 2 TCP ---
     _step(2, f"TCP reachability {host}:{tcp_port} (timeout {TCP_TIMEOUT}s)")
     ok, msg, elapsed = tcp_check(host, tcp_port)
     if not ok:
@@ -119,7 +115,6 @@ def main() -> int:
         return 1
     _ok(msg, elapsed)
 
-    # --- 3 init client ---
     _step(3, "Load python-oracledb + Instant Client")
     started = time.perf_counter()
     try:
@@ -130,7 +125,6 @@ def main() -> int:
         return _fail(f"init_oracle_client failed: {exc}")
     _ok("Client initialized", time.perf_counter() - started)
 
-    # --- 4 login + DUAL ---
     _step(4, "Oracle login + SELECT 1 FROM DUAL")
     started = time.perf_counter()
     try:
@@ -149,7 +143,6 @@ def main() -> int:
                 return _fail("DUAL returned unexpected result")
         _ok(f"Logged in as {settings.finacle_oracle_user!r}", time.perf_counter() - started)
 
-        # --- 5 privilege probe ---
         _step(5, "Can we see TBAADM.HTD? (one row only, no full-table COUNT)")
         started = time.perf_counter()
         try:
@@ -167,13 +160,19 @@ def main() -> int:
             elapsed = time.perf_counter() - started
             return _fail(f"HTD select failed ({elapsed:.1f}s): {exc}")
 
-        # --- 6 real extract (same path as the portal, default 1–3 Feb 2023) ---
         from_d = datetime.strptime(args.from_date, "%Y-%m-%d")
         to_d = datetime.strptime(args.to_date, "%Y-%m-%d")
-        start = datetime.combine(from_d.date(), dt_time.min)
-        end = datetime.combine(to_d.date(), dt_time.min) + timedelta(days=1)
         schema = settings.finacle_admin_schema
-        sql = f"""
+        sql_one = f"""
+            SELECT TRAN_ID, NVL(PSTD_DATE, TRAN_DATE) AS TX_DATE, TRAN_AMT, PART_TRAN_TYPE
+            FROM {schema}.HTD
+            WHERE (
+                    (PSTD_DATE >= :date_from AND PSTD_DATE < :date_to_exclusive)
+                 OR (PSTD_DATE IS NULL AND TRAN_DATE >= :date_from AND TRAN_DATE < :date_to_exclusive)
+                  )
+            FETCH FIRST 1 ROW ONLY
+        """
+        sql_day = f"""
             SELECT TRAN_ID, TRAN_DATE, PSTD_DATE, TRAN_AMT, PART_TRAN_TYPE, ACID
             FROM {schema}.HTD
             WHERE (
@@ -181,40 +180,64 @@ def main() -> int:
                  OR (PSTD_DATE IS NULL AND TRAN_DATE >= :date_from AND TRAN_DATE < :date_to_exclusive)
                   )
         """
-        _step(6, f"HTD extract {args.from_date} → {args.to_date} (stream batches, no GAM join)")
-        print("    This is what the portal was dying on (ORA-03135). Watch rows appear.", flush=True)
-        batch = max(int(getattr(settings, "finacle_oracle_fetch_batch_size", 500) or 500), 200)
-        started = time.perf_counter()
-        first_row_at = None
-        total = 0
+        _step(6, f"HTD extract {args.from_date} → {args.to_date} (one day at a time)")
+        print("    FETCH FIRST 1 is fast (Oracle stops after one row).", flush=True)
+        print("    A full-day fetch waits on fetchmany — that is the VPN bottleneck, not login.", flush=True)
+
+        grand = 0
+        day = from_d
         try:
-            with conn.cursor() as cur:
-                cur.arraysize = batch
-                print("    execute() …", flush=True)
-                exec_started = time.perf_counter()
-                cur.execute(sql, date_from=start, date_to_exclusive=end)
-                print(f"    execute() returned in {time.perf_counter() - exec_started:.1f}s — fetching…", flush=True)
-                cols = [d[0].lower() for d in cur.description]
-                while True:
-                    chunk = cur.fetchmany(batch)
-                    if not chunk:
-                        break
-                    if first_row_at is None:
-                        first_row_at = time.perf_counter() - started
-                        sample = dict(zip(cols, chunk[0]))
-                        print(f"    First row in {first_row_at:.1f}s  TRAN_ID={sample.get('tran_id')!r}", flush=True)
-                    total += len(chunk)
-                    print(f"    … {total} legs so far ({time.perf_counter() - started:.1f}s)", flush=True)
+            while day.date() <= to_d.date():
+                start = datetime.combine(day.date(), dt_time.min)
+                end = start + timedelta(days=1)
+                label = day.date().isoformat()
+                print(f"\n    --- {label} ---", flush=True)
+
+                t0 = time.perf_counter()
+                with conn.cursor() as cur:
+                    cur.execute(sql_one, date_from=start, date_to_exclusive=end)
+                    probe = cur.fetchone()
+                print(f"    FETCH FIRST 1: {time.perf_counter() - t0:.1f}s  {probe}", flush=True)
+                if not probe:
+                    print("    No HTD legs this day — skipping full fetch.", flush=True)
+                    day += timedelta(days=1)
+                    continue
+
+                t1 = time.perf_counter()
+                day_total = 0
+                print("    Full-day fetch (20 rows at a time)…", flush=True)
+                with conn.cursor() as cur:
+                    cur.arraysize = 20
+                    if hasattr(cur, "prefetchrows"):
+                        cur.prefetchrows = 20
+                    cur.execute(sql_day, date_from=start, date_to_exclusive=end)
+                    cols = [d[0].lower() for d in cur.description]
+                    first = True
+                    while True:
+                        chunk = cur.fetchmany(20)
+                        if not chunk:
+                            break
+                        if first:
+                            sample = dict(zip(cols, chunk[0]))
+                            print(
+                                f"    First full-fetch row in {time.perf_counter() - t1:.1f}s  TRAN_ID={sample.get('tran_id')!r}",
+                                flush=True,
+                            )
+                            first = False
+                        day_total += len(chunk)
+                        grand += len(chunk)
+                        print(f"    {label}: {day_total} legs ({time.perf_counter() - t1:.1f}s)", flush=True)
+                print(f"    {label} done: {day_total} legs", flush=True)
+                day += timedelta(days=1)
         except Exception as exc:
-            elapsed = time.perf_counter() - started
-            return _fail(f"HTD range fetch died after {elapsed:.1f}s / {total} legs: {exc}")
-        _ok(f"{total} HTD legs {args.from_date} → {args.to_date}", time.perf_counter() - started)
+            return _fail(f"HTD range fetch died after {grand} legs: {exc}")
+        _ok(f"{grand} HTD legs {args.from_date} → {args.to_date}")
     finally:
         conn.close()
 
     print("\n=== SUCCESS — Oracle session works ===", flush=True)
-    print("Portal hang + ORA-03135 = HTD+GAM join / ORDER BY over VPN, not login.", flush=True)
-    print("Restart backend after git pull; extract uses HTD then GAM lookup (no heavy join).", flush=True)
+    print("If FETCH FIRST 1 is fast but full-day fetch stalls, VPN cannot carry HTD volume.", flush=True)
+    print("Use CSV mode for demos until DBA indexes / replica are in place.", flush=True)
     return 0
 
 
