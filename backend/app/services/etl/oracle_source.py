@@ -16,7 +16,7 @@ from app.services.etl.finacle_mappers import (
     map_withdrawal_rows,
 )
 from app.services.etl.htd_mapper import map_htd_rows
-from app.services.etl.oracle_client import get_oracledb
+from app.services.etl.oracle_client import connect_oracle, get_oracledb
 
 logger = logging.getLogger(__name__)
 
@@ -162,13 +162,7 @@ class OracleFinacleSource:
         rows: list[dict] = []
 
         logger.info("Opening Oracle session to %s", settings.finacle_oracle_dsn)
-        with oracledb.connect(
-            user=settings.finacle_oracle_user,
-            password=settings.finacle_oracle_password,
-            dsn=settings.finacle_oracle_dsn,
-            tcp_connect_timeout=25,
-            timeout=180,
-        ) as conn:
+        with connect_oracle(oracledb) as conn:
             logger.info("Oracle session open — running HTD window %s → %s", date_from, date_to_exclusive)
             with conn.cursor() as cursor:
                 cursor.arraysize = batch_size
@@ -221,13 +215,7 @@ class OracleFinacleSource:
         schema = settings.finacle_schema
         records: list[RawTransaction] = []
 
-        with oracledb.connect(
-            user=settings.finacle_oracle_user,
-            password=settings.finacle_oracle_password,
-            dsn=settings.finacle_oracle_dsn,
-            tcp_connect_timeout=25,
-            timeout=180,
-        ) as conn:
+        with connect_oracle(oracledb) as conn:
             with conn.cursor() as cursor:
                 for channel in selected:
                     sql = self.CHANNEL_QUERIES[channel].format(schema=schema)

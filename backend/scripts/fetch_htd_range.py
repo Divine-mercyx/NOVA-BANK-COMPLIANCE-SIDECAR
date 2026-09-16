@@ -24,7 +24,7 @@ from app.core.config import settings
 from app.schemas.compliance import RawTransaction
 from app.services.etl.customer_registry import CustomerRegistry
 from app.services.etl.htd_mapper import map_htd_rows
-from app.services.etl.oracle_client import get_oracledb
+from app.services.etl.oracle_client import connect_oracle, get_oracledb
 from app.services.etl.oracle_source import OracleFinacleSource
 
 
@@ -63,11 +63,7 @@ def stream_htd_day(
     leg_total = 0
     tx_total = 0
 
-    with oracledb.connect(
-        user=settings.finacle_oracle_user,
-        password=settings.finacle_oracle_password,
-        dsn=settings.finacle_oracle_dsn,
-    ) as conn:
+    with connect_oracle(oracledb) as conn:
         with conn.cursor() as cursor:
             cursor.arraysize = batch_size
             cursor.execute(

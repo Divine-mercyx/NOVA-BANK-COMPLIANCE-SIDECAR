@@ -9,6 +9,11 @@ from app.core.config import settings
 logger = logging.getLogger(__name__)
 _initialized = False
 
+# Seconds for TCP handshake. Call timeout is applied via call_timeout (ms) after connect —
+# python-oracledb 2.x does not accept connect(..., timeout=...).
+TCP_CONNECT_TIMEOUT_SEC = 25
+CALL_TIMEOUT_MS = 180_000
+
 
 def get_oracledb():
     """Return the oracledb module after optional thick-mode initialization."""
@@ -32,3 +37,21 @@ def get_oracledb():
 
     _initialized = True
     return oracledb
+
+
+def connect_oracle(oracledb, **kwargs):
+    """Open a session using kwargs this python-oracledb version actually supports."""
+    params = dict(kwargs)
+    params.pop("timeout", None)
+    params.setdefault("user", settings.finacle_oracle_user)
+    params.setdefault("password", settings.finacle_oracle_password)
+    params.setdefault("dsn", settings.finacle_oracle_dsn)
+
+    try:
+        conn = oracledb.connect(tcp_connect_timeout=TCP_CONNECT_TIMEOUT_SEC, **params)
+    except TypeError:
+        conn = oracledb.connect(**params)
+
+    if hasattr(conn, "call_timeout"):
+        conn.call_timeout = CALL_TIMEOUT_MS
+    return conn

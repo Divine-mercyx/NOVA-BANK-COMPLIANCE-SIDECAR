@@ -121,7 +121,7 @@ def main() -> int:
     _step(3, "Load python-oracledb + Instant Client")
     started = time.perf_counter()
     try:
-        from app.services.etl.oracle_client import get_oracledb
+        from app.services.etl.oracle_client import connect_oracle, get_oracledb
 
         oracledb = get_oracledb()
     except Exception as exc:
@@ -129,16 +129,10 @@ def main() -> int:
     _ok("Client initialized", time.perf_counter() - started)
 
     # --- 4 login + DUAL ---
-    _step(4, f"Oracle login + SELECT 1 FROM DUAL (tcp {CONNECT_TIMEOUT}s, call {CALL_TIMEOUT}s)")
+    _step(4, "Oracle login + SELECT 1 FROM DUAL")
     started = time.perf_counter()
     try:
-        conn = oracledb.connect(
-            user=settings.finacle_oracle_user,
-            password=settings.finacle_oracle_password,
-            dsn=settings.finacle_oracle_dsn,
-            tcp_connect_timeout=CONNECT_TIMEOUT,
-            timeout=CALL_TIMEOUT,
-        )
+        conn = connect_oracle(oracledb)
     except Exception as exc:
         _fail(str(exc))
         print("    Hint: wrong user/password, SID/service (NOVAPRD), or Instant Client version.", flush=True)
