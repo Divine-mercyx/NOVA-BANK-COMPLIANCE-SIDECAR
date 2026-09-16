@@ -9,7 +9,7 @@ Usage (from backend/, with .env loaded):
 
   Optional:
   python scripts/test_oracle_connection.py --port 1521
-  python scripts/test_oracle_connection.py --htd-probe 2023-02-01
+  python scripts/test_oracle_connection.py --from-date 2023-02-01 --to-date 2023-02-03
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ import os
 import socket
 import sys
 import time
-from datetime import datetime, time as dt_time
+from datetime import datetime, timedelta, time as dt_time
 from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -69,7 +69,9 @@ def tcp_check(host: str, port: int, timeout: float = TCP_TIMEOUT) -> tuple[bool,
 def main() -> int:
     parser = argparse.ArgumentParser(description="Nova Finacle Oracle connection check")
     parser.add_argument("--port", type=int, default=None, help="Override DSN port for TCP test only")
-    parser.add_argument("--htd-probe", default=None, help="Optional calendar day YYYY-MM-DD to fetch 1 HTD row")
+    parser.add_argument("--from-date", default="2023-02-01", help="Inclusive start YYYY-MM-DD (default 2023-02-01)")
+    parser.add_argument("--to-date", default="2023-02-03", help="Inclusive end YYYY-MM-DD (default 2023-02-03)")
+    parser.add_argument("--htd-probe", default=None, help="Deprecated: use --from-date / --to-date")
     args = parser.parse_args()
 
     from app.core.config import settings
@@ -165,39 +167,54 @@ def main() -> int:
             elapsed = time.perf_counter() - started
             return _fail(f"HTD select failed ({elapsed:.1f}s): {exc}")
 
-        # --- 6 optional dated probe ---
-        if args.htd_probe:
-            _step(6, f"HTD probe for {args.htd_probe} (max 1 row)")
-            from datetime import timedelta
-
-            day = datetime.strptime(args.htd_probe, "%Y-%m-%d")
-            start = datetime.combine(day.date(), dt_time.min)
-            end = start + timedelta(days=1)
-            started = time.perf_counter()
+        # --- 6 real extract (same path as the portal, default 1–3 Feb 2023) ---
+        from_d = datetime.strptime(args.from_date, "%Y-%m-%d")
+        to_d = datetime.strptime(args.to_date, "%Y-%m-%d")
+        start = datetime.combine(from_d.date(), dt_time.min)
+        end = datetime.combine(to_d.date(), dt_time.min) + timedelta(days=1)
+        schema = settings.finacle_admin_schema
+        sql = f"""
+            SELECT TRAN_ID, TRAN_DATE, PSTD_DATE, TRAN_AMT, PART_TRAN_TYPE, ACID
+            FROM {schema}.HTD
+            WHERE (
+                    (PSTD_DATE >= :date_from AND PSTD_DATE < :date_to_exclusive)
+                 OR (PSTD_DATE IS NULL AND TRAN_DATE >= :date_from AND TRAN_DATE < :date_to_exclusive)
+                  )
+        """
+        _step(6, f"HTD extract {args.from_date} → {args.to_date} (stream batches, no GAM join)")
+        print("    This is what the portal was dying on (ORA-03135). Watch rows appear.", flush=True)
+        batch = max(int(getattr(settings, "finacle_oracle_fetch_batch_size", 500) or 500), 200)
+        started = time.perf_counter()
+        first_row_at = None
+        total = 0
+        try:
             with conn.cursor() as cur:
-                cur.execute(
-                    f"""
-                    SELECT TRAN_ID, NVL(PSTD_DATE, TRAN_DATE)
-                    FROM {settings.finacle_admin_schema}.HTD
-                    WHERE NVL(PSTD_DATE, TRAN_DATE) >= :d1
-                      AND NVL(PSTD_DATE, TRAN_DATE) < :d2
-                    FETCH FIRST 1 ROW ONLY
-                    """,
-                    d1=start,
-                    d2=end,
-                )
-                probe = cur.fetchone()
+                cur.arraysize = batch
+                print("    execute() …", flush=True)
+                exec_started = time.perf_counter()
+                cur.execute(sql, date_from=start, date_to_exclusive=end)
+                print(f"    execute() returned in {time.perf_counter() - exec_started:.1f}s — fetching…", flush=True)
+                cols = [d[0].lower() for d in cur.description]
+                while True:
+                    chunk = cur.fetchmany(batch)
+                    if not chunk:
+                        break
+                    if first_row_at is None:
+                        first_row_at = time.perf_counter() - started
+                        sample = dict(zip(cols, chunk[0]))
+                        print(f"    First row in {first_row_at:.1f}s  TRAN_ID={sample.get('tran_id')!r}", flush=True)
+                    total += len(chunk)
+                    print(f"    … {total} legs so far ({time.perf_counter() - started:.1f}s)", flush=True)
+        except Exception as exc:
             elapsed = time.perf_counter() - started
-            if probe:
-                _ok(f"Found row TRAN_ID={probe[0]!r} date={probe[1]}", elapsed)
-            else:
-                print(f"    NOTE ({elapsed:.1f}s)  No HTD rows for that calendar day — extract will succeed with 0 records.", flush=True)
+            return _fail(f"HTD range fetch died after {elapsed:.1f}s / {total} legs: {exc}")
+        _ok(f"{total} HTD legs {args.from_date} → {args.to_date}", time.perf_counter() - started)
     finally:
         conn.close()
 
     print("\n=== SUCCESS — Oracle session works ===", flush=True)
-    print("If the portal still sits on 'connecting to Oracle…', the hang is the HTD+GAM query,", flush=True)
-    print("not login. Use a 1-day range, FETCH_BATCH_SIZE=5000, or CSV mode.", flush=True)
+    print("Portal hang + ORA-03135 = HTD+GAM join / ORDER BY over VPN, not login.", flush=True)
+    print("Restart backend after git pull; extract uses HTD then GAM lookup (no heavy join).", flush=True)
     return 0
 
 

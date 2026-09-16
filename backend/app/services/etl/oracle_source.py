@@ -35,15 +35,38 @@ class OracleFinacleSource:
             h.TRAN_TYPE,
             h.TRAN_SUB_TYPE,
             h.SOL_ID,
+            h.ACID,
             g.FORACID,
             g.ACCT_NAME
         FROM {admin_schema}.HTD h
         LEFT JOIN {admin_schema}.GAM g
           ON h.ACID = g.ACID
          AND NVL(g.DEL_FLG, 'N') = 'N'
-        WHERE NVL(h.PSTD_DATE, h.TRAN_DATE) >= :date_from
-          AND NVL(h.PSTD_DATE, h.TRAN_DATE) < :date_to_exclusive
-        ORDER BY h.TRAN_ID, h.PART_TRAN_SRL_NUM
+        WHERE (
+                (h.PSTD_DATE >= :date_from AND h.PSTD_DATE < :date_to_exclusive)
+             OR (h.PSTD_DATE IS NULL AND h.TRAN_DATE >= :date_from AND h.TRAN_DATE < :date_to_exclusive)
+              )
+    """
+
+    HTD_LEGS_ONLY_QUERY = """
+        SELECT
+            TRAN_ID,
+            TRAN_DATE,
+            PSTD_DATE,
+            TRAN_AMT,
+            REF_CRNCY_CODE,
+            PART_TRAN_TYPE,
+            PART_TRAN_SRL_NUM,
+            TRAN_PARTICULAR,
+            TRAN_TYPE,
+            TRAN_SUB_TYPE,
+            SOL_ID,
+            ACID
+        FROM {admin_schema}.HTD
+        WHERE (
+                (PSTD_DATE >= :date_from AND PSTD_DATE < :date_to_exclusive)
+             OR (PSTD_DATE IS NULL AND TRAN_DATE >= :date_from AND TRAN_DATE < :date_to_exclusive)
+              )
     """
 
     CHANNEL_QUERIES: dict[TransactionChannel, str] = {
@@ -157,28 +180,67 @@ class OracleFinacleSource:
         """Fetch one HTD window in batches (one day recommended for D/C pairing)."""
         customers = CustomerRegistry.default()
         admin_schema = settings.finacle_admin_schema
-        sql = self.HTD_QUERY.format(admin_schema=admin_schema)
         batch_size = max(settings.finacle_oracle_fetch_batch_size, 500)
-        rows: list[dict] = []
-
         logger.info("Opening Oracle session to %s", settings.finacle_oracle_dsn)
-        with connect_oracle(oracledb) as conn:
-            logger.info("Oracle session open — running HTD window %s → %s", date_from, date_to_exclusive)
-            with conn.cursor() as cursor:
-                cursor.arraysize = batch_size
-                cursor.execute(
-                    sql,
-                    date_from=date_from,
-                    date_to_exclusive=date_to_exclusive,
-                )
-                cols = [d[0].lower() for d in cursor.description]
-                while True:
-                    chunk = cursor.fetchmany(batch_size)
-                    if not chunk:
-                        break
-                    rows.extend(dict(zip(cols, row)) for row in chunk)
+        try:
+            with connect_oracle(oracledb) as conn:
+                logger.info("Oracle session open — HTD legs then GAM lookup %s → %s", date_from, date_to_exclusive)
+                rows = self._fetch_htd_then_gam(conn, admin_schema, date_from, date_to_exclusive, batch_size)
+        except Exception as exc:
+            logger.warning("First HTD fetch failed (%s) — reconnecting and retrying once", exc)
+            with connect_oracle(oracledb) as conn:
+                rows = self._fetch_htd_then_gam(conn, admin_schema, date_from, date_to_exclusive, batch_size)
 
         return map_htd_rows(rows, customers)
+
+    def _fetch_htd_rows(self, conn, sql: str, date_from, date_to_exclusive, batch_size: int) -> list[dict]:
+        rows: list[dict] = []
+        with conn.cursor() as cursor:
+            cursor.arraysize = batch_size
+            if hasattr(cursor, "prefetchrows"):
+                cursor.prefetchrows = min(batch_size, 1000)
+            cursor.execute(sql, date_from=date_from, date_to_exclusive=date_to_exclusive)
+            cols = [d[0].lower() for d in cursor.description]
+            while True:
+                chunk = cursor.fetchmany(batch_size)
+                if not chunk:
+                    break
+                rows.extend(dict(zip(cols, row)) for row in chunk)
+                logger.info("Fetched %s HTD legs so far", len(rows))
+        return rows
+
+    def _fetch_htd_then_gam(
+        self,
+        conn,
+        admin_schema: str,
+        date_from,
+        date_to_exclusive,
+        batch_size: int,
+    ) -> list[dict]:
+        sql = self.HTD_LEGS_ONLY_QUERY.format(admin_schema=admin_schema)
+        rows = self._fetch_htd_rows(conn, sql, date_from, date_to_exclusive, batch_size)
+        acids = sorted({str(r.get("acid") or "") for r in rows if r.get("acid")})
+        names: dict[str, tuple[str, str]] = {}
+        with conn.cursor() as cursor:
+            for i in range(0, len(acids), 200):
+                chunk = acids[i : i + 200]
+                binds = ",".join(f":a{j}" for j in range(len(chunk)))
+                cursor.execute(
+                    f"""
+                    SELECT ACID, FORACID, ACCT_NAME
+                    FROM {admin_schema}.GAM
+                    WHERE ACID IN ({binds})
+                      AND NVL(DEL_FLG, 'N') = 'N'
+                    """,
+                    {f"a{j}": v for j, v in enumerate(chunk)},
+                )
+                for acid, foracid, acct_name in cursor.fetchall():
+                    names[str(acid)] = (str(foracid or ""), str(acct_name or ""))
+        for row in rows:
+            foracid, acct_name = names.get(str(row.get("acid") or ""), ("", ""))
+            row["foracid"] = foracid
+            row["acct_name"] = acct_name
+        return rows
 
     def _extract_htd(
         self,

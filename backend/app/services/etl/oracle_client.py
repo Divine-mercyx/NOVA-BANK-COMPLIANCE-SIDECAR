@@ -39,8 +39,11 @@ def get_oracledb():
     return oracledb
 
 
-def connect_oracle(oracledb, **kwargs):
-    """Open a session using kwargs this python-oracledb version actually supports."""
+def connect_oracle(oracledb, *, apply_call_timeout: bool = False, **kwargs):
+    """Open a session using kwargs this python-oracledb version actually supports.
+
+    Do not set call_timeout on HTD extracts — a 3-minute cap kills VPN joins with ORA-03135.
+    """
     params = dict(kwargs)
     params.pop("timeout", None)
     params.setdefault("user", settings.finacle_oracle_user)
@@ -48,10 +51,17 @@ def connect_oracle(oracledb, **kwargs):
     params.setdefault("dsn", settings.finacle_oracle_dsn)
 
     try:
-        conn = oracledb.connect(tcp_connect_timeout=TCP_CONNECT_TIMEOUT_SEC, **params)
+        conn = oracledb.connect(
+            tcp_connect_timeout=TCP_CONNECT_TIMEOUT_SEC,
+            expire_time=1,
+            **params,
+        )
     except TypeError:
-        conn = oracledb.connect(**params)
+        try:
+            conn = oracledb.connect(tcp_connect_timeout=TCP_CONNECT_TIMEOUT_SEC, **params)
+        except TypeError:
+            conn = oracledb.connect(**params)
 
-    if hasattr(conn, "call_timeout"):
+    if apply_call_timeout and hasattr(conn, "call_timeout"):
         conn.call_timeout = CALL_TIMEOUT_MS
     return conn
