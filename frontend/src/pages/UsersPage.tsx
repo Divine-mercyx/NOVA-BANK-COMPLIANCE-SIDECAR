@@ -25,8 +25,8 @@ const ROLES: UserRole[] = ["viewer", "analyst", "approver", "admin"];
 
 const ROLE_DESC: Record<UserRole, string> = {
   admin: "Full access · manage team",
-  approver: "Approve & submit reports",
-  analyst: "Run ETL · generate reports",
+  approver: "Review staged data",
+  analyst: "Run Finacle extraction",
   viewer: "Read-only access",
 };
 

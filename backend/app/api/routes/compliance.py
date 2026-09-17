@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -30,6 +32,7 @@ from app.schemas.compliance import (
 from app.services.analytics import AnalyticsService, AuditService, ReportWorkflowService
 from app.services.etl.background import execute_etl_background
 from app.services.etl.pipeline import ETLPipeline
+from app.services.integration.period import resolve_export_window
 from app.services.reports.generator import ReportGenerator
 
 router = APIRouter(prefix="/api/v1", tags=["compliance"], dependencies=[Depends(get_current_user)])
@@ -122,9 +125,12 @@ async def run_logs(run_id: str, db: AsyncSession = Depends(get_db)):
 
 @router.get("/staging/transactions", response_model=list[StagingTransactionOut])
 async def list_transactions(
-    limit: int = Query(50, le=200),
+    limit: int = Query(50, le=500),
     valid_only: bool = False,
     channel: TransactionChannel | None = None,
+    date_from: datetime | None = Query(None),
+    date_to: datetime | None = Query(None),
+    ctr_only: bool = Query(False, description="NGN amount at or above ₦5,000,000"),
     db: AsyncSession = Depends(get_db),
 ):
     stmt = select(StagingTransaction).order_by(desc(StagingTransaction.transaction_date)).limit(limit)
@@ -132,6 +138,19 @@ async def list_transactions(
         stmt = stmt.where(StagingTransaction.is_valid.is_(True))
     if channel:
         stmt = stmt.where(StagingTransaction.channel == channel)
+    if date_from and date_to:
+        start, end = resolve_export_window(date_from, date_to)
+        stmt = stmt.where(
+            StagingTransaction.transaction_date >= start,
+            StagingTransaction.transaction_date <= end,
+        )
+    elif date_from or date_to:
+        raise HTTPException(400, "Provide both date_from and date_to")
+    if ctr_only:
+        stmt = stmt.where(
+            StagingTransaction.currency == "NGN",
+            StagingTransaction.amount >= settings.ctr_threshold_ngn,
+        )
     result = await db.execute(stmt)
     return [StagingTransactionOut.model_validate(t) for t in result.scalars().all()]
 

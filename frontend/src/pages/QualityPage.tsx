@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { BarChart3 } from "lucide-react";
-import { EmptyState, KpiCard, PageHeader, ProgressBar, ScoreRing, StatusBadge, Tag } from "../components/ui";
+import { EmptyState, KpiCard, PageHeader, ProgressBar, ScoreRing, StatusBadge } from "../components/ui";
+import { TransactionFlags } from "../components/TransactionFlags";
 import { api, DataQualityMetrics, StagingTransaction } from "../lib/api";
 import { channelLabel, formatCurrency, formatNumber } from "../lib/format";
 
@@ -35,6 +36,7 @@ export function QualityPage() {
             <KpiCard label="Total staged" value={formatNumber(metrics.total_records)} ringPercent={metrics.validation_rate} />
             <KpiCard label="Valid records" value={formatNumber(metrics.valid_records)} changeUp change={`${metrics.validation_rate}% rate`} />
             <KpiCard label="CTR eligible" value={formatNumber(metrics.ctr_eligible)} />
+            <KpiCard label="FTR eligible" value={formatNumber(metrics.ftr_eligible)} />
             <KpiCard label="PEP eligible" value={formatNumber(metrics.pep_eligible)} />
             <KpiCard label="STR eligible" value={formatNumber(metrics.str_eligible)} />
           </div>
@@ -99,10 +101,8 @@ export function QualityPage() {
                       </td>
                       <td>{formatCurrency(tx.amount, tx.currency)}</td>
                       <td>
-                        <div className="flex flex-wrap gap-1">
-                          {tx.reportable_pep && <Tag color="purple">PEP</Tag>}
-                          {tx.reportable_str && <Tag color="pink">STR</Tag>}
-                          {tx.reportable_ctr && <Tag color="blue">CTR</Tag>}
+                        <div className="flex flex-wrap items-center gap-1">
+                          <TransactionFlags tx={tx} />
                           {!tx.is_valid && <StatusBadge status="failed" />}
                         </div>
                       </td>

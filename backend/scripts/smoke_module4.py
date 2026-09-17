@@ -15,7 +15,6 @@ import sys
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import datetime, timezone
 
 BASE = "http://localhost:8000"
 ADMIN_EMAIL = "admin@novabank.ng"
@@ -84,32 +83,35 @@ def main() -> int:
     verify = partner_get("/api/v1/export/verify", api_key)
     print(f"✓ Verify: {verify['client_name']} — {verify['message']}")
 
-    period_start = os.environ.get("SMOKE_PERIOD_START", "2023-02-02T00:00:00+01:00")
-    period_end = os.environ.get("SMOKE_PERIOD_END", "2023-02-04T23:59:59+01:00")
+    period_start = os.environ.get("SMOKE_PERIOD_START", "2023-02-03")
+    period_end = os.environ.get("SMOKE_PERIOD_END", "2023-02-03")
 
     summary = partner_get(
         "/api/v1/export/summary",
         api_key,
-        {"period_start": period_start, "period_end": period_end},
+        {"date_from": period_start, "date_to": period_end},
     )
     print(f"✓ Summary: {summary['total_valid']} valid, {summary['ctr_eligible']} CTR")
 
-    txns = partner_get(
+    all_txns = partner_get(
         "/api/v1/export/transactions",
         api_key,
-        {
-            "period_start": period_start,
-            "period_end": period_end,
-            "report_type": "CTR",
-            "limit": 5,
-        },
+        {"date_from": period_start, "date_to": period_end, "limit": 5},
     )
-    count = len(txns.get("transactions", []))
-    print(f"✓ Pulled {count} CTR transactions (total matching {txns['meta']['total_matching']})")
+    print(f"✓ All staged: {len(all_txns.get('transactions', []))} (total {all_txns['meta']['total_matching']})")
+
+    ctr_txns = partner_get(
+        "/api/v1/export/transactions/ctr",
+        api_key,
+        {"date_from": period_start, "date_to": period_end, "limit": 5},
+    )
+    count = len(ctr_txns.get("transactions", []))
+    print(f"✓ CTR ≥ ₦5m: {count} (total matching {ctr_txns['meta']['total_matching']})")
     if count:
-        sample = txns["transactions"][0]
-        assert "nfiu_payload" in sample, "Missing nfiu_payload on export"
-        print(f"  Sample ref: {sample['finacle_ref']}")
+        sample = ctr_txns["transactions"][0]
+        assert sample["amount"] >= 5_000_000, "CTR pull returned amount below ₦5,000,000"
+        assert sample["currency"] == "NGN"
+        print(f"  Sample ref: {sample['finacle_ref']} amount={sample['amount']}")
 
     reports = partner_get("/api/v1/export/reports", api_key, {"limit": 5})
     print(f"✓ Reports listed: {reports['returned']}")

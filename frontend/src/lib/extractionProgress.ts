@@ -51,8 +51,9 @@ export function displayLogMessage(message: string): string {
   const legs =
     parsed.legs_total != null ? `${parsed.legs_fetched}/${parsed.legs_total}` : String(parsed.legs_fetched);
   return (
-    `${parsed.day_index}/${parsed.days} ${parsed.day} page ${parsed.page} · legs ${legs} · ` +
-    `entered ${parsed.staged} · skipped ${parsed.skipped} · invalid ${parsed.invalid}`
+    `${parsed.day_index}/${parsed.days} ${parsed.day} page ${parsed.page} · ` +
+    `${legs} HTD legs → ${parsed.staged} transactions (entered ${parsed.staged}, ` +
+    `already in staging ${parsed.skipped}, invalid ${parsed.invalid})`
   );
 }
 

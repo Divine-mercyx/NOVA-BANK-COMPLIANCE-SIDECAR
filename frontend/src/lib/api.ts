@@ -283,11 +283,11 @@ export const api = {
       const [run, logs] = await Promise.all([api.getRun(runId), api.runLogs(runId)]);
       onUpdate?.(run, logs);
       if (run.status !== "running") return run;
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
     }
   },
-  transactions: (validOnly = false, channel?: string) => {
-    const params = new URLSearchParams({ valid_only: String(validOnly) });
+  transactions: (validOnly = false, channel?: string, limit = 50) => {
+    const params = new URLSearchParams({ valid_only: String(validOnly), limit: String(limit) });
     if (channel) params.set("channel", channel);
     return request<StagingTransaction[]>(`/api/v1/staging/transactions?${params}`);
   },

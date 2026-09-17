@@ -47,7 +47,10 @@ export function ExtractionProgressBanner({
           </div>
           <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-content-muted">
             <span>
-              Entered <span className="font-medium text-content">{formatNumber(progress?.staged ?? run?.records_extracted ?? 0)}</span>
+              HTD legs <span className="font-medium text-content">{formatNumber(progress?.legs_fetched ?? 0)}</span>
+            </span>
+            <span>
+              Transactions <span className="font-medium text-content">{formatNumber(progress?.staged ?? run?.records_extracted ?? 0)}</span>
             </span>
             <span>
               Already in staging <span className="font-medium text-content">{formatNumber(progress?.skipped ?? 0)}</span>

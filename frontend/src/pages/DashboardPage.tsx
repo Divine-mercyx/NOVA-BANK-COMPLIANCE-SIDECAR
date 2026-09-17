@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { Play, Plus, RefreshCw } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Play, RefreshCw } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ExtractionProgressBanner } from "../components/ExtractionProgressBanner";
@@ -30,10 +30,9 @@ export function DashboardPage() {
   const [extractOpen, setExtractOpen] = useState(false);
   const [progressMessage, setProgressMessage] = useState<string | null>(null);
   const [runLogs, setRunLogs] = useState<ExtractionLog[]>([]);
-  const watchingId = useRef<string | null>(null);
 
-  const load = async () => {
-    setLoading(true);
+  const load = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       setData(await api.dashboard());
     } finally {
@@ -45,23 +44,21 @@ export function DashboardPage() {
     load();
   }, []);
 
+  const liveRunId =
+    data?.pipeline_status === "running" || data?.last_extraction?.status === "running"
+      ? data?.last_extraction?.id ?? null
+      : null;
+
   useEffect(() => {
-    const run = data?.last_extraction;
-    const active = data?.pipeline_status === "running" && run?.id;
-    if (!active) {
-      if (!starting) {
-        setRunning(false);
-        watchingId.current = null;
-      }
+    if (!liveRunId) {
+      if (!starting) setRunning(false);
       return;
     }
     setRunning(true);
-    setStarting(false);
-    if (watchingId.current === run.id) return;
-    watchingId.current = run.id;
     let cancelled = false;
-    void api
-      .waitForEtlRun(run.id, (updated, logs) => {
+    const tick = async () => {
+      try {
+        const [updated, logs] = await Promise.all([api.getRun(liveRunId), api.runLogs(liveRunId)]);
         if (cancelled) return;
         setRunLogs(logs);
         setProgressMessage(progressLabel(logs, null));
@@ -74,17 +71,22 @@ export function DashboardPage() {
               }
             : prev,
         );
-      })
-      .then(async () => {
-        if (cancelled) return;
-        watchingId.current = null;
-        setRunning(false);
-        await load();
-      });
+        if (updated.status !== "running") {
+          setStarting(false);
+          setRunning(false);
+          await load(true);
+        }
+      } catch {
+        /* run may not exist yet */
+      }
+    };
+    void tick();
+    const timer = window.setInterval(tick, 1000);
     return () => {
       cancelled = true;
+      window.clearInterval(timer);
     };
-  }, [data?.pipeline_status, data?.last_extraction?.id, starting]);
+  }, [liveRunId]);
 
   const runPipeline = async (params: ExtractionRunParams) => {
     setStarting(true);
@@ -114,12 +116,12 @@ export function DashboardPage() {
         title="Dashboard"
         subtitle={
           data
-            ? `Extract mode: ${extractModeLabel(data.finacle_mode)} · NFIU compliance pipeline`
-            : "NFIU compliance • Finacle ETL • Regulatory reporting"
+            ? `Extract mode: ${extractModeLabel(data.finacle_mode)}`
+            : "Finacle extraction and staging"
         }
         actions={
           <>
-            <button className="btn-secondary" onClick={load}>
+            <button className="btn-secondary" onClick={() => load(true)}>
               <RefreshCw className="h-4 w-4" />
               Refresh
             </button>
@@ -164,16 +166,16 @@ export function DashboardPage() {
               ringPercent={data.data_quality.validation_rate}
             />
             <KpiCard
-              label="Pending reports"
-              value={formatNumber(data.pending_reports)}
-              change={data.pending_reports > 0 ? "needs review" : "all clear"}
-              changeUp={data.pending_reports === 0}
+              label="CTR flagged"
+              value={formatNumber(data.data_quality.ctr_eligible)}
+              change={`${formatNumber(data.data_quality.ftr_eligible)} FTR`}
+              changeUp
             />
             <KpiCard
-              label="Submitted to NFIU"
-              value={formatNumber(data.submitted_reports)}
-              change="goAML portal"
-              changeUp={data.submitted_reports > 0}
+              label="PEP / STR"
+              value={`${formatNumber(data.data_quality.pep_eligible)} / ${formatNumber(data.data_quality.str_eligible)}`}
+              change="on staged rows"
+              changeUp
             />
             <KpiCard
               label="Validation rate"
@@ -186,8 +188,8 @@ export function DashboardPage() {
           <div className="grid gap-6 lg:grid-cols-3">
             <div className="card lg:col-span-2">
               <div className="border-b border-border px-5 py-4">
-                <h2 className="font-semibold text-content">Compliance readiness</h2>
-                <p className="text-sm text-content-muted">Staging quality and reportable transaction flags</p>
+                <h2 className="font-semibold text-content">Transaction flags</h2>
+                <p className="text-sm text-content-muted">Counts from flags stored on each staged Finacle row</p>
               </div>
               <div className="grid gap-4 p-5 sm:grid-cols-2">
                 <div className="flex items-center gap-4 rounded-lg bg-surface-overlay/40 p-4">
@@ -229,7 +231,7 @@ export function DashboardPage() {
                       <td className="px-5 py-3">{formatNumber(count as number)}</td>
                       <td className="px-5 py-3">
                         <Tag color={(count as number) > 0 ? "purple" : "gray"}>
-                          {(count as number) > 0 ? "Eligible" : "None"}
+                          {(count as number) > 0 ? "Flagged" : "None"}
                         </Tag>
                       </td>
                     </tr>
@@ -238,8 +240,7 @@ export function DashboardPage() {
               </table>
               <div className="flex justify-end gap-2 border-t border-border px-5 py-3">
                 <Link to="/reports" className="btn-primary">
-                  <Plus className="h-4 w-4" />
-                  Generate report
+                  View transactions
                 </Link>
               </div>
             </div>

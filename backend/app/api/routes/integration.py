@@ -26,6 +26,7 @@ from app.schemas.integration import (
     ScreeningCheckResponse,
 )
 from app.services.integration.export_service import ExportService
+from app.services.integration.period import export_period_params
 from app.services.integration.screening_check import ScreeningCheckService
 
 router = APIRouter(prefix="/api/v1/integration", tags=["integration"])
@@ -45,7 +46,12 @@ EXPORT_DOCS = [
     IntegrationEndpointDoc(
         method="GET",
         path="/api/v1/export/transactions",
-        summary="Pull translated transactions with NFIU payload (paginated)",
+        summary="Pull all staged transactions for a date range (date_from, date_to)",
+    ),
+    IntegrationEndpointDoc(
+        method="GET",
+        path="/api/v1/export/transactions/ctr",
+        summary="Pull NGN CTR transactions of ₦5,000,000 and above for a date range",
     ),
     IntegrationEndpointDoc(
         method="GET",
@@ -76,39 +82,68 @@ async def verify_partner_key(
 
 @partner_router.get("/summary", response_model=ExportSummaryResponse)
 async def export_summary(
-    period_start: datetime = Query(..., description="Inclusive start (ISO 8601, e.g. 2023-02-02T00:00:00+01:00)"),
-    period_end: datetime = Query(..., description="Inclusive end (ISO 8601)"),
+    period: tuple[datetime, datetime] = Depends(export_period_params),
     client: ApiKey = Depends(get_api_client),
     db: AsyncSession = Depends(get_db),
 ):
-    if period_start > period_end:
-        raise HTTPException(400, "period_start must be on or before period_end")
+    period_start, period_end = period
     return await ExportService(db).summary(period_start, period_end)
 
 
 @partner_router.get("/transactions", response_model=ExportTransactionsResponse)
 async def export_transactions(
-    period_start: datetime = Query(...),
-    period_end: datetime = Query(...),
-    report_type: ReportType | None = Query(None, description="Filter: CTR, FTR, PEP, or STR"),
-    valid_only: bool = Query(True),
+    period: tuple[datetime, datetime] = Depends(export_period_params),
+    valid_only: bool = Query(False, description="If true, skip invalid staged rows"),
     channel: str | None = Query(None, description="Optional channel filter, e.g. NIP or RTGS"),
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
     client: ApiKey = Depends(get_api_client),
     db: AsyncSession = Depends(get_db),
 ):
-    if period_start > period_end:
-        raise HTTPException(400, "period_start must be on or before period_end")
-    channel_filter = None
-    if channel:
-        try:
-            channel_filter = TransactionChannel(channel.upper())
-        except ValueError as exc:
-            raise HTTPException(400, f"Unknown channel: {channel}") from exc
+    period_start, period_end = period
+    channel_filter = _parse_channel(channel)
     return await ExportService(db).list_transactions(
-        period_start, period_end, report_type, valid_only, channel_filter, limit, offset
+        period_start,
+        period_end,
+        valid_only=valid_only,
+        channel=channel_filter,
+        limit=limit,
+        offset=offset,
+        scope="all",
     )
+
+
+@partner_router.get("/transactions/ctr", response_model=ExportTransactionsResponse)
+async def export_ctr_transactions(
+    period: tuple[datetime, datetime] = Depends(export_period_params),
+    valid_only: bool = Query(False),
+    channel: str | None = Query(None),
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    client: ApiKey = Depends(get_api_client),
+    db: AsyncSession = Depends(get_db),
+):
+    """NGN staged transactions at or above the CTR amount cap (default ₦5,000,000)."""
+    period_start, period_end = period
+    channel_filter = _parse_channel(channel)
+    return await ExportService(db).list_transactions(
+        period_start,
+        period_end,
+        valid_only=valid_only,
+        channel=channel_filter,
+        limit=limit,
+        offset=offset,
+        scope="ctr",
+    )
+
+
+def _parse_channel(channel: str | None) -> TransactionChannel | None:
+    if not channel:
+        return None
+    try:
+        return TransactionChannel(channel.upper())
+    except ValueError as exc:
+        raise HTTPException(400, f"Unknown channel: {channel}") from exc
 
 
 @partner_router.get("/transactions/{finacle_ref}", response_model=ExportedTransaction)
@@ -170,9 +205,9 @@ async def integration_info(_: User = Depends(get_current_user)):
         openapi_url=f"{settings.api_base_url}/docs",
         finacle_mode=settings.finacle_mode,
         purpose=(
-            "Nova Compliance Sidecar exposes translated, NFIU-ready transactions for Nova Bank IT "
-            "to pull and file. The sidecar extracts from Finacle (HTD/GAM), validates, flags CTR/FTR/PEP/STR, "
-            "and stages results — partners pull via API key; they do not push raw data in."
+            "Nova Bank IT pulls staged Finacle transactions with X-API-Key. "
+            "GET /export/transactions for the full date range; "
+            "GET /export/transactions/ctr for NGN amounts of ₦5,000,000 and above."
         ),
         auth_header="X-API-Key",
         endpoints=EXPORT_DOCS,

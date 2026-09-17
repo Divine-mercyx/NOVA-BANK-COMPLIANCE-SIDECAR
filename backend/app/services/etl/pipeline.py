@@ -363,8 +363,8 @@ class ETLPipeline:
         legs = f"{legs_fetched}/{legs_total}" if legs_total is not None else str(legs_fetched)
         return (
             f"PROGRESS {json.dumps(payload, separators=(',', ':'))} "
-            f"{day_index}/{days} {day} page {page} · legs {legs} · "
-            f"entered {staged} · skipped {skipped} · invalid {invalid}"
+            f"{day_index}/{days} {day} page {page} · {legs} HTD legs → {staged} transactions "
+            f"(entered {staged}, already in staging {skipped}, invalid {invalid})"
         )
 
     async def _load_records(

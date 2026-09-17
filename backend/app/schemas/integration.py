@@ -37,6 +37,8 @@ class ExportMeta(BaseModel):
     period_start: datetime
     period_end: datetime
     report_type: str | None = None
+    scope: str = "all"
+    ctr_threshold_ngn: float | None = None
     total_matching: int
     returned: int
     offset: int

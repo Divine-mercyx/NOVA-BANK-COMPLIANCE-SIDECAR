@@ -5,8 +5,12 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from pathlib import Path
 
+from typing import Literal
+
 from sqlalchemy import and_, desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.config import settings
 
 from app.models.entities import RegulatoryReport, ReportType, StagingTransaction, TransactionChannel
 from app.schemas.integration import (
@@ -70,17 +74,21 @@ class ExportService:
         period_start: datetime,
         period_end: datetime,
         report_type: ReportType | None = None,
-        valid_only: bool = True,
+        valid_only: bool = False,
         channel: TransactionChannel | None = None,
         limit: int = 100,
         offset: int = 0,
+        scope: Literal["all", "ctr"] = "all",
     ) -> ExportTransactionsResponse:
         filters = list(self._period_filters(period_start, period_end))
         if valid_only:
             filters.append(StagingTransaction.is_valid.is_(True))
         if channel:
             filters.append(StagingTransaction.channel == channel)
-        if report_type:
+        if scope == "ctr":
+            filters.append(StagingTransaction.currency == "NGN")
+            filters.append(StagingTransaction.amount >= settings.ctr_threshold_ngn)
+        elif report_type:
             filters.append(self._flag_column(report_type).is_(True))
 
         count_stmt = select(func.count()).select_from(StagingTransaction).where(and_(*filters))
@@ -100,7 +108,9 @@ class ExportService:
             meta=ExportMeta(
                 period_start=period_start,
                 period_end=period_end,
-                report_type=report_type.value if report_type else None,
+                report_type="CTR" if scope == "ctr" else (report_type.value if report_type else None),
+                scope=scope,
+                ctr_threshold_ngn=settings.ctr_threshold_ngn if scope == "ctr" else None,
                 total_matching=total,
                 returned=len(rows),
                 offset=offset,

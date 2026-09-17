@@ -28,7 +28,7 @@ const reportingNav = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
   { to: "/extraction", label: "Extraction", icon: Activity },
   { to: "/quality", label: "Data Quality", icon: BarChart3 },
-  { to: "/reports", label: "Reports", icon: FileText },
+  { to: "/reports", label: "Transactions", icon: FileText },
   { to: "/audit", label: "Audit Trail", icon: ClipboardList },
   { to: "/users", label: "Team", icon: Users },
 ];

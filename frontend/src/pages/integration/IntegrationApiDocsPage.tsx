@@ -16,8 +16,6 @@ import {
 } from "../../lib/dates";
 import { buildExportCurl, loadPartnerApiKey, partnerGet, savePartnerApiKey, type PartnerRequestResult } from "../../lib/partnerApi";
 
-type ReportFilter = "" | "CTR" | "FTR" | "PEP" | "STR";
-
 type EndpointSection = "start" | "transactions" | "reports";
 
 interface EndpointDef {
@@ -60,7 +58,6 @@ export function IntegrationApiDocsPage() {
   const [showKey, setShowKey] = useState(false);
   const [periodFrom, setPeriodFrom] = useState<CalendarDate>(() => defaultRange().from);
   const [periodTo, setPeriodTo] = useState<CalendarDate>(() => defaultRange().to);
-  const [reportType, setReportType] = useState<ReportFilter>("CTR");
   const [finacleRef, setFinacleRef] = useState("");
   const [reportId, setReportId] = useState("");
   const [activeId, setActiveId] = useState("verify");
@@ -83,7 +80,7 @@ export function IntegrationApiDocsPage() {
 
   const periodParams = useMemo(() => {
     const { date_from, date_to } = buildExtractionParams(periodFrom, periodTo);
-    return { period_start: date_from, period_end: date_to };
+    return { date_from, date_to };
   }, [periodFrom, periodTo]);
 
   const persistKey = (value: string) => {
@@ -127,8 +124,8 @@ export function IntegrationApiDocsPage() {
       title: "Export summary",
       description: "Counts of valid and report-eligible transactions for your selected period.",
       params: [
-        { name: "period_start", required: true, hint: "ISO 8601 start" },
-        { name: "period_end", required: true, hint: "ISO 8601 end" },
+        { name: "date_from", required: true, hint: "YYYY-MM-DD or ISO datetime" },
+        { name: "date_to", required: true, hint: "Inclusive end date" },
       ],
       run: async () => execute("summary", "/api/v1/export/summary", periodParams),
     },
@@ -137,32 +134,40 @@ export function IntegrationApiDocsPage() {
       section: "transactions",
       method: "GET",
       path: "/api/v1/export/transactions",
-      title: "Pull translated transactions",
-      description: "Primary endpoint. Returns paginated records with full nfiu_payload for NFIU filing.",
+      title: "All staged transactions",
+      description: "Paginated pull of every staged Finacle transaction in the date range.",
       params: [
-        { name: "period_start", required: true, hint: "Match extraction dates" },
-        { name: "period_end", required: true, hint: "Match extraction dates" },
-        { name: "report_type", hint: "CTR | FTR | PEP | STR" },
+        { name: "date_from", required: true, hint: "YYYY-MM-DD or ISO datetime" },
+        { name: "date_to", required: true, hint: "Inclusive end date" },
         { name: "limit", hint: "Max 500 (default 100)" },
         { name: "offset", hint: "Pagination offset" },
       ],
       run: async () =>
         execute("transactions", "/api/v1/export/transactions", {
           ...periodParams,
-          report_type: reportType || undefined,
-          valid_only: true,
           limit: 25,
           offset: 0,
         }),
-      controls: (
-        <select className="input w-full text-sm" value={reportType} onChange={(e) => setReportType(e.target.value as ReportFilter)}>
-          <option value="">All valid transactions</option>
-          <option value="CTR">CTR eligible only</option>
-          <option value="FTR">FTR eligible only</option>
-          <option value="PEP">PEP eligible only</option>
-          <option value="STR">STR eligible only</option>
-        </select>
-      ),
+    },
+    {
+      id: "transactions-ctr",
+      section: "transactions",
+      method: "GET",
+      path: "/api/v1/export/transactions/ctr",
+      title: "CTR ₦5m and above",
+      description: "Same date range, but only NGN rows with amount ≥ ₦5,000,000.",
+      params: [
+        { name: "date_from", required: true, hint: "YYYY-MM-DD or ISO datetime" },
+        { name: "date_to", required: true, hint: "Inclusive end date" },
+        { name: "limit", hint: "Max 500 (default 100)" },
+        { name: "offset", hint: "Pagination offset" },
+      ],
+      run: async () =>
+        execute("transactions-ctr", "/api/v1/export/transactions/ctr", {
+          ...periodParams,
+          limit: 25,
+          offset: 0,
+        }),
     },
     {
       id: "transaction-one",
@@ -250,8 +255,7 @@ export function IntegrationApiDocsPage() {
               </div>
               <h1 className="text-2xl font-bold tracking-tight text-content sm:text-3xl">Pull translated compliance data</h1>
               <p className="mt-2 max-w-2xl text-sm text-content-muted">
-                Finacle transactions are extracted, validated, and translated by the sidecar. Your team pulls NFIU-ready
-                payloads — no push or ingest required.
+                Finacle rows are staged here. Pull all transactions for a date range, or only CTR (₦5m+ NGN).
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -399,8 +403,8 @@ export function IntegrationApiDocsPage() {
                 ? undefined
                 : ep.id === "transaction-one" || ep.id === "download"
                   ? undefined
-                  : ep.id === "transactions"
-                    ? { ...periodParams, report_type: reportType || undefined, limit: 25 }
+                  : ep.id === "transactions" || ep.id === "transactions-ctr" || ep.id === "summary"
+                    ? { ...periodParams, limit: 25 }
                     : { ...periodParams, limit: 20 },
             );
 

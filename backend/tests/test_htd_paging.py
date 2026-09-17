@@ -48,9 +48,9 @@ def test_progress_message_includes_counts():
     )
     assert message.startswith("PROGRESS {")
     assert "entered 20" in message
-    assert "skipped 3" in message
+    assert "already in staging 3" in message
     assert "invalid 1" in message
-    assert "56/1286" in message
+    assert "56/1286 HTD legs → 20 transactions" in message
 
 
 def test_progress_message_without_count_total():
@@ -66,6 +66,5 @@ def test_progress_message_without_count_total():
         invalid=0,
         valid=0,
     )
-    assert "legs 350" in message
-    assert "already in staging" not in message
-    assert "skipped 177" in message
+    assert "350 HTD legs → 0 transactions" in message
+    assert "already in staging 177" in message

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Activity, Play, RefreshCw } from "lucide-react";
 import { ExtractionProgressBanner } from "../components/ExtractionProgressBanner";
 import { ExtractionRunModal } from "../components/ExtractionRunModal";
@@ -22,6 +22,7 @@ export function ExtractionPage() {
   const [finacleMode, setFinacleMode] = useState<string | undefined>();
   const [progressMessage, setProgressMessage] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const logEndRef = useRef<HTMLDivElement | null>(null);
 
   const load = async () => {
     try {
@@ -67,7 +68,11 @@ export function ExtractionPage() {
         const [run, runLogs] = await Promise.all([api.getRun(selected), api.runLogs(selected)]);
         if (cancelled) return;
         setLogs(runLogs);
-        setRuns((prev) => prev.map((r) => (r.id === run.id ? run : r)));
+        setRuns((prev) => {
+          const exists = prev.some((r) => r.id === run.id);
+          if (!exists) return [run, ...prev];
+          return prev.map((r) => (r.id === run.id ? run : r));
+        });
         const last = runLogs[runLogs.length - 1];
         if (last && run.status === "running") setProgressMessage(displayLogMessage(last.message));
       } catch {
@@ -76,12 +81,16 @@ export function ExtractionPage() {
     };
 
     poll();
-    const timer = window.setInterval(poll, running ? 1000 : 2000);
+    const timer = window.setInterval(poll, 1000);
     return () => {
       cancelled = true;
       window.clearInterval(timer);
     };
   }, [selected, running]);
+
+  useEffect(() => {
+    logEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [logs]);
 
   const runPipeline = async (params: ExtractionRunParams) => {
     setStarting(true);
@@ -194,7 +203,8 @@ export function ExtractionPage() {
               {activeRun && (
                 <div className="mt-2 flex flex-wrap gap-2">
                   <Tag color="purple">{formatDateRange(activeRun.date_from, activeRun.date_to)}</Tag>
-                  <Tag color="gray">{formatNumber(activeRun.records_extracted)} entered</Tag>
+                  <Tag color="gray">{formatNumber(progress?.legs_fetched ?? 0)} HTD legs</Tag>
+                  <Tag color="gray">{formatNumber(activeRun.records_extracted)} transactions</Tag>
                   <Tag color="gray">{formatNumber(progress?.skipped ?? 0)} already in staging</Tag>
                   <Tag color="gray">{formatNumber(activeRun.records_valid)} valid</Tag>
                   <Tag color="gray">{formatNumber(activeRun.records_invalid)} invalid</Tag>
@@ -211,6 +221,7 @@ export function ExtractionPage() {
                   <span className="text-content-muted">{displayLogMessage(log.message)}</span>
                 </div>
               ))}
+              <div ref={logEndRef} />
             </div>
           </div>
         </div>

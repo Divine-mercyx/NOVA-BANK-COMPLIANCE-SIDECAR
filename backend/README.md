@@ -80,8 +80,9 @@ See [docs/finacle/FIELD_MAPPING.md](../docs/finacle/FIELD_MAPPING.md).
 Nova Bank IT pulls translated, NFIU-ready transactions using `X-API-Key` (create keys in the portal).
 
 - `GET /api/v1/export/verify` — validate API key
-- `GET /api/v1/export/summary` — eligibility counts for a date range
-- `GET /api/v1/export/transactions` — paginated pull with `nfiu_payload`
+- `GET /api/v1/export/summary?date_from=&date_to=` — counts for a date range
+- `GET /api/v1/export/transactions?date_from=&date_to=` — all staged transactions (paginated)
+- `GET /api/v1/export/transactions/ctr?date_from=&date_to=` — NGN CTR of ₦5,000,000 and above
 - `GET /api/v1/export/transactions/{finacle_ref}` — single transaction
 - `GET /api/v1/export/reports` — list generated reports
 - `GET /api/v1/export/reports/{id}/download?format=xml|csv` — download report file
