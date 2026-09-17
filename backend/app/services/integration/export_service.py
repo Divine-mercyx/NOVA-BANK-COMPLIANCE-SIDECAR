@@ -15,14 +15,12 @@ from app.models.entities import RegulatoryReport, ReportType, StagingTransaction
 from app.schemas.integration import (
     ExportMeta,
     ExportedReportSummary,
-    ExportedTransaction,
     ExportReportsResponse,
     ExportSummaryResponse,
-    ExportTransactionsResponse,
-    NfiuCtrExportResponse,
-    ReportFlags,
+    NfiuTransactionRow,
+    NfiuTransactionsResponse,
 )
-from app.services.integration.ctr_nfiu import map_ctr_row
+from app.services.integration.ctr_nfiu import map_nfiu_row
 
 EXPORT_UNBOUNDED_CAP = 50_000
 
@@ -90,7 +88,7 @@ class ExportService:
         limit: int | None = None,
         offset: int = 0,
         scope: Literal["all", "ctr"] = "all",
-    ) -> ExportTransactionsResponse | NfiuCtrExportResponse:
+    ) -> NfiuTransactionsResponse:
         filters = list(self._period_filters(period_start, period_end))
         if valid_only:
             filters.append(StagingTransaction.is_valid.is_(True))
@@ -128,16 +126,14 @@ class ExportService:
             limit=limit,
             generated_at=datetime.now(timezone.utc),
         )
-        if scope == "ctr":
-            return NfiuCtrExportResponse(meta=meta, transactions=[map_ctr_row(tx) for tx in rows])
-        return ExportTransactionsResponse(meta=meta, transactions=[self._serialize(tx) for tx in rows])
+        return NfiuTransactionsResponse(meta=meta, transactions=[map_nfiu_row(tx) for tx in rows])
 
-    async def get_transaction(self, finacle_ref: str) -> ExportedTransaction | None:
+    async def get_transaction(self, finacle_ref: str) -> NfiuTransactionRow | None:
         result = await self.db.execute(
             select(StagingTransaction).where(StagingTransaction.finacle_ref == finacle_ref)
         )
         row = result.scalar_one_or_none()
-        return self._serialize(row) if row else None
+        return map_nfiu_row(row) if row else None
 
     async def list_reports(
         self,
@@ -193,32 +189,6 @@ class ExportService:
             return None
 
         return Path(path).read_text(encoding="utf-8"), media, filename
-
-    def _serialize(self, tx: StagingTransaction) -> ExportedTransaction:
-        payload = tx.nfiu_payload or {}
-        return ExportedTransaction(
-            id=tx.id,
-            finacle_ref=tx.finacle_ref,
-            channel=tx.channel.value,
-            transaction_date=tx.transaction_date,
-            amount=tx.amount,
-            currency=tx.currency,
-            sender_name=tx.sender_name,
-            sender_account=tx.sender_account,
-            receiver_name=tx.receiver_name,
-            receiver_account=tx.receiver_account or "",
-            branch_code=tx.branch_code,
-            narration=tx.narration,
-            is_valid=tx.is_valid,
-            validation_errors=tx.validation_errors,
-            report_flags=ReportFlags(
-                ctr=tx.reportable_ctr,
-                ftr=tx.reportable_ftr,
-                pep=tx.reportable_pep,
-                str=tx.reportable_str,
-            ),
-            nfiu_payload=payload,
-        )
 
     def _period_filters(self, period_start: datetime, period_end: datetime) -> list:
         return [

@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from types import SimpleNamespace
 
 from app.models.entities import TransactionChannel
-from app.services.integration.ctr_nfiu import map_ctr_row
+from app.services.integration.ctr_nfiu import map_nfiu_row
 
 
 def test_ctr_row_matches_nfiu_sample_columns():
@@ -18,7 +18,7 @@ def test_ctr_row_matches_nfiu_sample_columns():
         narration="RTGS INWARD",
         channel=TransactionChannel.RTGS,
     )
-    row = map_ctr_row(tx)
+    row = map_nfiu_row(tx)
     data = row.model_dump()
     assert list(data)[:5] == [
         "t_account_number",

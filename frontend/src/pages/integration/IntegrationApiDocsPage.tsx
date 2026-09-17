@@ -149,7 +149,8 @@ export function IntegrationApiDocsPage() {
       method: "GET",
       path: "/api/v1/export/transactions",
       title: "All staged transactions",
-      description: "Every staged Finacle transaction in the date range. Omit limit to return all matching rows.",
+      description:
+        "Every staged Finacle transaction in the date range, in the NFIU sample-data column layout (same as CTR).",
       params: [
         { name: "date_from", required: true, hint: "YYYY-MM-DD or ISO datetime" },
         { name: "date_to", required: true, hint: "Inclusive end date" },
@@ -165,7 +166,7 @@ export function IntegrationApiDocsPage() {
       path: "/api/v1/export/transactions/ctr",
       title: "CTR ₦5m and above",
       description:
-        "NGN rows with amount ≥ ₦5,000,000, returned in the NFIU CTR sample-data column layout (t_account_number, Tran_Type, …).",
+        "Same NFIU columns as the full pull, filtered to NGN rows with amount ≥ ₦5,000,000.",
       params: [
         { name: "date_from", required: true, hint: "YYYY-MM-DD or ISO datetime" },
         { name: "date_to", required: true, hint: "Inclusive end date" },
@@ -180,7 +181,7 @@ export function IntegrationApiDocsPage() {
       method: "GET",
       path: "/api/v1/export/transactions/{finacle_ref}",
       title: "Single transaction",
-      description: "Lookup one staged transaction by Finacle reference.",
+      description: "Lookup one staged transaction by Finacle reference, in the same NFIU column layout.",
       run: async () => {
         if (!finacleRef.trim()) {
           setResponses((prev) => ({
@@ -260,7 +261,7 @@ export function IntegrationApiDocsPage() {
               </div>
               <h1 className="text-2xl font-bold tracking-tight text-content sm:text-3xl">Pull translated compliance data</h1>
               <p className="mt-2 max-w-2xl text-sm text-content-muted">
-                Finacle rows are staged here. Pull all transactions for a date range, or only CTR (₦5m+ NGN).
+                Finacle rows are staged here. Pulls use NFIU sample-data columns — all transactions, or only CTR (₦5m+ NGN).
               </p>
             </div>
             <div className="flex flex-wrap gap-2">

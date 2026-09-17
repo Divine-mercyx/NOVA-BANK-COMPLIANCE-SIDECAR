@@ -17,11 +17,10 @@ from app.schemas.integration import (
     ApiKeyOut,
     ExportReportsResponse,
     ExportSummaryResponse,
-    ExportTransactionsResponse,
-    ExportedTransaction,
     IntegrationEndpointDoc,
     IntegrationInfo,
-    NfiuCtrExportResponse,
+    NfiuTransactionRow,
+    NfiuTransactionsResponse,
     PartnerVerifyResponse,
     ScreeningCheckRequest,
     ScreeningCheckResponse,
@@ -47,7 +46,7 @@ EXPORT_DOCS = [
     IntegrationEndpointDoc(
         method="GET",
         path="/api/v1/export/transactions",
-        summary="Pull all staged transactions for a date range (date_from, date_to)",
+        summary="Pull all staged transactions in the NFIU sample-data column layout",
     ),
     IntegrationEndpointDoc(
         method="GET",
@@ -91,7 +90,7 @@ async def export_summary(
     return await ExportService(db).summary(period_start, period_end)
 
 
-@partner_router.get("/transactions", response_model=ExportTransactionsResponse)
+@partner_router.get("/transactions", response_model=NfiuTransactionsResponse)
 async def export_transactions(
     period: tuple[datetime, datetime] = Depends(export_period_params),
     valid_only: bool = Query(False, description="If true, skip invalid staged rows"),
@@ -119,7 +118,7 @@ async def export_transactions(
     )
 
 
-@partner_router.get("/transactions/ctr", response_model=NfiuCtrExportResponse)
+@partner_router.get("/transactions/ctr", response_model=NfiuTransactionsResponse)
 async def export_ctr_transactions(
     period: tuple[datetime, datetime] = Depends(export_period_params),
     valid_only: bool = Query(False),
@@ -157,7 +156,7 @@ def _parse_channel(channel: str | None) -> TransactionChannel | None:
         raise HTTPException(400, f"Unknown channel: {channel}") from exc
 
 
-@partner_router.get("/transactions/{finacle_ref}", response_model=ExportedTransaction)
+@partner_router.get("/transactions/{finacle_ref}", response_model=NfiuTransactionRow)
 async def export_transaction(
     finacle_ref: str,
     client: ApiKey = Depends(get_api_client),
@@ -217,8 +216,8 @@ async def integration_info(_: User = Depends(get_current_user)):
         finacle_mode=settings.finacle_mode,
         purpose=(
             "Nova Bank IT pulls staged Finacle transactions with X-API-Key. "
-            "GET /export/transactions for the full date range; "
-            "GET /export/transactions/ctr for NFIU CTR rows (NGN ₦5,000,000 and above)."
+            "GET /export/transactions for the full date range in NFIU sample-data columns; "
+            "GET /export/transactions/ctr for the same layout filtered to NGN ₦5,000,000 and above."
         ),
         auth_header="X-API-Key",
         endpoints=EXPORT_DOCS,

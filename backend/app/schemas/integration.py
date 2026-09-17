@@ -7,32 +7,6 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.models.entities import ReportType
 
 
-class ReportFlags(BaseModel):
-    ctr: bool
-    ftr: bool
-    pep: bool
-    str: bool
-
-
-class ExportedTransaction(BaseModel):
-    id: str
-    finacle_ref: str
-    channel: str
-    transaction_date: datetime
-    amount: float
-    currency: str
-    sender_name: str
-    sender_account: str
-    receiver_name: str
-    receiver_account: str
-    branch_code: str | None = None
-    narration: str | None = None
-    is_valid: bool
-    validation_errors: list | None = None
-    report_flags: ReportFlags
-    nfiu_payload: dict = Field(..., description="NFIU-ready translated transaction payload")
-
-
 class ExportMeta(BaseModel):
     period_start: datetime
     period_end: datetime
@@ -49,8 +23,8 @@ class ExportMeta(BaseModel):
     generated_at: datetime
 
 
-class NfiuCtrRow(BaseModel):
-    """Column layout from NFIU CTR SAMPLE DATA NOVA.xlsx."""
+class NfiuTransactionRow(BaseModel):
+    """NFIU sample-data columns (CTR SAMPLE DATA NOVA.xlsx), used for all export pulls."""
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -100,14 +74,9 @@ class NfiuCtrRow(BaseModel):
     Tran_Type: str
 
 
-class ExportTransactionsResponse(BaseModel):
+class NfiuTransactionsResponse(BaseModel):
     meta: ExportMeta
-    transactions: list[ExportedTransaction]
-
-
-class NfiuCtrExportResponse(BaseModel):
-    meta: ExportMeta
-    transactions: list[NfiuCtrRow]
+    transactions: list[NfiuTransactionRow]
 
 
 class ExportSummaryResponse(BaseModel):

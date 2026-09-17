@@ -99,6 +99,10 @@ def main() -> int:
         {"date_from": period_start, "date_to": period_end, "limit": 5},
     )
     print(f"✓ All staged: {len(all_txns.get('transactions', []))} (total {all_txns['meta']['total_matching']})")
+    if all_txns.get("transactions"):
+        sample_all = all_txns["transactions"][0]
+        assert "t_account_number" in sample_all
+        assert "Tran_Type" in sample_all
 
     ctr_txns = partner_get(
         "/api/v1/export/transactions/ctr",

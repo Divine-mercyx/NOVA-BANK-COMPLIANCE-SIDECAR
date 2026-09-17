@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from app.models.entities import StagingTransaction
-from app.schemas.integration import NfiuCtrRow
+from app.schemas.integration import NfiuTransactionRow
 
 NOVA_INSTITUTION_CODE = "60003"
 NOVA_INSTITUTION_NAME = "NOVA BANK"
@@ -77,14 +77,14 @@ def _tran_type(channel: str) -> str:
     return mapping.get(channel, channel)
 
 
-def map_ctr_row(tx: StagingTransaction) -> NfiuCtrRow:
-    """One NFIU CTR sample-data row. Fields we do not have from HTD use Nova defaults."""
+def map_nfiu_row(tx: StagingTransaction) -> NfiuTransactionRow:
+    """One NFIU sample-data row. Fields we do not have from HTD use Nova defaults."""
     date_s = _iso_date(tx.transaction_date)
     source = _party_fields("source", tx.sender_name or "", tx.sender_account or "")
     dest = _party_fields("dest", tx.receiver_name or "", tx.receiver_account or "")
     branch = tx.branch_code or ""
     location = "HEAD OFFICE BRANCH" if branch in {"001", "1", ""} else branch
-    return NfiuCtrRow.model_validate(
+    return NfiuTransactionRow.model_validate(
         {
             "t_account_number": tx.receiver_account or tx.sender_account or "",
             "t_trans_number": tx.finacle_ref,
@@ -106,3 +106,6 @@ def map_ctr_row(tx: StagingTransaction) -> NfiuCtrRow:
             "Tran_Type": _tran_type(tx.channel.value if hasattr(tx.channel, "value") else str(tx.channel)),
         }
     )
+
+
+map_ctr_row = map_nfiu_row
