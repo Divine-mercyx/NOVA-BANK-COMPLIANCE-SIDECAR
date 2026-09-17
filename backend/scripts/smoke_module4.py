@@ -109,9 +109,11 @@ def main() -> int:
     print(f"✓ CTR ≥ ₦5m: {count} (total matching {ctr_txns['meta']['total_matching']})")
     if count:
         sample = ctr_txns["transactions"][0]
-        assert sample["amount"] >= 5_000_000, "CTR pull returned amount below ₦5,000,000"
-        assert sample["currency"] == "NGN"
-        print(f"  Sample ref: {sample['finacle_ref']} amount={sample['amount']}")
+        assert sample["t_amount_local"] >= 5_000_000, "CTR pull returned amount below ₦5,000,000"
+        assert sample["t_source_currency_code"] == "NGN"
+        assert "t_account_number" in sample
+        assert "Tran_Type" in sample
+        print(f"  Sample ref: {sample['t_trans_number']} amount={sample['t_amount_local']}")
 
     reports = partner_get("/api/v1/export/reports", api_key, {"limit": 5})
     print(f"✓ Reports listed: {reports['returned']}")

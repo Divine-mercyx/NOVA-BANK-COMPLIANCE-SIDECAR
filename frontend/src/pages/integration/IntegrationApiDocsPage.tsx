@@ -60,6 +60,7 @@ export function IntegrationApiDocsPage() {
   const [periodTo, setPeriodTo] = useState<CalendarDate>(() => defaultRange().to);
   const [finacleRef, setFinacleRef] = useState("");
   const [reportId, setReportId] = useState("");
+  const [pullLimit, setPullLimit] = useState("");
   const [activeId, setActiveId] = useState("verify");
   const [runningId, setRunningId] = useState<string | null>(null);
   const [responses, setResponses] = useState<Record<string, PartnerRequestResult>>({});
@@ -83,6 +84,19 @@ export function IntegrationApiDocsPage() {
     return { date_from, date_to };
   }, [periodFrom, periodTo]);
 
+  const parsedPullLimit = useMemo(() => {
+    const trimmed = pullLimit.trim();
+    if (!trimmed) return undefined;
+    const n = Number(trimmed);
+    if (!Number.isFinite(n) || n < 1) return undefined;
+    return Math.floor(n);
+  }, [pullLimit]);
+
+  const transactionQuery = useMemo(
+    () => ({ ...periodParams, limit: parsedPullLimit, offset: 0 }),
+    [periodParams, parsedPullLimit],
+  );
+
   const persistKey = (value: string) => {
     setApiKey(value);
     savePartnerApiKey(value);
@@ -93,7 +107,7 @@ export function IntegrationApiDocsPage() {
     if (!apiKey.trim()) {
       setResponses((prev) => ({
         ...prev,
-        [id]: { ok: false, status: 0, durationMs: 0, error: "Add your API key in the sidebar first.", url: path },
+        [id]: { ok: false, status: 0, durationMs: 0, error: "Add your API key in the credentials bar first.", url: path },
       }));
       return;
     }
@@ -135,19 +149,14 @@ export function IntegrationApiDocsPage() {
       method: "GET",
       path: "/api/v1/export/transactions",
       title: "All staged transactions",
-      description: "Paginated pull of every staged Finacle transaction in the date range.",
+      description: "Every staged Finacle transaction in the date range. Omit limit to return all matching rows.",
       params: [
         { name: "date_from", required: true, hint: "YYYY-MM-DD or ISO datetime" },
         { name: "date_to", required: true, hint: "Inclusive end date" },
-        { name: "limit", hint: "Max 500 (default 100)" },
-        { name: "offset", hint: "Pagination offset" },
+        { name: "limit", hint: "Optional. Omit for all rows (server cap 50,000). Fewer matches still return." },
+        { name: "offset", hint: "Pagination offset (default 0)" },
       ],
-      run: async () =>
-        execute("transactions", "/api/v1/export/transactions", {
-          ...periodParams,
-          limit: 25,
-          offset: 0,
-        }),
+      run: async () => execute("transactions", "/api/v1/export/transactions", transactionQuery),
     },
     {
       id: "transactions-ctr",
@@ -155,19 +164,15 @@ export function IntegrationApiDocsPage() {
       method: "GET",
       path: "/api/v1/export/transactions/ctr",
       title: "CTR ₦5m and above",
-      description: "Same date range, but only NGN rows with amount ≥ ₦5,000,000.",
+      description:
+        "NGN rows with amount ≥ ₦5,000,000, returned in the NFIU CTR sample-data column layout (t_account_number, Tran_Type, …).",
       params: [
         { name: "date_from", required: true, hint: "YYYY-MM-DD or ISO datetime" },
         { name: "date_to", required: true, hint: "Inclusive end date" },
-        { name: "limit", hint: "Max 500 (default 100)" },
-        { name: "offset", hint: "Pagination offset" },
+        { name: "limit", hint: "Optional. Omit for all CTR rows (server cap 50,000)." },
+        { name: "offset", hint: "Pagination offset (default 0)" },
       ],
-      run: async () =>
-        execute("transactions-ctr", "/api/v1/export/transactions/ctr", {
-          ...periodParams,
-          limit: 25,
-          offset: 0,
-        }),
+      run: async () => execute("transactions-ctr", "/api/v1/export/transactions/ctr", transactionQuery),
     },
     {
       id: "transaction-one",
@@ -307,7 +312,7 @@ export function IntegrationApiDocsPage() {
         <div className="grid gap-0 divide-y divide-border sm:grid-cols-3 sm:divide-x sm:divide-y-0">
           {[
             { n: 1, title: "Run extraction", body: "Dashboard → Run extraction (same dates you'll pull).", color: "text-violet-600" },
-            { n: 2, title: "Add API key", body: "Paste your nova_… key in the sidebar credentials panel.", color: "text-cyan-600" },
+            { n: 2, title: "Add API key", body: "Paste your nova_… key in the credentials bar below.", color: "text-cyan-600" },
             { n: 3, title: "Verify → Pull", body: "Try Verify, then Summary, then Pull transactions.", color: "text-amber-600" },
           ].map((step) => (
             <div key={step.n} className="flex gap-3 p-5">
@@ -323,44 +328,54 @@ export function IntegrationApiDocsPage() {
         </div>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[260px_minmax(0,1fr)_minmax(320px,380px)]">
-        {/* Sidebar nav + credentials */}
-        <aside className="space-y-4 xl:sticky xl:top-4 xl:self-start">
-          <div className="card overflow-hidden">
-            <div className="border-b border-border bg-gradient-to-r from-brand/10 to-transparent px-4 py-3">
-              <p className="text-xs font-semibold uppercase tracking-wider text-content-muted">Credentials</p>
+      <div className="card mb-6 overflow-hidden">
+        <div className="border-b border-border bg-gradient-to-r from-brand/10 to-transparent px-5 py-3">
+          <p className="text-xs font-semibold uppercase tracking-wider text-content-muted">Credentials &amp; period</p>
+        </div>
+        <div className="grid gap-6 p-5 lg:grid-cols-[minmax(240px,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(140px,180px)]">
+          <label className="block text-xs font-medium text-content-muted">
+            API key
+            <div className="relative mt-2">
+              <input
+                className="input w-full pr-16 font-mono text-xs"
+                type={showKey ? "text" : "password"}
+                value={apiKey}
+                onChange={(e) => persistKey(e.target.value)}
+                placeholder="nova_…"
+                autoComplete="off"
+              />
+              <button
+                type="button"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-medium text-brand"
+                onClick={() => setShowKey((v) => !v)}
+              >
+                {showKey ? "Hide" : "Show"}
+              </button>
             </div>
-            <div className="space-y-3 p-4">
-              <label className="block text-xs font-medium text-content-muted">
-                API key
-                <div className="relative mt-1">
-                  <input
-                    className="input w-full pr-16 font-mono text-xs"
-                    type={showKey ? "text" : "password"}
-                    value={apiKey}
-                    onChange={(e) => persistKey(e.target.value)}
-                    placeholder="nova_…"
-                    autoComplete="off"
-                  />
-                  <button
-                    type="button"
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-medium text-brand"
-                    onClick={() => setShowKey((v) => !v)}
-                  >
-                    {showKey ? "Hide" : "Show"}
-                  </button>
-                </div>
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                <DatePickerField label="From" value={periodFrom} onChange={setPeriodFrom} max={periodTo} />
-                <DatePickerField label="To" value={periodTo} onChange={setPeriodTo} min={periodFrom} />
-              </div>
-              <p className="text-[11px] leading-relaxed text-content-subtle">
-                Period: {formatCalendarDateLabel(periodFrom)} – {formatCalendarDateLabel(periodTo)}
-              </p>
-            </div>
-          </div>
+          </label>
+          <DatePickerField label="From" value={periodFrom} onChange={setPeriodFrom} max={periodTo} />
+          <DatePickerField label="To" value={periodTo} onChange={setPeriodTo} min={periodFrom} />
+          <label className="block text-xs font-medium text-content-muted">
+            Row limit
+            <input
+              className="input mt-2 w-full font-mono text-sm"
+              inputMode="numeric"
+              placeholder="All"
+              value={pullLimit}
+              onChange={(e) => setPullLimit(e.target.value.replace(/[^\d]/g, ""))}
+            />
+            <span className="mt-1.5 block text-[11px] font-normal leading-relaxed text-content-subtle">
+              Leave blank to fetch every matching row.
+            </span>
+          </label>
+        </div>
+        <p className="border-t border-border px-5 py-3 text-[11px] text-content-subtle">
+          Period {formatCalendarDateLabel(periodFrom)} – {formatCalendarDateLabel(periodTo)} (Africa/Lagos, inclusive)
+        </p>
+      </div>
 
+      <div className="grid gap-6 xl:grid-cols-[220px_minmax(0,1fr)_minmax(320px,380px)]">
+        <aside className="space-y-4 xl:sticky xl:top-4 xl:self-start">
           <nav className="card overflow-hidden">
             <div className="border-b border-border px-4 py-3">
               <p className="text-xs font-semibold uppercase tracking-wider text-content-muted">Endpoints</p>
@@ -403,9 +418,11 @@ export function IntegrationApiDocsPage() {
                 ? undefined
                 : ep.id === "transaction-one" || ep.id === "download"
                   ? undefined
-                  : ep.id === "transactions" || ep.id === "transactions-ctr" || ep.id === "summary"
-                    ? { ...periodParams, limit: 25 }
-                    : { ...periodParams, limit: 20 },
+                  : ep.id === "summary"
+                    ? periodParams
+                    : ep.id === "transactions" || ep.id === "transactions-ctr"
+                      ? transactionQuery
+                      : { ...periodParams, limit: 20 },
             );
 
             return (

@@ -21,11 +21,12 @@ from app.schemas.integration import (
     ExportedTransaction,
     IntegrationEndpointDoc,
     IntegrationInfo,
+    NfiuCtrExportResponse,
     PartnerVerifyResponse,
     ScreeningCheckRequest,
     ScreeningCheckResponse,
 )
-from app.services.integration.export_service import ExportService
+from app.services.integration.export_service import EXPORT_UNBOUNDED_CAP, ExportService
 from app.services.integration.period import export_period_params
 from app.services.integration.screening_check import ScreeningCheckService
 
@@ -51,7 +52,7 @@ EXPORT_DOCS = [
     IntegrationEndpointDoc(
         method="GET",
         path="/api/v1/export/transactions/ctr",
-        summary="Pull NGN CTR transactions of ₦5,000,000 and above for a date range",
+        summary="Pull NFIU CTR rows (₦5m+ NGN) in the goAML sample-data column layout",
     ),
     IntegrationEndpointDoc(
         method="GET",
@@ -95,7 +96,12 @@ async def export_transactions(
     period: tuple[datetime, datetime] = Depends(export_period_params),
     valid_only: bool = Query(False, description="If true, skip invalid staged rows"),
     channel: str | None = Query(None, description="Optional channel filter, e.g. NIP or RTGS"),
-    limit: int = Query(100, ge=1, le=500),
+    limit: int | None = Query(
+        None,
+        ge=1,
+        le=EXPORT_UNBOUNDED_CAP,
+        description="Max rows to return. Omit to fetch all matching rows (capped at 50,000).",
+    ),
     offset: int = Query(0, ge=0),
     client: ApiKey = Depends(get_api_client),
     db: AsyncSession = Depends(get_db),
@@ -113,12 +119,17 @@ async def export_transactions(
     )
 
 
-@partner_router.get("/transactions/ctr", response_model=ExportTransactionsResponse)
+@partner_router.get("/transactions/ctr", response_model=NfiuCtrExportResponse)
 async def export_ctr_transactions(
     period: tuple[datetime, datetime] = Depends(export_period_params),
     valid_only: bool = Query(False),
     channel: str | None = Query(None),
-    limit: int = Query(100, ge=1, le=500),
+    limit: int | None = Query(
+        None,
+        ge=1,
+        le=EXPORT_UNBOUNDED_CAP,
+        description="Max rows to return. Omit to fetch all matching CTR rows (capped at 50,000).",
+    ),
     offset: int = Query(0, ge=0),
     client: ApiKey = Depends(get_api_client),
     db: AsyncSession = Depends(get_db),
@@ -207,7 +218,7 @@ async def integration_info(_: User = Depends(get_current_user)):
         purpose=(
             "Nova Bank IT pulls staged Finacle transactions with X-API-Key. "
             "GET /export/transactions for the full date range; "
-            "GET /export/transactions/ctr for NGN amounts of ₦5,000,000 and above."
+            "GET /export/transactions/ctr for NFIU CTR rows (NGN ₦5,000,000 and above)."
         ),
         auth_header="X-API-Key",
         endpoints=EXPORT_DOCS,

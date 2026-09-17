@@ -11,7 +11,6 @@ from sqlalchemy import and_, desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-
 from app.models.entities import RegulatoryReport, ReportType, StagingTransaction, TransactionChannel
 from app.schemas.integration import (
     ExportMeta,
@@ -20,8 +19,12 @@ from app.schemas.integration import (
     ExportReportsResponse,
     ExportSummaryResponse,
     ExportTransactionsResponse,
+    NfiuCtrExportResponse,
     ReportFlags,
 )
+from app.services.integration.ctr_nfiu import map_ctr_row
+
+EXPORT_UNBOUNDED_CAP = 50_000
 
 
 class ExportService:
@@ -45,18 +48,26 @@ class ExportService:
         period_end: datetime,
     ) -> ExportSummaryResponse:
         base = self._period_filters(period_start, period_end)
-        total = await self._count(select(StagingTransaction).where(*base, StagingTransaction.is_valid.is_(True)))
+        total = await self._count(*base, StagingTransaction.is_valid.is_(True))
         ctr = await self._count(
-            select(StagingTransaction).where(*base, StagingTransaction.is_valid.is_(True), StagingTransaction.reportable_ctr.is_(True))
+            *base,
+            StagingTransaction.is_valid.is_(True),
+            StagingTransaction.reportable_ctr.is_(True),
         )
         ftr = await self._count(
-            select(StagingTransaction).where(*base, StagingTransaction.is_valid.is_(True), StagingTransaction.reportable_ftr.is_(True))
+            *base,
+            StagingTransaction.is_valid.is_(True),
+            StagingTransaction.reportable_ftr.is_(True),
         )
         pep = await self._count(
-            select(StagingTransaction).where(*base, StagingTransaction.is_valid.is_(True), StagingTransaction.reportable_pep.is_(True))
+            *base,
+            StagingTransaction.is_valid.is_(True),
+            StagingTransaction.reportable_pep.is_(True),
         )
         str_count = await self._count(
-            select(StagingTransaction).where(*base, StagingTransaction.is_valid.is_(True), StagingTransaction.reportable_str.is_(True))
+            *base,
+            StagingTransaction.is_valid.is_(True),
+            StagingTransaction.reportable_str.is_(True),
         )
         return ExportSummaryResponse(
             period_start=period_start,
@@ -76,10 +87,10 @@ class ExportService:
         report_type: ReportType | None = None,
         valid_only: bool = False,
         channel: TransactionChannel | None = None,
-        limit: int = 100,
+        limit: int | None = None,
         offset: int = 0,
         scope: Literal["all", "ctr"] = "all",
-    ) -> ExportTransactionsResponse:
+    ) -> ExportTransactionsResponse | NfiuCtrExportResponse:
         filters = list(self._period_filters(period_start, period_end))
         if valid_only:
             filters.append(StagingTransaction.is_valid.is_(True))
@@ -99,26 +110,27 @@ class ExportService:
             .where(and_(*filters))
             .order_by(desc(StagingTransaction.transaction_date), StagingTransaction.finacle_ref)
             .offset(offset)
-            .limit(limit)
         )
+        applied_limit = min(limit, EXPORT_UNBOUNDED_CAP) if limit is not None else EXPORT_UNBOUNDED_CAP
+        stmt = stmt.limit(applied_limit)
         result = await self.db.execute(stmt)
         rows = list(result.scalars().all())
 
-        return ExportTransactionsResponse(
-            meta=ExportMeta(
-                period_start=period_start,
-                period_end=period_end,
-                report_type="CTR" if scope == "ctr" else (report_type.value if report_type else None),
-                scope=scope,
-                ctr_threshold_ngn=settings.ctr_threshold_ngn if scope == "ctr" else None,
-                total_matching=total,
-                returned=len(rows),
-                offset=offset,
-                limit=limit,
-                generated_at=datetime.now(timezone.utc),
-            ),
-            transactions=[self._serialize(tx) for tx in rows],
+        meta = ExportMeta(
+            period_start=period_start,
+            period_end=period_end,
+            report_type="CTR" if scope == "ctr" else (report_type.value if report_type else None),
+            scope=scope,
+            ctr_threshold_ngn=settings.ctr_threshold_ngn if scope == "ctr" else None,
+            total_matching=total,
+            returned=len(rows),
+            offset=offset,
+            limit=limit,
+            generated_at=datetime.now(timezone.utc),
         )
+        if scope == "ctr":
+            return NfiuCtrExportResponse(meta=meta, transactions=[map_ctr_row(tx) for tx in rows])
+        return ExportTransactionsResponse(meta=meta, transactions=[self._serialize(tx) for tx in rows])
 
     async def get_transaction(self, finacle_ref: str) -> ExportedTransaction | None:
         result = await self.db.execute(
@@ -222,7 +234,8 @@ class ExportService:
             ReportType.STR: StagingTransaction.reportable_str,
         }[report_type]
 
-    async def _count(self, stmt) -> int:
+    async def _count(self, *filters) -> int:
+        stmt = select(func.count()).select_from(StagingTransaction).where(and_(*filters))
         return await self._scalar(stmt)
 
     async def _scalar(self, stmt) -> int:

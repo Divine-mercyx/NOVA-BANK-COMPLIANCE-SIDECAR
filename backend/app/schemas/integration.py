@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.entities import ReportType
 
@@ -42,13 +42,72 @@ class ExportMeta(BaseModel):
     total_matching: int
     returned: int
     offset: int
-    limit: int
+    limit: int | None = Field(
+        default=None,
+        description="Requested page size. Null means the caller omitted limit (all matching rows, server-capped).",
+    )
     generated_at: datetime
+
+
+class NfiuCtrRow(BaseModel):
+    """Column layout from NFIU CTR SAMPLE DATA NOVA.xlsx."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    t_account_number: str
+    t_trans_number: str
+    t_location: str
+    transaction_description: str
+    t_date: str
+    t_teller: str
+    t_authorized: str
+    t_late_deposit: int
+    t_date_posting: str
+    t_value_date: str
+    t_transmode_code: str
+    t_amount_local: float
+    t_source_client_type: int
+    t_source_type: str
+    t_source_funds_code: str
+    t_source_currency_code: str
+    t_source_foreign_amount: float
+    t_source_exchange_rate: float
+    t_source_country: str
+    t_source_institution_code: str
+    t_source_institution_name: str
+    t_source_account_number: str
+    t_source_account_name: str
+    t_source_person_first_name: str
+    t_source_person_last_name: str
+    t_source_entity_name: str
+    t_dest_client_type: int
+    t_dest_type: str
+    t_dest_funds_code: str
+    t_dest_currency_code: str
+    t_dest_foreign_amount: float
+    t_dest_exchange_rate: float
+    t_dest_country: str
+    t_dest_institution_code: str
+    t_dest_institution_name: str
+    t_dest_account_number: str
+    t_dest_account_name: str
+    t_dest_person_first_name: str
+    t_dest_person_last_name: str
+    t_dest_entity_name: str
+    processed_date: str
+    issues: str
+    branch_name: str
+    Tran_Type: str
 
 
 class ExportTransactionsResponse(BaseModel):
     meta: ExportMeta
     transactions: list[ExportedTransaction]
+
+
+class NfiuCtrExportResponse(BaseModel):
+    meta: ExportMeta
+    transactions: list[NfiuCtrRow]
 
 
 class ExportSummaryResponse(BaseModel):
