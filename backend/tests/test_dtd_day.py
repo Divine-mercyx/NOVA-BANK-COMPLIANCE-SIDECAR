@@ -3,6 +3,7 @@ from types import SimpleNamespace
 
 from app.services.etl.dtd_control import resolve_posted_since
 from app.services.etl.dtd_pipeline import lagos_day_bounds
+from app.services.etl.oracle_source import OracleSource, named_binds_for_sql
 
 
 def test_lagos_day_bounds_are_one_calendar_day():
@@ -28,3 +29,19 @@ def test_new_day_rescans_from_midnight():
     assert resolve_posted_since(state, day, rescan=False) == start_naive
     state.watermark_day = "2026-09-18"
     assert resolve_posted_since(state, day, rescan=True) == start_naive
+
+
+def test_dtd_page_binds_omit_date_from():
+    sql = OracleSource.DTD_PAGE_QUERY.format(admin_schema="TBAADM", page_size=50)
+    binds = named_binds_for_sql(
+        sql,
+        {
+            "date_from": datetime(2026, 9, 18),
+            "date_to_exclusive": datetime(2026, 9, 19),
+            "last_id": None,
+            "last_srl": 0,
+            "posted_since": datetime(2026, 9, 18, 12, 0),
+        },
+    )
+    assert "date_from" not in binds
+    assert set(binds) == {"posted_since", "date_to_exclusive", "last_id", "last_srl"}

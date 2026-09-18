@@ -28,6 +28,11 @@ HTD_RETRY_BACKOFF_SEC = (2, 5, 10, 20)
 HTD_BETWEEN_PAGES_SEC = 1
 
 
+def named_binds_for_sql(sql: str, params: dict) -> dict:
+    """oracledb raises ORA-01036 if extra named binds are passed."""
+    return {name: value for name, value in params.items() if f":{name}" in sql}
+
+
 @dataclass
 class HtdDayCursor:
     last_id: str | None = None
@@ -452,8 +457,9 @@ class OracleFinacleSource:
         }
         if extra_binds:
             params.update(extra_binds)
+        binds = named_binds_for_sql(sql, params)
         with conn.cursor() as cursor:
-            cursor.execute(sql, **params)
+            cursor.execute(sql, **binds)
             cols = [d[0].lower() for d in cursor.description]
             return [dict(zip(cols, row)) for row in cursor.fetchall()]
 
