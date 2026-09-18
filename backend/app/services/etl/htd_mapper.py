@@ -11,6 +11,7 @@ from typing import Any
 
 from app.schemas.compliance import RawTransaction, TransactionChannel
 from app.services.etl.customer_registry import CustomerRegistry
+from app.services.etl.institution import resolve_institution
 from app.services.etl.finacle_mappers import (
     normalize_account,
     parse_oracle_date,
@@ -106,6 +107,8 @@ def map_htd_transaction(
         receiver_name = _leg_name(receiver_row, customers) if receiver_row else "NOVA BANK"
 
     currency = _infer_currency(primary, debit, credit)
+    source_code, source_name = resolve_institution(sender_row)
+    dest_code, dest_name = resolve_institution(receiver_row)
 
     amount_val = float(primary.get("tran_amt") or primary.get("TRAN_AMT") or 0)
     ref_suffix = f"{amount_val:.2f}-{sender_acct}".replace(".", "")
@@ -123,6 +126,10 @@ def map_htd_transaction(
         sender_account=sender_acct,
         receiver_name=receiver_name,
         receiver_account=receiver_acct,
+        source_institution_code=source_code,
+        source_institution_name=source_name,
+        dest_institution_code=dest_code,
+        dest_institution_name=dest_name,
         branch_code=str(primary.get("sol_id") or primary.get("SOL_ID") or "001").strip()[:20],
         narration=particular or None,
     )

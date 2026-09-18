@@ -2,7 +2,7 @@
 
 from datetime import date, datetime
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator
 
 from app.models.entities import ReportType
 
@@ -185,15 +185,59 @@ class DtdTransactionOut(BaseModel):
     sender_account: str
     receiver_name: str
     receiver_account: str
+    source_institution_code: str = "60003"
+    source_institution_name: str = "NOVA BANK"
+    dest_institution_code: str = "60003"
+    dest_institution_name: str = "NOVA BANK"
     branch_code: str | None = None
     narration: str | None = None
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
     @field_validator("channel", mode="before")
     @classmethod
     def _channel_value(cls, value):
         return getattr(value, "value", value)
+
+    @computed_field
+    @property
+    def Source_Account_number(self) -> str:
+        return self.sender_account
+
+    @computed_field
+    @property
+    def Source_Account_name(self) -> str:
+        return self.sender_name
+
+    @computed_field
+    @property
+    def Source_institution_code(self) -> str:
+        return self.source_institution_code
+
+    @computed_field
+    @property
+    def Source_institution_name(self) -> str:
+        return self.source_institution_name
+
+    @computed_field
+    @property
+    def Dest_Account_number(self) -> str:
+        return self.receiver_account
+
+    @computed_field
+    @property
+    def Dest_Account_name(self) -> str:
+        return self.receiver_name
+
+    @computed_field
+    @property
+    def Dest_institution_code(self) -> str:
+        return self.dest_institution_code
+
+    @computed_field
+    @property
+    def Dest_institution_name(self) -> str:
+        return self.dest_institution_name
 
 
 class DtdExportMeta(BaseModel):

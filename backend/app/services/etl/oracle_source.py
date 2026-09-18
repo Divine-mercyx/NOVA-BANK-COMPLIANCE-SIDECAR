@@ -99,6 +99,7 @@ class OracleFinacleSource:
             TRAN_TYPE,
             TRAN_SUB_TYPE,
             SOL_ID,
+            BANK_CODE,
             ACID
         FROM {admin_schema}.HTD
         WHERE (
@@ -127,6 +128,7 @@ class OracleFinacleSource:
             TRAN_TYPE,
             TRAN_SUB_TYPE,
             SOL_ID,
+            BANK_CODE,
             ACID
         FROM {admin_schema}.DTD
         WHERE NVL(DEL_FLG, 'N') <> 'Y'

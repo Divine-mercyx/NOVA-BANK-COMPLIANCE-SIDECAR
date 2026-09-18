@@ -214,7 +214,7 @@ export function IntegrationApiDocsPage() {
       path: "/api/v1/export/dtd",
       title: "Daily DTD (same day)",
       description:
-        "Staged TBAADM.DTD (Day Transaction Detail) for one Lagos day. Start the 30-minute feed on Daily · Day Transaction Detail first. Plain JSON, not NFIU columns.",
+        "Staged TBAADM.DTD for one Lagos day. Debit/credit paired with GAM names. Institution comes from DTD BANK_CODE when Finacle fills it, otherwise Nova (60003). Vendor keys: Source_Account_number, Source_Account_name, Source_institution_code, Source_institution_name, Dest_*.",
       params: [
         { name: "date", hint: "YYYY-MM-DD. Omit = today (Africa/Lagos). One day only — not a range." },
         { name: "limit", hint: "Optional. Omit for all rows that day (server cap 50,000)." },

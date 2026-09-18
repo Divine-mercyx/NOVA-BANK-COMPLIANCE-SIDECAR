@@ -146,6 +146,10 @@ class DtdPipeline:
                     sender_account=raw.sender_account,
                     receiver_name=raw.receiver_name,
                     receiver_account=raw.receiver_account,
+                    source_institution_code=raw.source_institution_code,
+                    source_institution_name=raw.source_institution_name,
+                    dest_institution_code=raw.dest_institution_code,
+                    dest_institution_name=raw.dest_institution_name,
                     branch_code=raw.branch_code,
                     narration=raw.narration,
                 )

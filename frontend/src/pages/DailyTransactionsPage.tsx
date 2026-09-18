@@ -174,10 +174,16 @@ export function DailyTransactionsPage() {
                       <td className="px-4 py-3">
                         <p className="text-content">{tx.sender_name}</p>
                         <p className="font-mono text-[11px] text-content-subtle">{tx.sender_account}</p>
+                        <p className="text-[11px] text-content-subtle">
+                          {tx.source_institution_name} ({tx.source_institution_code})
+                        </p>
                       </td>
                       <td className="px-4 py-3">
                         <p className="text-content">{tx.receiver_name}</p>
                         <p className="font-mono text-[11px] text-content-subtle">{tx.receiver_account}</p>
+                        <p className="text-[11px] text-content-subtle">
+                          {tx.dest_institution_name} ({tx.dest_institution_code})
+                        </p>
                       </td>
                     </tr>
                   ))}
