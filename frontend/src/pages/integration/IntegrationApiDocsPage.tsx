@@ -1,9 +1,10 @@
-import { ArrowRight, BookOpen, KeyRound, Layers, Play, Sparkles, Zap } from "lucide-react";
+import { ArrowRight, BookOpen, KeyRound, Play } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { DatePickerField } from "../../components/DatePickerField";
 import { ApiCopyButton } from "../../components/integration/ApiCopyButton";
 import { ApiResponsePanel } from "../../components/integration/ApiResponsePanel";
+import { PageHeader } from "../../components/ui";
 import { api, IntegrationInfo } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
 import {
@@ -30,11 +31,11 @@ interface EndpointDef {
   controls?: ReactNode;
 }
 
-const SECTION_LABELS: Record<EndpointSection, { label: string; accent: string }> = {
-  start: { label: "Getting started", accent: "from-violet-500 to-indigo-500" },
-  transactions: { label: "Transactions (HTD / NFIU)", accent: "from-cyan-500 to-blue-500" },
-  dtd: { label: "Daily DTD", accent: "from-emerald-500 to-teal-500" },
-  reports: { label: "Reports", accent: "from-amber-500 to-orange-500" },
+const SECTION_LABELS: Record<EndpointSection, string> = {
+  start: "Getting started",
+  transactions: "Transactions",
+  dtd: "Daily DTD",
+  reports: "Reports",
 };
 
 function defaultRange(): { from: CalendarDate; to: CalendarDate } {
@@ -45,7 +46,7 @@ function defaultRange(): { from: CalendarDate; to: CalendarDate } {
 
 function MethodBadge() {
   return (
-    <span className="rounded-md bg-emerald-500/15 px-2 py-0.5 font-mono text-[11px] font-bold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
+    <span className="border border-border bg-surface-overlay px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-content-muted">
       GET
     </span>
   );
@@ -214,7 +215,7 @@ export function IntegrationApiDocsPage() {
       path: "/api/v1/export/dtd",
       title: "Daily DTD (same day)",
       description:
-        "Staged TBAADM.DTD for one Lagos day. Vendor keys only: Source_Account_number, Source_Account_name, Source_institution_code, Source_institution_name, Dest_* plus amount, date, narration.",
+        "Staged TBAADM.DTD for one Lagos day. Source/Dest account from GAM. Institution from DTD BANK_CODE + BANK_CODE_TABLE; null when BANK_CODE is blank.",
       params: [
         { name: "date", hint: "YYYY-MM-DD. Omit = today (Africa/Lagos). One day only — not a range." },
         { name: "limit", hint: "Optional. Omit for all rows that day (server cap 50,000)." },
@@ -271,77 +272,64 @@ export function IntegrationApiDocsPage() {
 
   return (
     <div className="pb-12">
-      <div className="relative mb-8 overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-violet-600 via-brand to-cyan-600 p-[1px] shadow-lg">
-        <div className="rounded-[15px] bg-surface-raised/95 p-6 backdrop-blur-sm dark:bg-surface-raised/90 sm:p-8">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-brand/10 px-3 py-1 text-xs font-semibold text-brand">
-                <Sparkles className="h-3.5 w-3.5" />
-                Nova Export API v1
-              </div>
-              <h1 className="text-2xl font-bold tracking-tight text-content sm:text-3xl">Pull translated compliance data</h1>
-              <p className="mt-2 max-w-2xl text-sm text-content-muted">
-                Finacle rows are staged here. Pulls use NFIU sample-data columns — all transactions, or only CTR (₦5m+ NGN).
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {info && (
-                <a href={info.openapi_url} target="_blank" rel="noreferrer" className="btn-secondary">
-                  <BookOpen className="h-4 w-4" />
-                  OpenAPI spec
-                </a>
-              )}
-              {user?.role === "admin" && (
-                <Link to="/integration/keys" className="btn-primary">
-                  <KeyRound className="h-4 w-4" />
-                  Get API key
-                </Link>
-              )}
-            </div>
+      <PageHeader
+        title="API documentation"
+        subtitle="Export staged Finacle data. Authenticate with X-API-Key on GET /api/v1/export/*."
+        actions={
+          <div className="flex flex-wrap gap-2">
+            {info && (
+              <a href={info.openapi_url} target="_blank" rel="noreferrer" className="btn-secondary">
+                <BookOpen className="h-4 w-4" />
+                OpenAPI
+              </a>
+            )}
+            {user?.role === "admin" && (
+              <Link to="/integration/keys" className="btn-primary">
+                <KeyRound className="h-4 w-4" />
+                API keys
+              </Link>
+            )}
           </div>
-          {info && (
-            <div className="mt-6 grid gap-3 sm:grid-cols-3">
-              <div className="rounded-xl border border-violet-200/60 bg-violet-50/80 p-3 dark:border-violet-500/20 dark:bg-violet-500/5">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-violet-600 dark:text-violet-400">Base URL</p>
-                <p className="mt-1 truncate font-mono text-sm text-content">{info.base_url}</p>
-              </div>
-              <div className="rounded-xl border border-cyan-200/60 bg-cyan-50/80 p-3 dark:border-cyan-500/20 dark:bg-cyan-500/5">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-cyan-600 dark:text-cyan-400">Auth header</p>
-                <p className="mt-1 font-mono text-sm text-content">X-API-Key</p>
-              </div>
-              <div className="rounded-xl border border-amber-200/60 bg-amber-50/80 p-3 dark:border-amber-500/20 dark:bg-amber-500/5">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400">Finacle mode</p>
-                <p className="mt-1 text-sm font-semibold capitalize text-content">{info.finacle_mode}</p>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
+        }
+      />
+
+      {info && (
+        <dl className="mb-8 grid gap-px border border-border bg-border sm:grid-cols-3">
+          <div className="bg-surface-raised px-4 py-3">
+            <dt className="text-xs text-content-muted">Base URL</dt>
+            <dd className="mt-1 truncate font-mono text-sm text-content">{info.base_url}</dd>
+          </div>
+          <div className="bg-surface-raised px-4 py-3">
+            <dt className="text-xs text-content-muted">Header</dt>
+            <dd className="mt-1 font-mono text-sm text-content">X-API-Key</dd>
+          </div>
+          <div className="bg-surface-raised px-4 py-3">
+            <dt className="text-xs text-content-muted">Finacle mode</dt>
+            <dd className="mt-1 text-sm capitalize text-content">{info.finacle_mode}</dd>
+          </div>
+        </dl>
+      )}
 
       {loadError && (
         <div className="mb-4 rounded-lg border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">{loadError}</div>
       )}
 
-      {/* Quick start */}
       <div className="card mb-8 overflow-hidden">
-        <div className="border-b border-border bg-gradient-to-r from-brand/5 via-transparent to-cyan-500/5 px-5 py-4">
-          <h2 className="flex items-center gap-2 text-sm font-semibold text-content">
-            <Zap className="h-4 w-4 text-brand" />
-            Quick start — 3 steps
-          </h2>
+        <div className="border-b border-border px-5 py-3">
+          <h2 className="text-sm font-semibold text-content">Procedure</h2>
         </div>
         <div className="grid gap-0 divide-y divide-border sm:grid-cols-3 sm:divide-x sm:divide-y-0">
           {[
-            { n: 1, title: "Run extraction", body: "Dashboard → Run extraction (same dates you'll pull).", color: "text-violet-600" },
-            { n: 2, title: "Add API key", body: "Paste your nova_… key in the credentials bar below.", color: "text-cyan-600" },
-            { n: 3, title: "Verify → Pull", body: "Try Verify, then Summary, then Pull transactions.", color: "text-amber-600" },
+            { n: "1", title: "Run extraction", body: "Dashboard or Extraction — same dates you will pull." },
+            { n: "2", title: "Issue an API key", body: "Paste the nova_… key in the credentials section below." },
+            { n: "3", title: "Call export", body: "Verify, then summary, then transaction or DTD pull." },
           ].map((step) => (
             <div key={step.n} className="flex gap-3 p-5">
-              <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-overlay text-sm font-bold ${step.color}`}>
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center border border-border text-xs font-semibold text-content">
                 {step.n}
               </span>
               <div>
-                <p className="font-semibold text-content">{step.title}</p>
+                <p className="font-medium text-content">{step.title}</p>
                 <p className="mt-1 text-sm text-content-muted">{step.body}</p>
               </div>
             </div>
@@ -350,8 +338,8 @@ export function IntegrationApiDocsPage() {
       </div>
 
       <div className="card mb-6 overflow-hidden">
-        <div className="border-b border-border bg-gradient-to-r from-brand/10 to-transparent px-5 py-3">
-          <p className="text-xs font-semibold uppercase tracking-wider text-content-muted">Credentials &amp; period</p>
+        <div className="border-b border-border px-5 py-3">
+          <p className="text-xs font-medium uppercase tracking-wider text-content-muted">Credentials and period</p>
         </div>
         <div className="grid gap-6 p-5 lg:grid-cols-[minmax(240px,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(140px,180px)]">
           <label className="block text-xs font-medium text-content-muted">
@@ -367,7 +355,7 @@ export function IntegrationApiDocsPage() {
               />
               <button
                 type="button"
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-medium text-brand"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-medium text-content-muted hover:text-content"
                 onClick={() => setShowKey((v) => !v)}
               >
                 {showKey ? "Hide" : "Show"}
@@ -405,7 +393,7 @@ export function IntegrationApiDocsPage() {
               {(["start", "transactions", "dtd", "reports"] as EndpointSection[]).map((section) => (
                 <div key={section} className="mb-2">
                   <p className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-content-subtle">
-                    {SECTION_LABELS[section].label}
+                    {SECTION_LABELS[section]}
                   </p>
                   {endpoints
                     .filter((e) => e.section === section)
@@ -415,7 +403,7 @@ export function IntegrationApiDocsPage() {
                         type="button"
                         onClick={() => scrollTo(ep.id)}
                         className={`flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm transition ${
-                          activeId === ep.id ? "bg-brand/10 font-medium text-brand" : "text-content-muted hover:bg-surface-overlay hover:text-content"
+                          activeId === ep.id ? "bg-surface-overlay font-medium text-content" : "text-content-muted hover:bg-surface-overlay hover:text-content"
                         }`}
                       >
                         <MethodBadge />
@@ -452,12 +440,11 @@ export function IntegrationApiDocsPage() {
               <section
                 key={ep.id}
                 id={`endpoint-${ep.id}`}
-                className={`card scroll-mt-4 overflow-hidden transition ring-2 ${
-                  activeId === ep.id ? "ring-brand/30" : "ring-transparent"
+                className={`card scroll-mt-4 overflow-hidden border-l-2 ${
+                  activeId === ep.id ? "border-l-content" : "border-l-transparent"
                 }`}
                 onFocus={() => setActiveId(ep.id)}
               >
-                <div className={`h-1 bg-gradient-to-r ${SECTION_LABELS[ep.section].accent}`} />
                 <div className="p-5 sm:p-6">
                   <div className="flex flex-wrap items-center gap-2">
                     <MethodBadge />
@@ -492,12 +479,12 @@ export function IntegrationApiDocsPage() {
 
                   {ep.controls && <div className="mt-4 max-w-md">{ep.controls}</div>}
 
-                  <div className="mt-4 overflow-hidden rounded-lg border border-border bg-[#0d1117]">
-                    <div className="flex items-center justify-between border-b border-white/10 px-3 py-2">
-                      <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Example request</span>
+                  <div className="mt-4 overflow-hidden border border-border bg-surface-overlay">
+                    <div className="flex items-center justify-between border-b border-border px-3 py-2">
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-content-subtle">Example request</span>
                       <ApiCopyButton text={curl} label="Copy cURL" />
                     </div>
-                    <pre className="overflow-x-auto p-3 font-mono text-[11px] leading-relaxed text-slate-400">{curl}</pre>
+                    <pre className="overflow-x-auto p-3 font-mono text-[11px] leading-relaxed text-content">{curl}</pre>
                   </div>
 
                   <button
@@ -527,11 +514,8 @@ export function IntegrationApiDocsPage() {
         {/* Sticky response panel (desktop) */}
         <aside className="hidden xl:block xl:sticky xl:top-4 xl:self-start">
           <div className="card overflow-hidden">
-            <div className="flex items-center justify-between border-b border-border bg-gradient-to-r from-emerald-500/10 to-transparent px-4 py-3">
-              <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-content-muted">
-                <Layers className="h-3.5 w-3.5" />
-                Live response
-              </p>
+            <div className="flex items-center justify-between border-b border-border px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-wider text-content-muted">Response</p>
               {active && <span className="text-xs text-content-subtle">{active.title}</span>}
             </div>
             <div className="p-4">
@@ -539,10 +523,10 @@ export function IntegrationApiDocsPage() {
             </div>
           </div>
 
-          <div className="mt-4 rounded-xl border border-border bg-gradient-to-br from-brand/5 to-cyan-500/5 p-4 text-sm">
-            <p className="font-semibold text-content">Need a key?</p>
-            <p className="mt-1 text-xs text-content-muted">Admins create keys under Integration → API Keys.</p>
-            <Link to="/integration/keys" className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-brand hover:underline">
+          <div className="mt-4 border border-border p-4 text-sm">
+            <p className="font-medium text-content">API keys</p>
+            <p className="mt-1 text-xs text-content-muted">Administrators issue keys under Integration → API keys.</p>
+            <Link to="/integration/keys" className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-content hover:underline">
               Manage keys <ArrowRight className="h-3 w-3" />
             </Link>
           </div>

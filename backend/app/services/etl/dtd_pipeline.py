@@ -7,7 +7,7 @@ import logging
 from datetime import date, datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import and_, select
+from sqlalchemy import and_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -66,6 +66,9 @@ class DtdPipeline:
         source = OracleFinacleSource()
         oracledb = get_oracledb()
         customers = CustomerRegistry.default()
+        banks = await asyncio.to_thread(
+            source.fetch_bank_directory, oracledb, settings.finacle_admin_schema
+        )
         cursor = HtdDayCursor()
         total_new = total_skipped = 0
 
@@ -80,7 +83,7 @@ class DtdPipeline:
                     cursor,
                     since_naive,
                 )
-                raw = map_htd_rows(flush_rows, customers) if flush_rows else []
+                raw = map_htd_rows(flush_rows, customers, banks) if flush_rows else []
                 new, skipped = await self._stage(run.id, business_start, raw)
                 total_new += new
                 total_skipped += skipped
@@ -129,10 +132,28 @@ class DtdPipeline:
         seen: set[str] = set()
         new = skipped = 0
         for raw in records:
-            if raw.finacle_ref in existing or raw.finacle_ref in seen:
+            if raw.finacle_ref in seen:
                 skipped += 1
                 continue
             seen.add(raw.finacle_ref)
+            if raw.finacle_ref in existing:
+                await self.db.execute(
+                    update(DtdTransaction)
+                    .where(
+                        and_(
+                            DtdTransaction.business_date == business_start,
+                            DtdTransaction.finacle_ref == raw.finacle_ref,
+                        )
+                    )
+                    .values(
+                        source_institution_code=raw.source_institution_code,
+                        source_institution_name=raw.source_institution_name,
+                        dest_institution_code=raw.dest_institution_code,
+                        dest_institution_name=raw.dest_institution_name,
+                    )
+                )
+                skipped += 1
+                continue
             self.db.add(
                 DtdTransaction(
                     pull_run_id=run_id,

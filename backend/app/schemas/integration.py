@@ -187,10 +187,10 @@ class DtdTransactionOut(BaseModel):
     sender_account: str
     receiver_name: str
     receiver_account: str
-    source_institution_code: str = "60003"
-    source_institution_name: str = "NOVA BANK"
-    dest_institution_code: str = "60003"
-    dest_institution_name: str = "NOVA BANK"
+    source_institution_code: str | None = None
+    source_institution_name: str | None = None
+    dest_institution_code: str | None = None
+    dest_institution_name: str | None = None
     branch_code: str | None = None
     narration: str | None = None
 
@@ -214,19 +214,23 @@ class DtdVendorTransaction(BaseModel):
     narration: str | None = None
     Source_Account_number: str = Field(validation_alias=AliasChoices("sender_account", "Source_Account_number"))
     Source_Account_name: str = Field(validation_alias=AliasChoices("sender_name", "Source_Account_name"))
-    Source_institution_code: str = Field(
-        validation_alias=AliasChoices("source_institution_code", "Source_institution_code")
+    Source_institution_code: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("source_institution_code", "Source_institution_code"),
     )
-    Source_institution_name: str = Field(
-        validation_alias=AliasChoices("source_institution_name", "Source_institution_name")
+    Source_institution_name: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("source_institution_name", "Source_institution_name"),
     )
     Dest_Account_number: str = Field(validation_alias=AliasChoices("receiver_account", "Dest_Account_number"))
     Dest_Account_name: str = Field(validation_alias=AliasChoices("receiver_name", "Dest_Account_name"))
-    Dest_institution_code: str = Field(
-        validation_alias=AliasChoices("dest_institution_code", "Dest_institution_code")
+    Dest_institution_code: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("dest_institution_code", "Dest_institution_code"),
     )
-    Dest_institution_name: str = Field(
-        validation_alias=AliasChoices("dest_institution_name", "Dest_institution_name")
+    Dest_institution_name: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("dest_institution_name", "Dest_institution_name"),
     )
 
 

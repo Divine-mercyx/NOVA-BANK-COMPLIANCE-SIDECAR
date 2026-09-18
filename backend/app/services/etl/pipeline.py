@@ -165,6 +165,7 @@ class ETLPipeline:
         await self._log(run.id, "INFO", None, f"Processing {len(days)} day(s) from Oracle HTD")
         await self.db.commit()
         customers = CustomerRegistry.default()
+        banks = source.fetch_bank_directory(oracledb, settings.finacle_admin_schema)
 
         for index, (day_start, day_end) in enumerate(days, start=1):
             day_label = day_start.date().isoformat()
@@ -228,7 +229,7 @@ class ETLPipeline:
                     len(cursor.leftover),
                 )
 
-                raw_records = map_htd_rows(flush_rows, customers) if flush_rows else []
+                raw_records = map_htd_rows(flush_rows, customers, banks) if flush_rows else []
                 logger.info(
                     "[HTD %s] %s page %s mapped: %s HTD legs → %s transactions",
                     run.id[:8],

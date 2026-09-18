@@ -33,6 +33,7 @@ export default function App() {
                   <Route path="audit" element={<AuditPage />} />
                   <Route path="users" element={<UsersPage />} />
                   <Route path="daily" element={<DailyTransactionsPage />} />
+                  <Route path="integration" element={<Navigate to="/integration/docs" replace />} />
                   <Route path="integration/docs" element={<IntegrationApiDocsPage />} />
                   <Route path="integration/keys" element={<ApiKeysPage />} />
                 </Route>

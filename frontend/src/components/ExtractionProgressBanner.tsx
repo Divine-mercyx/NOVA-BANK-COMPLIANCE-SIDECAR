@@ -1,7 +1,51 @@
-import { RefreshCw } from "lucide-react";
 import type { ExtractionLog, ExtractionRun } from "../lib/api";
 import { latestHtdProgress, progressLabel } from "../lib/extractionProgress";
 import { formatNumber } from "../lib/format";
+
+function CircularProgress({ percent }: { percent: number | null }) {
+  const size = 72;
+  const stroke = 5;
+  const radius = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const known = percent != null;
+  const offset = known ? circumference - (Math.min(100, percent) / 100) * circumference : circumference * 0.72;
+
+  return (
+    <div className="relative shrink-0" style={{ width: size, height: size }}>
+      <svg
+        width={size}
+        height={size}
+        viewBox={`0 0 ${size} ${size}`}
+        className={known ? undefined : "animate-spin"}
+        style={known ? undefined : { animationDuration: "1.4s" }}
+      >
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke="rgb(var(--border))"
+          strokeWidth={stroke}
+        />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke="rgb(var(--content))"
+          strokeWidth={stroke}
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          transform={`rotate(-90 ${size / 2} ${size / 2})`}
+        />
+      </svg>
+      <span className="absolute inset-0 flex items-center justify-center text-xs font-semibold tabular-nums text-content">
+        {known ? `${percent}%` : "…"}
+      </span>
+    </div>
+  );
+}
 
 export function ExtractionProgressBanner({
   running,
@@ -23,45 +67,35 @@ export function ExtractionProgressBanner({
   const percent = hasTotal ? Math.min(100, Math.round((progress.legs_fetched / progress.legs_total) * 100)) : null;
 
   return (
-    <div className="mb-4 rounded-lg border border-brand/30 bg-brand-muted/40 px-4 py-3 text-sm text-content">
-      <div className="flex items-start gap-3">
-        <RefreshCw className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-brand" />
+    <div className="mb-4 border border-border bg-surface-raised px-5 py-4">
+      <div className="flex items-center gap-5">
+        <CircularProgress percent={percent} />
         <div className="min-w-0 flex-1">
-          <p className="font-medium">Extraction in progress</p>
-          {message && <p className="mt-1 text-content-muted">{message}</p>}
-          <div className="mt-3">
-            {percent != null ? (
-              <div className="flex items-center gap-2">
-                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-overlay">
-                  <div className="h-full rounded-full bg-brand" style={{ width: `${percent}%` }} />
-                </div>
-                <span className="w-20 text-right text-xs font-medium text-content-muted">
-                  {formatNumber(progress.legs_fetched)}/{formatNumber(progress.legs_total as number)}
-                </span>
-              </div>
-            ) : (
-              <div className="h-1.5 overflow-hidden rounded-full bg-surface-overlay">
-                <div className="h-full w-1/3 animate-pulse rounded-full bg-brand" />
-              </div>
-            )}
-          </div>
-          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-content-muted">
-            <span>
-              HTD legs <span className="font-medium text-content">{formatNumber(progress?.legs_fetched ?? 0)}</span>
-            </span>
-            <span>
-              Transactions <span className="font-medium text-content">{formatNumber(progress?.staged ?? run?.records_extracted ?? 0)}</span>
-            </span>
-            <span>
-              Already in staging <span className="font-medium text-content">{formatNumber(progress?.skipped ?? 0)}</span>
-            </span>
-            <span>
-              Invalid <span className="font-medium text-danger">{formatNumber(progress?.invalid ?? run?.records_invalid ?? 0)}</span>
-            </span>
-            <span>
-              Valid <span className="font-medium text-success">{formatNumber(progress?.valid ?? run?.records_valid ?? 0)}</span>
-            </span>
-          </div>
+          <p className="text-sm font-medium text-content">Extraction in progress</p>
+          {message && <p className="mt-1 text-sm text-content-muted">{message}</p>}
+          <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1 text-xs text-content-muted sm:grid-cols-4">
+            <div>
+              <dt className="text-content-subtle">HTD legs</dt>
+              <dd className="font-medium tabular-nums text-content">
+                {formatNumber(progress?.legs_fetched ?? 0)}
+                {hasTotal ? ` / ${formatNumber(progress?.legs_total as number)}` : ""}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-content-subtle">Staged</dt>
+              <dd className="font-medium tabular-nums text-content">{formatNumber(progress?.staged ?? run?.records_extracted ?? 0)}</dd>
+            </div>
+            <div>
+              <dt className="text-content-subtle">Already held</dt>
+              <dd className="font-medium tabular-nums text-content">{formatNumber(progress?.skipped ?? 0)}</dd>
+            </div>
+            <div>
+              <dt className="text-content-subtle">Valid / invalid</dt>
+              <dd className="font-medium tabular-nums text-content">
+                {formatNumber(progress?.valid ?? run?.records_valid ?? 0)} / {formatNumber(progress?.invalid ?? run?.records_invalid ?? 0)}
+              </dd>
+            </div>
+          </dl>
         </div>
       </div>
     </div>

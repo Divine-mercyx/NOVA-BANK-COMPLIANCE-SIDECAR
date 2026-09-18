@@ -246,6 +246,32 @@ class OracleFinacleSource:
             yield current, min(next_day, end_exclusive)
             current = next_day
 
+    def fetch_bank_directory(self, oracledb, admin_schema: str) -> dict[str, str]:
+        """TBAADM.BANK_CODE_TABLE: CBN/Finacle code → bank name."""
+        names: dict[str, str] = {}
+        try:
+            with connect_oracle(oracledb) as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute(
+                        f"""
+                        SELECT BANK_CODE, BANK_NAME
+                        FROM {admin_schema}.BANK_CODE_TABLE
+                        WHERE BANK_CODE IS NOT NULL
+                        """
+                    )
+                    for code, name in cursor.fetchall():
+                        key = str(code or "").strip()
+                        label = str(name or "").strip()
+                        if not key:
+                            continue
+                        names[key] = label
+                        if key.isdigit():
+                            names[key.zfill(3)] = label
+        except Exception as exc:
+            logger.warning("BANK_CODE_TABLE load failed; institution names skipped: %s", exc)
+        logger.info("Loaded %s bank codes from %s.BANK_CODE_TABLE", len(names), admin_schema)
+        return names
+
     def extract_htd_window(
         self,
         date_from: datetime,
@@ -260,7 +286,8 @@ class OracleFinacleSource:
             oracledb, admin_schema, date_from, date_to_exclusive, HTD_PAGE_SIZE
         )
         rows = self._attach_gam_names(oracledb, admin_schema, rows)
-        return map_htd_rows(rows, customers)
+        banks = self.fetch_bank_directory(oracledb, admin_schema)
+        return map_htd_rows(rows, customers, banks)
 
     def fetch_htd_flush_page(
         self,

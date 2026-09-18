@@ -243,10 +243,10 @@ export interface DtdLiveTransaction {
   sender_account: string;
   receiver_name: string;
   receiver_account: string;
-  source_institution_code: string;
-  source_institution_name: string;
-  dest_institution_code: string;
-  dest_institution_name: string;
+  source_institution_code: string | null;
+  source_institution_name: string | null;
+  dest_institution_code: string | null;
+  dest_institution_name: string | null;
   branch_code: string | null;
   narration: string | null;
 }

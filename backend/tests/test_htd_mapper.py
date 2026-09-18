@@ -50,9 +50,9 @@ def test_map_htd_rows_pairs_debit_credit():
     assert tx.sender_account == "1002000063"
     assert tx.receiver_account == "1102010043"
     assert tx.channel == TransactionChannel.NIP
-    assert tx.source_institution_code == "60003"
-    assert tx.source_institution_name == "NOVA BANK"
-    assert tx.dest_institution_code == "60003"
+    assert tx.source_institution_code is None
+    assert tx.source_institution_name is None
+    assert tx.dest_institution_code is None
 
 
 def test_map_htd_rows_multiple_legs_same_tran_id():

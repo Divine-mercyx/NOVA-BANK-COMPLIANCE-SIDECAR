@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Pause, Play, RefreshCw, Sunrise } from "lucide-react";
+import { FileText, Pause, Play, RefreshCw } from "lucide-react";
 import { EmptyState, KpiCard, PageHeader, StatusBadge, Tag } from "../components/ui";
 import { api, DtdFeedStatus } from "../lib/api";
 import { channelLabel, formatCurrency, formatDate, formatNumber, formatRelative } from "../lib/format";
@@ -81,26 +81,21 @@ export function DailyTransactionsPage() {
         <div className="mb-4 rounded-lg border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">{error}</div>
       )}
 
-      <div className="mb-6 rounded-2xl border border-border bg-gradient-to-br from-emerald-600/10 via-surface-raised to-cyan-600/10 p-5">
+      <div className="mb-6 border border-border bg-surface-raised p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-start gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-soft">
-              <Sunrise className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
-                {data?.enabled ? "Feed live" : "Feed idle"}
-              </p>
-              <p className="mt-1 max-w-2xl text-sm text-content-muted">{data?.dtd_means}</p>
-              <p className="mt-2 text-xs text-content-subtle">
-                Business day {data?.business_date} (Africa/Lagos). Posted legs only. Already staged references are skipped on every tick.
-              </p>
-            </div>
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wider text-content-muted">
+              {data?.enabled ? "Feed running" : "Feed stopped"}
+            </p>
+            <p className="mt-1 max-w-2xl text-sm text-content">{data?.dtd_means}</p>
+            <p className="mt-2 text-xs text-content-subtle">
+              Business day {data?.business_date} (Africa/Lagos). Posted legs only. Duplicate references are skipped.
+            </p>
           </div>
           {data?.enabled && (
-            <div className="rounded-xl border border-emerald-500/20 bg-surface-raised px-4 py-3 text-sm">
+            <div className="border border-border px-4 py-3 text-sm">
               <p className="text-content-muted">Next Oracle pull</p>
-              <p className="mt-1 font-semibold text-content">{data.next_run_at ? formatDate(data.next_run_at) : "Armed"}</p>
+              <p className="mt-1 font-medium text-content">{data.next_run_at ? formatDate(data.next_run_at) : "Armed"}</p>
               <p className="text-xs text-content-subtle">{data.next_run_at ? formatRelative(data.next_run_at) : `Every ${data.interval_minutes} minutes`}</p>
             </div>
           )}
@@ -131,7 +126,7 @@ export function DailyTransactionsPage() {
       )}
 
       {data?.last_error && (
-        <div className="mb-6 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
+        <div className="mb-6 border border-border bg-surface-overlay px-4 py-3 text-sm text-content">
           Last pull issue: {data.last_error}. The next start or tick will rescan today’s book and skip rows already stored.
         </div>
       )}
@@ -144,7 +139,7 @@ export function DailyTransactionsPage() {
           </div>
           {!data?.transactions.length ? (
             <EmptyState
-              icon={Sunrise}
+              icon={FileText}
               title="No same-day transactions staged yet"
               description="Start the 30-minute feed to pull posted TBAADM.DTD rows. The screening vendor reads this warehouse — they do not need Nova’s alert queue."
             />
@@ -175,14 +170,18 @@ export function DailyTransactionsPage() {
                         <p className="text-content">{tx.sender_name}</p>
                         <p className="font-mono text-[11px] text-content-subtle">{tx.sender_account}</p>
                         <p className="text-[11px] text-content-subtle">
-                          {tx.source_institution_name} ({tx.source_institution_code})
+                          {tx.source_institution_name || tx.source_institution_code
+                            ? `${tx.source_institution_name ?? "—"} (${tx.source_institution_code ?? "—"})`
+                            : "Bank code not posted"}
                         </p>
                       </td>
                       <td className="px-4 py-3">
                         <p className="text-content">{tx.receiver_name}</p>
                         <p className="font-mono text-[11px] text-content-subtle">{tx.receiver_account}</p>
                         <p className="text-[11px] text-content-subtle">
-                          {tx.dest_institution_name} ({tx.dest_institution_code})
+                          {tx.dest_institution_name || tx.dest_institution_code
+                            ? `${tx.dest_institution_name ?? "—"} (${tx.dest_institution_code ?? "—"})`
+                            : "Bank code not posted"}
                         </p>
                       </td>
                     </tr>

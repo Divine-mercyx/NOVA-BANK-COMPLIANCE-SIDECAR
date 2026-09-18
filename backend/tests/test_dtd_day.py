@@ -48,12 +48,13 @@ def test_dtd_page_binds_omit_date_from():
     assert "BANK_CODE" in sql
 
 
-def test_empty_dtd_bank_code_is_nova():
+def test_empty_dtd_bank_code_stays_null():
     from app.services.etl.institution import resolve_institution
     from app.services.etl.htd_mapper import map_htd_rows
 
-    assert resolve_institution({"BANK_CODE": "", "BANK_ID": "01"}) == ("60003", "NOVA BANK")
-    assert resolve_institution({"bank_code": "058"}) == ("058", "GTBANK")
+    assert resolve_institution({"BANK_CODE": "", "BANK_ID": "01"}) == (None, None)
+    assert resolve_institution({"bank_code": "035"}, {"035": "WEMA BANK PLC"}) == ("035", "WEMA BANK PLC")
+    assert resolve_institution({"bank_code": "035"}) == ("035", None)
 
     mapped = map_htd_rows(
         [
@@ -76,18 +77,20 @@ def test_empty_dtd_bank_code_is_nova():
                 "foracid": "1001010207",
                 "acct_name": "CUSTOMER",
                 "tran_amt": 3500,
-                "bank_code": "",
+                "bank_code": "057",
                 "tran_particular": "CUSTOMER CREDIT: ACCRUED SMS EXPENSE",
                 "tran_type": "T",
                 "tran_sub_type": "CI",
                 "pstd_date": "2025-11-29",
                 "sol_id": "001",
             },
-        ]
+        ],
+        banks={"057": "ZENITH INTERNATIONAL BANK PLC"},
     )
     tx = mapped[0]
-    assert tx.source_institution_code == "60003"
-    assert tx.dest_institution_name == "NOVA BANK"
+    assert tx.source_institution_code is None
+    assert tx.dest_institution_code == "057"
+    assert tx.dest_institution_name == "ZENITH INTERNATIONAL BANK PLC"
 
 
 def test_vendor_dtd_row_has_no_duplicate_party_keys():

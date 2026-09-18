@@ -54,10 +54,10 @@ class RawTransaction(BaseModel):
     sender_account: str
     receiver_name: str
     receiver_account: str
-    source_institution_code: str = "60003"
-    source_institution_name: str = "NOVA BANK"
-    dest_institution_code: str = "60003"
-    dest_institution_name: str = "NOVA BANK"
+    source_institution_code: str | None = None
+    source_institution_name: str | None = None
+    dest_institution_code: str | None = None
+    dest_institution_name: str | None = None
     branch_code: str = "001"
     narration: str | None = None
 

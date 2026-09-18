@@ -20,12 +20,12 @@ export function ApiResponsePanel({ result }: { result: PartnerRequestResult | nu
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 bg-white/5 px-4 py-3">
         <div className="flex flex-wrap items-center gap-2">
           {result.ok ? (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-2.5 py-1 text-xs font-semibold text-emerald-400">
+            <span className="inline-flex items-center gap-1.5 border border-white/20 px-2 py-0.5 text-xs font-medium text-slate-200">
               <CheckCircle2 className="h-3.5 w-3.5" />
               {result.status}
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-red-500/15 px-2.5 py-1 text-xs font-semibold text-red-400">
+            <span className="inline-flex items-center gap-1.5 border border-white/20 px-2 py-0.5 text-xs font-medium text-slate-200">
               <AlertCircle className="h-3.5 w-3.5" />
               {result.status || "Error"}
             </span>

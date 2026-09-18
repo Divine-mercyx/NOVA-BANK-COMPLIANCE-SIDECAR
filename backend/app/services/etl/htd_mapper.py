@@ -83,6 +83,7 @@ def map_htd_transaction(
     debit: dict[str, Any] | None,
     credit: dict[str, Any] | None,
     customers: CustomerRegistry | None = None,
+    banks: dict[str, str] | None = None,
 ) -> RawTransaction | None:
     primary = debit or credit
     if not primary:
@@ -107,8 +108,8 @@ def map_htd_transaction(
         receiver_name = _leg_name(receiver_row, customers) if receiver_row else "NOVA BANK"
 
     currency = _infer_currency(primary, debit, credit)
-    source_code, source_name = resolve_institution(sender_row)
-    dest_code, dest_name = resolve_institution(receiver_row)
+    source_code, source_name = resolve_institution(sender_row, banks)
+    dest_code, dest_name = resolve_institution(receiver_row, banks)
 
     amount_val = float(primary.get("tran_amt") or primary.get("TRAN_AMT") or 0)
     ref_suffix = f"{amount_val:.2f}-{sender_acct}".replace(".", "")
@@ -135,7 +136,11 @@ def map_htd_transaction(
     )
 
 
-def map_htd_rows(rows: list[dict[str, Any]], customers: CustomerRegistry | None = None) -> list[RawTransaction]:
+def map_htd_rows(
+    rows: list[dict[str, Any]],
+    customers: CustomerRegistry | None = None,
+    banks: dict[str, str] | None = None,
+) -> list[RawTransaction]:
     """Pair debit/credit legs by TRAN_ID + TRAN_AMT (one Finacle txn can have many legs)."""
     debits: dict[tuple[str, str], dict[str, Any]] = {}
     credits: dict[tuple[str, str], dict[str, Any]] = {}
@@ -156,7 +161,7 @@ def map_htd_rows(rows: list[dict[str, Any]], customers: CustomerRegistry | None 
     for key, debit in debits.items():
         tran_id, _ = key
         credit = credits.get(key)
-        tx = map_htd_transaction(tran_id, debit, credit, customers)
+        tx = map_htd_transaction(tran_id, debit, credit, customers, banks)
         if tx and tx.amount > 0:
             out.append(tx)
     return out
