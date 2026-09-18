@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import PlainTextResponse
@@ -15,6 +15,7 @@ from app.schemas.integration import (
     ApiKeyCreateRequest,
     ApiKeyCreated,
     ApiKeyOut,
+    DtdExportResponse,
     ExportReportsResponse,
     ExportSummaryResponse,
     IntegrationEndpointDoc,
@@ -26,7 +27,7 @@ from app.schemas.integration import (
     ScreeningCheckResponse,
 )
 from app.services.integration.export_service import EXPORT_UNBOUNDED_CAP, ExportService
-from app.services.integration.period import export_period_params
+from app.services.integration.period import dtd_day_param, export_period_params
 from app.services.integration.screening_check import ScreeningCheckService
 
 router = APIRouter(prefix="/api/v1/integration", tags=["integration"])
@@ -60,6 +61,11 @@ EXPORT_DOCS = [
     ),
     IntegrationEndpointDoc(
         method="GET",
+        path="/api/v1/export/dtd",
+        summary="Pull staged same-day TBAADM.DTD transactions for one Lagos calendar day",
+    ),
+    IntegrationEndpointDoc(
+        method="GET",
         path="/api/v1/export/reports",
         summary="List generated regulatory reports available for download",
     ),
@@ -88,6 +94,23 @@ async def export_summary(
 ):
     period_start, period_end = period
     return await ExportService(db).summary(period_start, period_end)
+
+
+@partner_router.get("/dtd", response_model=DtdExportResponse)
+async def export_dtd_transactions(
+    day: date = Depends(dtd_day_param),
+    limit: int | None = Query(
+        None,
+        ge=1,
+        le=EXPORT_UNBOUNDED_CAP,
+        description="Max rows. Omit for all rows that day (capped at 50,000).",
+    ),
+    offset: int = Query(0, ge=0),
+    client: ApiKey = Depends(get_api_client),
+    db: AsyncSession = Depends(get_db),
+):
+    """Staged DTD pairs for one calendar day. Omit date for today (Africa/Lagos)."""
+    return await ExportService(db).list_dtd(day, limit=limit, offset=offset)
 
 
 @partner_router.get("/transactions", response_model=NfiuTransactionsResponse)
@@ -217,7 +240,7 @@ async def integration_info(_: User = Depends(get_current_user)):
         purpose=(
             "Nova Bank IT pulls staged Finacle transactions with X-API-Key. "
             "GET /export/transactions for the full date range in NFIU sample-data columns; "
-            "GET /export/transactions/ctr for the same layout filtered to NGN ₦5,000,000 and above."
+            "GET /export/dtd for same-day TBAADM.DTD (plain transaction JSON, one Lagos day)."
         ),
         auth_header="X-API-Key",
         endpoints=EXPORT_DOCS,

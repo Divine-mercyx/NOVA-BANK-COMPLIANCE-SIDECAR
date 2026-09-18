@@ -4,7 +4,7 @@ import enum
 from datetime import datetime
 from uuid import uuid4
 
-from sqlalchemy import DateTime, Enum, Float, ForeignKey, Integer, String, Text, func
+from sqlalchemy import DateTime, Enum, Float, ForeignKey, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -134,6 +134,65 @@ class StagingTransaction(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     extraction_run: Mapped["ExtractionRun"] = relationship(back_populates="transactions")
+
+
+class DtdPullRun(Base):
+    """One 30-minute (or manual) DTD pull into dtd_transactions."""
+
+    __tablename__ = "dtd_pull_runs"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    status: Mapped[ExtractionStatus] = mapped_column(Enum(ExtractionStatus), default=ExtractionStatus.RUNNING)
+    business_date: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    records_new: Mapped[int] = mapped_column(Integer, default=0)
+    records_skipped: Mapped[int] = mapped_column(Integer, default=0)
+    error_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    posted_since: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    legs_fetched: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class DtdSchedulerState(Base):
+    """Singleton: live 30-minute DTD feed is started/stopped from the portal, not env."""
+
+    __tablename__ = "dtd_scheduler_state"
+
+    id: Mapped[str] = mapped_column(String(20), primary_key=True, default="default")
+    enabled: Mapped[bool] = mapped_column(default=False)
+    interval_minutes: Mapped[int] = mapped_column(Integer, default=30)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    started_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    stopped_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    stopped_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    last_success_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    last_run_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    watermark_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    watermark_day: Mapped[str | None] = mapped_column(String(10), nullable=True)
+
+
+class DtdTransaction(Base):
+    """Paired same-day Finacle legs from TBAADM.DTD (+ GAM names). Not NFIU layout."""
+
+    __tablename__ = "dtd_transactions"
+    __table_args__ = (UniqueConstraint("business_date", "finacle_ref", name="uq_dtd_day_ref"),)
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
+    pull_run_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("dtd_pull_runs.id"), nullable=True, index=True)
+    business_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    finacle_ref: Mapped[str] = mapped_column(String(100), index=True)
+    channel: Mapped[TransactionChannel] = mapped_column(Enum(TransactionChannel))
+    transaction_date: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    amount: Mapped[float] = mapped_column(Float)
+    currency: Mapped[str] = mapped_column(String(3), default="NGN")
+    sender_name: Mapped[str] = mapped_column(String(255))
+    sender_account: Mapped[str] = mapped_column(String(50))
+    receiver_name: Mapped[str] = mapped_column(String(255))
+    receiver_account: Mapped[str] = mapped_column(String(50))
+    branch_code: Mapped[str] = mapped_column(String(20), default="001")
+    narration: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class RegulatoryReport(Base):

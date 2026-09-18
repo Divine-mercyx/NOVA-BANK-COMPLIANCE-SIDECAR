@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, time
+from datetime import date, datetime, time
 from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException, Query
@@ -49,3 +49,15 @@ def export_period_params(
     if start is None or end is None:
         raise HTTPException(400, "Provide date_from and date_to")
     return resolve_export_window(start, end)
+
+
+def dtd_day_param(
+    date: datetime | None = Query(
+        None,
+        description="Single Lagos calendar day (YYYY-MM-DD). Omit for today. DTD is never a date range.",
+    ),
+) -> date:
+    tz = _bank_tz()
+    if date is None:
+        return datetime.now(tz).date()
+    return _as_bank_tz(date).date()

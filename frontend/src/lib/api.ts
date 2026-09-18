@@ -220,6 +220,54 @@ export interface CreateApiKeyRequest {
   description?: string;
 }
 
+export interface DtdPullRun {
+  id: string;
+  status: ExtractionStatus;
+  business_date: string;
+  records_new: number;
+  records_skipped: number;
+  started_at: string;
+  completed_at: string | null;
+  error_summary: string | null;
+  posted_since: string | null;
+  legs_fetched: number;
+}
+
+export interface DtdLiveTransaction {
+  finacle_ref: string;
+  channel: string;
+  transaction_date: string;
+  amount: number;
+  currency: string;
+  sender_name: string;
+  sender_account: string;
+  receiver_name: string;
+  receiver_account: string;
+  branch_code: string | null;
+  narration: string | null;
+}
+
+export interface DtdFeedStatus {
+  enabled: boolean;
+  interval_minutes: number;
+  business_date: string;
+  started_at: string | null;
+  started_by: string | null;
+  stopped_at: string | null;
+  stopped_by: string | null;
+  last_success_at: string | null;
+  last_error: string | null;
+  watermark_at: string | null;
+  next_run_at: string | null;
+  pulls_today: number;
+  new_today: number;
+  skipped_today: number;
+  staged_today: number;
+  dtd_means: string;
+  runs: DtdPullRun[];
+  transactions: DtdLiveTransaction[];
+}
+
 function getToken() {
   return localStorage.getItem("nova-token");
 }
@@ -348,4 +396,8 @@ export const api = {
     request<ApiKeyCreated>("/api/v1/integration/keys", { method: "POST", body: JSON.stringify(payload) }),
   revokeApiKey: (id: string) =>
     request<ApiKey>(`/api/v1/integration/keys/${id}`, { method: "DELETE" }),
+
+  dtdStatus: () => request<DtdFeedStatus>("/api/v1/dtd/status"),
+  dtdStart: () => request<DtdFeedStatus>("/api/v1/dtd/start", { method: "POST" }),
+  dtdStop: () => request<DtdFeedStatus>("/api/v1/dtd/stop", { method: "POST" }),
 };

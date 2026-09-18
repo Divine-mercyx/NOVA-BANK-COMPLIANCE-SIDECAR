@@ -16,7 +16,7 @@ import {
 } from "../../lib/dates";
 import { buildExportCurl, loadPartnerApiKey, partnerGet, savePartnerApiKey, type PartnerRequestResult } from "../../lib/partnerApi";
 
-type EndpointSection = "start" | "transactions" | "reports";
+type EndpointSection = "start" | "transactions" | "dtd" | "reports";
 
 interface EndpointDef {
   id: string;
@@ -32,7 +32,8 @@ interface EndpointDef {
 
 const SECTION_LABELS: Record<EndpointSection, { label: string; accent: string }> = {
   start: { label: "Getting started", accent: "from-violet-500 to-indigo-500" },
-  transactions: { label: "Transactions", accent: "from-cyan-500 to-blue-500" },
+  transactions: { label: "Transactions (HTD / NFIU)", accent: "from-cyan-500 to-blue-500" },
+  dtd: { label: "Daily DTD", accent: "from-emerald-500 to-teal-500" },
   reports: { label: "Reports", accent: "from-amber-500 to-orange-500" },
 };
 
@@ -96,6 +97,11 @@ export function IntegrationApiDocsPage() {
     () => ({ ...periodParams, limit: parsedPullLimit, offset: 0 }),
     [periodParams, parsedPullLimit],
   );
+
+  const dtdQuery = useMemo(() => {
+    const date = `${periodFrom.year}-${String(periodFrom.month).padStart(2, "0")}-${String(periodFrom.day).padStart(2, "0")}`;
+    return { date, limit: parsedPullLimit };
+  }, [periodFrom, parsedPullLimit]);
 
   const persistKey = (value: string) => {
     setApiKey(value);
@@ -200,6 +206,20 @@ export function IntegrationApiDocsPage() {
           onChange={(e) => setFinacleRef(e.target.value)}
         />
       ),
+    },
+    {
+      id: "dtd",
+      section: "dtd",
+      method: "GET",
+      path: "/api/v1/export/dtd",
+      title: "Daily DTD (same day)",
+      description:
+        "Staged TBAADM.DTD (Day Transaction Detail) for one Lagos day. Start the 30-minute feed on Daily · Day Transaction Detail first. Plain JSON, not NFIU columns.",
+      params: [
+        { name: "date", hint: "YYYY-MM-DD. Omit = today (Africa/Lagos). One day only — not a range." },
+        { name: "limit", hint: "Optional. Omit for all rows that day (server cap 50,000)." },
+      ],
+      run: async () => execute("dtd", "/api/v1/export/dtd", dtdQuery),
     },
     {
       id: "reports",
@@ -382,7 +402,7 @@ export function IntegrationApiDocsPage() {
               <p className="text-xs font-semibold uppercase tracking-wider text-content-muted">Endpoints</p>
             </div>
             <div className="p-2">
-              {(["start", "transactions", "reports"] as EndpointSection[]).map((section) => (
+              {(["start", "transactions", "dtd", "reports"] as EndpointSection[]).map((section) => (
                 <div key={section} className="mb-2">
                   <p className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-content-subtle">
                     {SECTION_LABELS[section].label}
@@ -421,6 +441,8 @@ export function IntegrationApiDocsPage() {
                   ? undefined
                   : ep.id === "summary"
                     ? periodParams
+                  : ep.id === "dtd"
+                    ? dtdQuery
                     : ep.id === "transactions" || ep.id === "transactions-ctr"
                       ? transactionQuery
                       : { ...periodParams, limit: 20 },

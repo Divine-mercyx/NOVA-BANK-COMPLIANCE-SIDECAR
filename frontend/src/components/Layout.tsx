@@ -1,13 +1,11 @@
 import {
   Activity,
-  AlertTriangle,
-  BarChart3,
   Bell,
   ChevronLeft,
   ChevronRight,
   ClipboardList,
   FileText,
-  Gauge,
+  BarChart3,
   KeyRound,
   LayoutDashboard,
   LogOut,
@@ -15,8 +13,8 @@ import {
   Search,
   Settings,
   Shield,
+  Sunrise,
   Users,
-  Zap,
 } from "lucide-react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../lib/auth";
@@ -33,10 +31,8 @@ const reportingNav = [
   { to: "/users", label: "Team", icon: Users },
 ];
 
-const screeningNav = [
-  { to: "/screening", label: "Alert Queue", icon: AlertTriangle, end: true },
-  { to: "/screening/performance", label: "Performance", icon: Gauge },
-  { to: "/screening/audit", label: "Screening Log", icon: Zap },
+const dailyNav = [
+  { to: "/daily", label: "Day Transaction Detail", icon: Sunrise, end: true },
 ];
 
 const integrationNav = [
@@ -94,7 +90,7 @@ export function Layout() {
   const { user, logout } = useAuth();
   const { expanded, toggle, width } = useSidebar();
   const { pathname } = useLocation();
-  const isScreening = pathname.startsWith("/screening");
+  const isDaily = pathname.startsWith("/daily");
 
   const initials = user?.full_name
     ?.split(" ")
@@ -103,8 +99,8 @@ export function Layout() {
     .slice(0, 2)
     .toUpperCase();
 
-  const searchPlaceholder = isScreening
-    ? "Search alerts, transactions, watchlist matches..."
+  const searchPlaceholder = isDaily
+    ? "Same-day DTD feed for the screening vendor…"
     : "Search transactions, reports, audit logs...";
 
   return (
@@ -145,7 +141,7 @@ export function Layout() {
 
         <nav className="flex-1 overflow-y-auto py-4">
           <NavSection title="Milestone 1 · Reporting" items={reportingNav} expanded={expanded} />
-          <NavSection title="Milestone 2 · Screening" items={screeningNav} expanded={expanded} />
+          <NavSection title="Daily · DTD feed" items={dailyNav} expanded={expanded} />
           <NavSection title="Integration · Nova API" items={integrationNav} expanded={expanded} />
         </nav>
 

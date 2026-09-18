@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes.auth import router as auth_router
 from app.api.routes.compliance import router as compliance_router
+from app.api.routes.dtd import router as dtd_router
 from app.api.routes.integration import partner_router, router as integration_router
 from app.api.routes.screening import router as screening_router
 from app.core.config import settings
@@ -13,7 +14,7 @@ from app.core.database import Base, engine
 from app.db.migrate import run_migrations
 from app.models import entities  # noqa: F401
 from app.seed.bootstrap import seed_database
-from app.services.etl.scheduler import start_etl_scheduler, stop_etl_scheduler
+from app.services.etl.scheduler import restore_dtd_job_from_db, start_etl_scheduler, stop_etl_scheduler
 
 
 def _configure_etl_logging() -> None:
@@ -35,6 +36,7 @@ async def lifespan(app: FastAPI):
     run_migrations()
     await seed_database()
     start_etl_scheduler()
+    await restore_dtd_job_from_db()
     yield
     stop_etl_scheduler()
 
@@ -56,6 +58,7 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(compliance_router)
 app.include_router(screening_router)
+app.include_router(dtd_router)
 app.include_router(integration_router)
 app.include_router(partner_router)
 

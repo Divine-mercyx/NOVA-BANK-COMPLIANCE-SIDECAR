@@ -1,8 +1,8 @@
 """Partner integration API schemas — pull translated transactions for NFIU filing."""
 
-from datetime import datetime
+from datetime import date, datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.models.entities import ReportType
 
@@ -173,3 +173,80 @@ class IntegrationInfo(BaseModel):
     purpose: str
     auth_header: str
     endpoints: list[IntegrationEndpointDoc]
+
+
+class DtdTransactionOut(BaseModel):
+    finacle_ref: str
+    channel: str
+    transaction_date: datetime
+    amount: float
+    currency: str
+    sender_name: str
+    sender_account: str
+    receiver_name: str
+    receiver_account: str
+    branch_code: str | None = None
+    narration: str | None = None
+
+    model_config = {"from_attributes": True}
+
+    @field_validator("channel", mode="before")
+    @classmethod
+    def _channel_value(cls, value):
+        return getattr(value, "value", value)
+
+
+class DtdExportMeta(BaseModel):
+    business_date: date
+    source: str = "TBAADM.DTD"
+    total_matching: int
+    returned: int
+    offset: int
+    limit: int | None = None
+    generated_at: datetime
+
+
+class DtdExportResponse(BaseModel):
+    meta: DtdExportMeta
+    transactions: list[DtdTransactionOut]
+
+
+class DtdPullRunOut(BaseModel):
+    id: str
+    status: str
+    business_date: datetime
+    records_new: int
+    records_skipped: int
+    started_at: datetime
+    completed_at: datetime | None = None
+    error_summary: str | None = None
+    posted_since: datetime | None = None
+    legs_fetched: int = 0
+
+    model_config = {"from_attributes": True}
+
+    @field_validator("status", mode="before")
+    @classmethod
+    def _status_value(cls, value):
+        return getattr(value, "value", value)
+
+
+class DtdFeedStatus(BaseModel):
+    enabled: bool
+    interval_minutes: int
+    business_date: str
+    started_at: datetime | None = None
+    started_by: str | None = None
+    stopped_at: datetime | None = None
+    stopped_by: str | None = None
+    last_success_at: datetime | None = None
+    last_error: str | None = None
+    watermark_at: datetime | None = None
+    next_run_at: datetime | None = None
+    pulls_today: int
+    new_today: int
+    skipped_today: int
+    staged_today: int
+    dtd_means: str
+    runs: list[DtdPullRunOut]
+    transactions: list[DtdTransactionOut]

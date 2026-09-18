@@ -46,6 +46,8 @@ class Settings(BaseSettings):
     etl_schedule_hour: int = 2
     etl_schedule_minute: int = 0
 
+    dtd_schedule_interval_minutes: int = 30
+
     jwt_secret: str = "nova-dev-secret-change-in-production"
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 480

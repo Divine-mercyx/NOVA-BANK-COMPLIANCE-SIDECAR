@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date as date_type, datetime, timezone
 from pathlib import Path
 
 from typing import Literal
@@ -11,8 +11,11 @@ from sqlalchemy import and_, desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.models.entities import RegulatoryReport, ReportType, StagingTransaction, TransactionChannel
+from app.models.entities import DtdTransaction, RegulatoryReport, ReportType, StagingTransaction, TransactionChannel
 from app.schemas.integration import (
+    DtdExportMeta,
+    DtdExportResponse,
+    DtdTransactionOut,
     ExportMeta,
     ExportedReportSummary,
     ExportReportsResponse,
@@ -20,6 +23,7 @@ from app.schemas.integration import (
     NfiuTransactionRow,
     NfiuTransactionsResponse,
 )
+from app.services.etl.dtd_pipeline import lagos_day_bounds
 from app.services.integration.ctr_nfiu import map_nfiu_row
 
 EXPORT_UNBOUNDED_CAP = 50_000
@@ -134,6 +138,38 @@ class ExportService:
         )
         row = result.scalar_one_or_none()
         return map_nfiu_row(row) if row else None
+
+    async def list_dtd(
+        self,
+        day: date_type,
+        limit: int | None = None,
+        offset: int = 0,
+    ) -> DtdExportResponse:
+        business_start, _, _ = lagos_day_bounds(day)
+        filters = [DtdTransaction.business_date == business_start]
+        count_stmt = select(func.count()).select_from(DtdTransaction).where(and_(*filters))
+        total = await self._scalar(count_stmt)
+        stmt = (
+            select(DtdTransaction)
+            .where(and_(*filters))
+            .order_by(desc(DtdTransaction.transaction_date), DtdTransaction.finacle_ref)
+            .offset(offset)
+        )
+        applied = min(limit, EXPORT_UNBOUNDED_CAP) if limit is not None else EXPORT_UNBOUNDED_CAP
+        stmt = stmt.limit(applied)
+        result = await self.db.execute(stmt)
+        rows = list(result.scalars().all())
+        return DtdExportResponse(
+            meta=DtdExportMeta(
+                business_date=day,
+                total_matching=total,
+                returned=len(rows),
+                offset=offset,
+                limit=limit,
+                generated_at=datetime.now(timezone.utc),
+            ),
+            transactions=[DtdTransactionOut.model_validate(r) for r in rows],
+        )
 
     async def list_reports(
         self,

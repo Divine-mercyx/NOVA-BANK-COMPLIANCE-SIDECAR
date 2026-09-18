@@ -11,9 +11,7 @@ import { ExtractionPage } from "./pages/ExtractionPage";
 import { QualityPage } from "./pages/QualityPage";
 import { ReportsPage } from "./pages/ReportsPage";
 import { UsersPage } from "./pages/UsersPage";
-import { ScreeningAlertsPage } from "./pages/screening/ScreeningAlertsPage";
-import { ScreeningAuditPage } from "./pages/screening/ScreeningAuditPage";
-import { ScreeningPerformancePage } from "./pages/screening/ScreeningPerformancePage";
+import { DailyTransactionsPage } from "./pages/DailyTransactionsPage";
 import { ApiKeysPage } from "./pages/integration/ApiKeysPage";
 import { IntegrationApiDocsPage } from "./pages/integration/IntegrationApiDocsPage";
 
@@ -34,9 +32,7 @@ export default function App() {
                   <Route path="reports" element={<ReportsPage />} />
                   <Route path="audit" element={<AuditPage />} />
                   <Route path="users" element={<UsersPage />} />
-                  <Route path="screening" element={<ScreeningAlertsPage />} />
-                  <Route path="screening/performance" element={<ScreeningPerformancePage />} />
-                  <Route path="screening/audit" element={<ScreeningAuditPage />} />
+                  <Route path="daily" element={<DailyTransactionsPage />} />
                   <Route path="integration/docs" element={<IntegrationApiDocsPage />} />
                   <Route path="integration/keys" element={<ApiKeysPage />} />
                 </Route>

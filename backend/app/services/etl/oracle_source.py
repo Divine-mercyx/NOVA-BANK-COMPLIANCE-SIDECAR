@@ -109,6 +109,34 @@ class OracleFinacleSource:
         FETCH FIRST {page_size} ROWS ONLY
     """
 
+    DTD_PAGE_QUERY = """
+        SELECT
+            TRAN_ID,
+            TRAN_DATE,
+            PSTD_DATE,
+            TRAN_AMT,
+            REF_CRNCY_CODE,
+            PART_TRAN_TYPE,
+            PART_TRAN_SRL_NUM,
+            TRAN_PARTICULAR,
+            TRAN_TYPE,
+            TRAN_SUB_TYPE,
+            SOL_ID,
+            ACID
+        FROM {admin_schema}.DTD
+        WHERE NVL(DEL_FLG, 'N') <> 'Y'
+          AND NVL(PSTD_FLG, 'N') = 'Y'
+          AND PSTD_DATE >= :posted_since
+          AND PSTD_DATE < :date_to_exclusive
+          AND (
+                :last_id IS NULL
+             OR TRAN_ID > :last_id
+             OR (TRAN_ID = :last_id AND NVL(PART_TRAN_SRL_NUM, 0) > :last_srl)
+              )
+        ORDER BY TRAN_ID, NVL(PART_TRAN_SRL_NUM, 0)
+        FETCH FIRST {page_size} ROWS ONLY
+    """
+
     CHANNEL_QUERIES: dict[TransactionChannel, str] = {
         TransactionChannel.NIP: """
             SELECT REF_NUM, CREDIT_ACCNT, TRAN_AMT, DEBIT_ACCNT, TRAN_DATE, TRANSID,
@@ -276,6 +304,59 @@ class OracleFinacleSource:
         )
         return ready, cursor
 
+    def fetch_dtd_flush_page(
+        self,
+        oracledb,
+        admin_schema: str,
+        date_from,
+        date_to_exclusive,
+        cursor: HtdDayCursor,
+        posted_since,
+    ) -> tuple[list[dict], HtdDayCursor]:
+        """One Oracle session: 50 posted DTD legs, GAM enrich, then close."""
+        if cursor.done:
+            return [], cursor
+
+        sql = self.DTD_PAGE_QUERY.format(admin_schema=admin_schema, page_size=HTD_PAGE_SIZE)
+        page = self._open_page_session(
+            oracledb,
+            admin_schema,
+            sql,
+            date_from,
+            date_to_exclusive,
+            cursor.last_id,
+            cursor.last_srl,
+            extra_binds={"posted_since": posted_since},
+        )
+        if not page:
+            ready, leftover, done = split_htd_flush(cursor.leftover, [], HTD_PAGE_SIZE)
+            cursor.leftover = leftover
+            cursor.done = done
+            return ready, cursor
+
+        cursor.pages_fetched += 1
+        cursor.legs_fetched += len(page)
+        last = page[-1]
+        cursor.last_id = str(last.get("tran_id") or "")
+        try:
+            cursor.last_srl = int(last.get("part_tran_srl_num") or 0)
+        except (TypeError, ValueError):
+            cursor.last_srl = 0
+
+        combined = cursor.leftover + page
+        ready, leftover, done = split_htd_flush(combined, page, HTD_PAGE_SIZE)
+        cursor.leftover = leftover
+        cursor.done = done
+        logger.info(
+            "Closed Oracle session after DTD page %s (%s legs, flush=%s, leftover=%s, last TRAN_ID=%s)",
+            cursor.pages_fetched,
+            cursor.legs_fetched,
+            len(ready),
+            len(leftover),
+            cursor.last_id,
+        )
+        return ready, cursor
+
     def _fetch_htd_pages(
         self,
         oracledb,
@@ -316,6 +397,7 @@ class OracleFinacleSource:
         date_to_exclusive,
         last_id: str | None,
         last_srl: int,
+        extra_binds: dict | None = None,
     ) -> list[dict]:
         """Connect, read one page, optionally enrich GAM, close. Retry connect/query only."""
         last_error: Exception | None = None
@@ -323,7 +405,7 @@ class OracleFinacleSource:
             try:
                 with connect_oracle(oracledb) as conn:
                     page = self._execute_htd_page(
-                        conn, sql, date_from, date_to_exclusive, last_id, last_srl
+                        conn, sql, date_from, date_to_exclusive, last_id, last_srl, extra_binds
                     )
                     if page:
                         try:
@@ -360,15 +442,18 @@ class OracleFinacleSource:
         date_to_exclusive,
         last_id: str | None,
         last_srl: int,
+        extra_binds: dict | None = None,
     ) -> list[dict]:
+        params = {
+            "date_from": date_from,
+            "date_to_exclusive": date_to_exclusive,
+            "last_id": last_id,
+            "last_srl": last_srl,
+        }
+        if extra_binds:
+            params.update(extra_binds)
         with conn.cursor() as cursor:
-            cursor.execute(
-                sql,
-                date_from=date_from,
-                date_to_exclusive=date_to_exclusive,
-                last_id=last_id,
-                last_srl=last_srl,
-            )
+            cursor.execute(sql, **params)
             cols = [d[0].lower() for d in cursor.description]
             return [dict(zip(cols, row)) for row in cursor.fetchall()]
 
