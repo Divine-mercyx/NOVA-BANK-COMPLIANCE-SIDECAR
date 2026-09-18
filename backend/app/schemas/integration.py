@@ -2,7 +2,7 @@
 
 from datetime import date, datetime
 
-from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
 
 from app.models.entities import ReportType
 
@@ -176,6 +176,8 @@ class IntegrationInfo(BaseModel):
 
 
 class DtdTransactionOut(BaseModel):
+    """Portal Daily DTD table — snake_case only."""
+
     finacle_ref: str
     channel: str
     transaction_date: datetime
@@ -199,45 +201,33 @@ class DtdTransactionOut(BaseModel):
     def _channel_value(cls, value):
         return getattr(value, "value", value)
 
-    @computed_field
-    @property
-    def Source_Account_number(self) -> str:
-        return self.sender_account
 
-    @computed_field
-    @property
-    def Source_Account_name(self) -> str:
-        return self.sender_name
+class DtdVendorTransaction(BaseModel):
+    """GET /export/dtd — vendor keys only, no duplicate sender/receiver fields."""
 
-    @computed_field
-    @property
-    def Source_institution_code(self) -> str:
-        return self.source_institution_code
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
-    @computed_field
-    @property
-    def Source_institution_name(self) -> str:
-        return self.source_institution_name
-
-    @computed_field
-    @property
-    def Dest_Account_number(self) -> str:
-        return self.receiver_account
-
-    @computed_field
-    @property
-    def Dest_Account_name(self) -> str:
-        return self.receiver_name
-
-    @computed_field
-    @property
-    def Dest_institution_code(self) -> str:
-        return self.dest_institution_code
-
-    @computed_field
-    @property
-    def Dest_institution_name(self) -> str:
-        return self.dest_institution_name
+    finacle_ref: str
+    transaction_date: datetime
+    amount: float
+    currency: str
+    narration: str | None = None
+    Source_Account_number: str = Field(validation_alias=AliasChoices("sender_account", "Source_Account_number"))
+    Source_Account_name: str = Field(validation_alias=AliasChoices("sender_name", "Source_Account_name"))
+    Source_institution_code: str = Field(
+        validation_alias=AliasChoices("source_institution_code", "Source_institution_code")
+    )
+    Source_institution_name: str = Field(
+        validation_alias=AliasChoices("source_institution_name", "Source_institution_name")
+    )
+    Dest_Account_number: str = Field(validation_alias=AliasChoices("receiver_account", "Dest_Account_number"))
+    Dest_Account_name: str = Field(validation_alias=AliasChoices("receiver_name", "Dest_Account_name"))
+    Dest_institution_code: str = Field(
+        validation_alias=AliasChoices("dest_institution_code", "Dest_institution_code")
+    )
+    Dest_institution_name: str = Field(
+        validation_alias=AliasChoices("dest_institution_name", "Dest_institution_name")
+    )
 
 
 class DtdExportMeta(BaseModel):
@@ -252,7 +242,7 @@ class DtdExportMeta(BaseModel):
 
 class DtdExportResponse(BaseModel):
     meta: DtdExportMeta
-    transactions: list[DtdTransactionOut]
+    transactions: list[DtdVendorTransaction]
 
 
 class DtdPullRunOut(BaseModel):

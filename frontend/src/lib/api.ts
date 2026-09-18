@@ -247,14 +247,6 @@ export interface DtdLiveTransaction {
   source_institution_name: string;
   dest_institution_code: string;
   dest_institution_name: string;
-  Source_Account_number?: string;
-  Source_Account_name?: string;
-  Source_institution_code?: string;
-  Source_institution_name?: string;
-  Dest_Account_number?: string;
-  Dest_Account_name?: string;
-  Dest_institution_code?: string;
-  Dest_institution_name?: string;
   branch_code: string | null;
   narration: string | null;
 }

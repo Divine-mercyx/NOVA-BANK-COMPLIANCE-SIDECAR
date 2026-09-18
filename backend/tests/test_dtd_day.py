@@ -88,3 +88,30 @@ def test_empty_dtd_bank_code_is_nova():
     tx = mapped[0]
     assert tx.source_institution_code == "60003"
     assert tx.dest_institution_name == "NOVA BANK"
+
+
+def test_vendor_dtd_row_has_no_duplicate_party_keys():
+    from app.schemas.integration import DtdVendorTransaction
+
+    row = DtdVendorTransaction.model_validate(
+        SimpleNamespace(
+            finacle_ref="M00000347-500000-1003001861",
+            transaction_date=datetime(2026, 9, 18, 14, 36, 30),
+            amount=5000,
+            currency="NGN",
+            narration="REVERSAL CHEQUEBOOK",
+            sender_account="1003001861",
+            sender_name="MAYOWA VICTOR OYENIRAN",
+            source_institution_code="60003",
+            source_institution_name="NOVA BANK",
+            receiver_account="1007000879",
+            receiver_name="ESOCITY INTERGATED LIMITED",
+            dest_institution_code="60003",
+            dest_institution_name="NOVA BANK",
+        )
+    )
+    dumped = row.model_dump()
+    assert dumped["Source_Account_number"] == "1003001861"
+    assert dumped["Dest_Account_name"] == "ESOCITY INTERGATED LIMITED"
+    assert "sender_account" not in dumped
+    assert "receiver_name" not in dumped

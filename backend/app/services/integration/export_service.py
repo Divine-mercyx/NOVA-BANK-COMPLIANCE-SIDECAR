@@ -15,7 +15,7 @@ from app.models.entities import DtdTransaction, RegulatoryReport, ReportType, St
 from app.schemas.integration import (
     DtdExportMeta,
     DtdExportResponse,
-    DtdTransactionOut,
+    DtdVendorTransaction,
     ExportMeta,
     ExportedReportSummary,
     ExportReportsResponse,
@@ -168,7 +168,7 @@ class ExportService:
                 limit=limit,
                 generated_at=datetime.now(timezone.utc),
             ),
-            transactions=[DtdTransactionOut.model_validate(r) for r in rows],
+            transactions=[DtdVendorTransaction.model_validate(r) for r in rows],
         )
 
     async def list_reports(
