@@ -1,35 +1,46 @@
-import { Eye, EyeOff, Shield } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 import { FormEvent, ReactNode, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 
+function AuthMark() {
+  return (
+    <span className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#0B1F3A]/15 text-[#0B1F3A]">
+      <svg viewBox="0 0 32 32" className="h-5 w-5" fill="currentColor" aria-hidden>
+        <circle cx="16" cy="16" r="3" />
+        {Array.from({ length: 12 }).map((_, i) => {
+          const a = (i * Math.PI) / 6;
+          const x1 = 16 + Math.cos(a) * 6;
+          const y1 = 16 + Math.sin(a) * 6;
+          const x2 = 16 + Math.cos(a) * 11;
+          const y2 = 16 + Math.sin(a) * 11;
+          return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="currentColor" strokeWidth="2" strokeLinecap="round" />;
+        })}
+      </svg>
+    </span>
+  );
+}
+
 function AuthShell({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-neutral-100 px-4 py-12">
-      <div className="w-full max-w-[420px]">{children}</div>
-    </div>
-  );
-}
-
-function AuthLogo() {
-  return (
-    <div className="flex items-center gap-3">
-      <div className="flex h-9 w-9 items-center justify-center border border-neutral-800 bg-neutral-900 text-white">
-        <Shield className="h-4 w-4" strokeWidth={2} />
+    <div className="auth-shell">
+      <div className="auth-frame">
+        <aside className="auth-hero relative hidden min-h-[580px] w-[46%] lg:block">
+          <div className="relative z-10 flex h-full flex-col justify-end p-10 xl:p-12">
+            <p className="text-xs font-medium uppercase tracking-[0.16em] text-white/50">Nova Bank</p>
+            <h1 className="mt-4 max-w-sm text-[2rem] font-semibold leading-tight text-white">
+              Compliance reporting from the bank&apos;s own books.
+            </h1>
+            <p className="mt-4 max-w-sm text-sm leading-relaxed text-white/65">
+              Extract Finacle, stage CTR and DTD, and hand clean data to filing and screening partners.
+            </p>
+          </div>
+        </aside>
+        <section className="flex flex-1 flex-col justify-center px-8 py-12 sm:px-12 lg:px-14">
+          {children}
+        </section>
       </div>
-      <div>
-        <p className="text-sm font-semibold tracking-tight text-neutral-900">Nova Bank</p>
-        <p className="text-xs text-neutral-500">Compliance portal</p>
-      </div>
     </div>
-  );
-}
-
-function AuthFooter() {
-  return (
-    <p className="mt-10 text-center text-xs text-neutral-400">
-      © {new Date().getFullYear()} Nova Bank. Internal use only.
-    </p>
   );
 }
 
@@ -58,72 +69,70 @@ export function LoginPage() {
 
   return (
     <AuthShell>
-      <div className="border border-neutral-200 bg-white px-8 py-10">
-        <AuthLogo />
-        <h1 className="mt-8 text-xl font-semibold text-neutral-900">Sign in</h1>
-        <p className="mt-1 text-sm text-neutral-500">Authorised staff only.</p>
+      <AuthMark />
+      <h2 className="mt-6 text-[1.75rem] font-semibold tracking-tight text-neutral-900">Sign in</h2>
+      <p className="mt-1.5 text-sm text-neutral-500">Welcome to Nova Bank compliance — authorised staff only.</p>
 
-        <form onSubmit={onSubmit} className="mt-8 space-y-5">
-          <div>
-            <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-neutral-700">
-              Email
+      <form onSubmit={onSubmit} className="mt-8 space-y-5">
+        <div>
+          <label htmlFor="email" className="mb-1.5 block text-sm text-neutral-600">
+            Work email
+          </label>
+          <input
+            id="email"
+            type="email"
+            autoComplete="email"
+            placeholder="name@novabank.ng"
+            className="auth-input"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+        </div>
+        <div>
+          <div className="mb-1.5 flex items-center justify-between">
+            <label htmlFor="password" className="text-sm text-neutral-600">
+              Password
             </label>
+            <button
+              type="button"
+              className="text-xs text-neutral-400 hover:text-neutral-700"
+              onClick={() => setError("Contact your administrator to reset your password.")}
+            >
+              Forgot password
+            </button>
+          </div>
+          <div className="relative">
             <input
-              id="email"
-              type="email"
-              autoComplete="email"
-              placeholder="name@novabank.ng"
-              className="auth-input"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              id="password"
+              type={showPassword ? "text" : "password"}
+              autoComplete="current-password"
+              className="auth-input pr-11"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               required
             />
+            <button
+              type="button"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-700"
+              onClick={() => setShowPassword((v) => !v)}
+              aria-label={showPassword ? "Hide password" : "Show password"}
+            >
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
           </div>
+        </div>
 
-          <div>
-            <div className="mb-1.5 flex items-center justify-between">
-              <label htmlFor="password" className="text-sm font-medium text-neutral-700">
-                Password
-              </label>
-              <button
-                type="button"
-                className="text-xs text-neutral-500 hover:text-neutral-800"
-                onClick={() => setError("Contact your administrator to reset your password.")}
-              >
-                Forgot password
-              </button>
-            </div>
-            <div className="relative">
-              <input
-                id="password"
-                type={showPassword ? "text" : "password"}
-                autoComplete="current-password"
-                className="auth-input pr-11"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-              <button
-                type="button"
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-700"
-                onClick={() => setShowPassword((v) => !v)}
-                aria-label={showPassword ? "Hide password" : "Show password"}
-              >
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
-          </div>
+        {error && <p className="rounded-xl bg-neutral-50 px-3 py-2 text-sm text-neutral-800">{error}</p>}
 
-          {error && (
-            <p className="border border-neutral-300 bg-neutral-50 px-3 py-2 text-sm text-neutral-800">{error}</p>
-          )}
+        <button type="submit" className="auth-submit-btn" disabled={loading}>
+          {loading ? "Signing in…" : "Sign in"}
+        </button>
+      </form>
 
-          <button type="submit" className="auth-submit-btn" disabled={loading}>
-            {loading ? "Signing in…" : "Sign in"}
-          </button>
-        </form>
-      </div>
-      <AuthFooter />
+      <p className="mt-8 text-center text-sm text-neutral-400">
+        Need access? Speak to your compliance administrator.
+      </p>
     </AuthShell>
   );
 }
@@ -157,45 +166,38 @@ export function OtpPage() {
 
   return (
     <AuthShell>
-      <div className="border border-neutral-200 bg-white px-8 py-10">
-        <AuthLogo />
-        <h1 className="mt-8 text-xl font-semibold text-neutral-900">One-time password</h1>
-        <p className="mt-1 text-sm text-neutral-500">
-          Enter the 6-digit code for <span className="font-medium text-neutral-800">{email}</span>.
-        </p>
+      <AuthMark />
+      <h2 className="mt-6 text-[1.75rem] font-semibold tracking-tight text-neutral-900">Verify access</h2>
+      <p className="mt-1.5 text-sm text-neutral-500">
+        Enter the 6-digit code sent for <span className="font-medium text-neutral-800">{email}</span>.
+      </p>
 
-        <form onSubmit={onSubmit} className="mt-8 space-y-5">
-          <div>
-            <label htmlFor="otp" className="mb-1.5 block text-sm font-medium text-neutral-700">
-              Code
-            </label>
-            <input
-              id="otp"
-              type="text"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              maxLength={6}
-              className="auth-input text-center text-xl tracking-[0.4em]"
-              value={code}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-              required
-            />
-          </div>
+      <form onSubmit={onSubmit} className="mt-8 space-y-5">
+        <div>
+          <label htmlFor="otp" className="mb-1.5 block text-sm text-neutral-600">
+            One-time password
+          </label>
+          <input
+            id="otp"
+            type="text"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            maxLength={6}
+            className="auth-input text-center text-xl tracking-[0.4em]"
+            value={code}
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+            required
+          />
+        </div>
+        {error && <p className="rounded-xl bg-neutral-50 px-3 py-2 text-sm text-neutral-800">{error}</p>}
+        <button type="submit" className="auth-submit-btn" disabled={loading || code.length !== 6}>
+          {loading ? "Verifying…" : "Continue"}
+        </button>
+      </form>
 
-          {error && (
-            <p className="border border-neutral-300 bg-neutral-50 px-3 py-2 text-sm text-neutral-800">{error}</p>
-          )}
-
-          <button type="submit" className="auth-submit-btn" disabled={loading || code.length !== 6}>
-            {loading ? "Verifying…" : "Continue"}
-          </button>
-        </form>
-
-        <Link to="/login" className="mt-6 block text-center text-sm text-neutral-500 hover:text-neutral-800">
-          Back to sign in
-        </Link>
-      </div>
-      <AuthFooter />
+      <Link to="/login" className="mt-8 block text-center text-sm text-neutral-400 hover:text-neutral-700">
+        Back to sign in
+      </Link>
     </AuthShell>
   );
 }

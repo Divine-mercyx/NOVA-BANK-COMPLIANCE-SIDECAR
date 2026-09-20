@@ -21,7 +21,7 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
   }, [expanded]);
 
   const toggle = () => setExpanded((v) => !v);
-  const width = expanded ? 260 : 72;
+  const width = expanded ? 272 : 80;
 
   return (
     <SidebarContext.Provider value={{ expanded, toggle, width }}>

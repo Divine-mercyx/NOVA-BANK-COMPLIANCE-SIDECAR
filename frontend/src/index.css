@@ -4,25 +4,25 @@
 
 @layer base {
   :root {
-    --surface: 249 250 251;
+    --surface: 242 244 247;
     --surface-raised: 255 255 255;
-    --surface-overlay: 243 244 246;
-    --border: 229 231 235;
-    --border-strong: 209 213 219;
-    --content: 17 24 39;
-    --content-muted: 107 114 128;
-    --content-subtle: 156 163 175;
-    --brand: 15 23 42;
-    --brand-hover: 30 41 59;
-    --brand-muted: 241 245 249;
+    --surface-overlay: 236 239 243;
+    --border: 226 230 236;
+    --border-strong: 203 210 219;
+    --content: 11 31 58;
+    --content-muted: 90 102 120;
+    --content-subtle: 148 157 172;
+    --brand: 11 31 58;
+    --brand-hover: 18 48 86;
+    --brand-muted: 232 237 244;
     --brand-foreground: 255 255 255;
-    --success: 55 65 81;
-    --warning: 87 83 78;
+    --success: 30 64 52;
+    --warning: 120 80 30;
     --danger: 127 29 29;
-    --info: 51 65 85;
-    --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.05);
-    --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
-    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.06), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
+    --info: 11 31 58;
+    --shadow-soft: 0 1px 2px rgba(11, 31, 58, 0.06);
+    --shadow-card: 0 8px 24px rgba(11, 31, 58, 0.06);
+    --shadow-lg: 0 20px 40px rgba(11, 31, 58, 0.1);
   }
 
   .dark {
@@ -58,7 +58,7 @@
 
 @layer components {
   .card {
-    @apply rounded-xl border border-border bg-surface-raised shadow-card;
+    @apply rounded-2xl border border-border bg-surface-raised shadow-card;
   }
 
   .card-muted {
@@ -66,11 +66,11 @@
   }
 
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-brand px-4 py-2.5 text-sm font-semibold text-brand-foreground shadow-soft transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-brand-foreground transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-50;
   }
 
   .btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-surface-raised px-4 py-2.5 text-sm font-medium text-content transition hover:bg-surface-overlay disabled:opacity-50;
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-surface-raised px-4 py-2.5 text-sm font-medium text-content transition hover:bg-surface-overlay disabled:opacity-50;
   }
 
   .btn-ghost {
@@ -78,7 +78,7 @@
   }
 
   .input {
-    @apply w-full rounded-lg border border-border bg-surface-raised px-3.5 py-2.5 text-sm text-content outline-none transition placeholder:text-content-subtle focus:border-content focus:ring-1 focus:ring-content/20;
+    @apply w-full rounded-xl border border-border bg-surface-raised px-3.5 py-2.5 text-sm text-content outline-none transition placeholder:text-content-subtle focus:border-brand focus:ring-1 focus:ring-brand/20;
   }
 
   .label {
@@ -113,11 +113,40 @@
     @apply border-b-2 border-transparent text-content-muted hover:text-content;
   }
 
+  .auth-shell {
+    @apply flex min-h-screen items-center justify-center p-4 sm:p-8;
+    background: #081628;
+  }
+
+  .auth-frame {
+    @apply flex w-full max-w-5xl overflow-hidden rounded-[28px] bg-white shadow-lg;
+  }
+
+  .auth-hero {
+    background:
+      linear-gradient(180deg, #0b1f3a 0%, #081628 100%);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .auth-hero::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(90deg, transparent 8%, rgba(196, 165, 116, 0.08) 8.4%, transparent 9%),
+      linear-gradient(90deg, transparent 22%, rgba(196, 165, 116, 0.14) 22.5%, transparent 28%),
+      linear-gradient(90deg, transparent 40%, rgba(196, 165, 116, 0.22) 41%, transparent 48%),
+      linear-gradient(90deg, transparent 58%, rgba(196, 165, 116, 0.1) 59%, transparent 64%),
+      linear-gradient(180deg, transparent 35%, rgba(8, 22, 40, 0.55) 100%);
+    pointer-events: none;
+  }
+
   .auth-input {
-    @apply w-full rounded-md border border-neutral-300 bg-white px-4 py-2.5 text-sm text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:border-neutral-800 focus:ring-1 focus:ring-neutral-800/15;
+    @apply w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:border-[#0B1F3A] focus:ring-1 focus:ring-[#0B1F3A]/15;
   }
 
   .auth-submit-btn {
-    @apply w-full rounded-md bg-neutral-900 py-3 text-sm font-medium text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-50;
+    @apply w-full rounded-xl bg-[#0B1F3A] py-3.5 text-sm font-semibold text-white transition hover:bg-[#123056] disabled:cursor-not-allowed disabled:opacity-50;
   }
 }

@@ -1,19 +1,10 @@
 import { useEffect, useState } from "react";
 import { Play, RefreshCw } from "lucide-react";
 import { Link } from "react-router-dom";
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ExtractionProgressBanner } from "../components/ExtractionProgressBanner";
 import { ExtractionRunModal } from "../components/ExtractionRunModal";
-import {
-  EmptyState,
-  KpiCard,
-  LoadingGrid,
-  PageHeader,
-  ProgressBar,
-  ScoreRing,
-  StatusBadge,
-  Tag,
-} from "../components/ui";
+import { EmptyState, LoadingGrid } from "../components/ui";
 import { api, DashboardStats, ExtractionLog } from "../lib/api";
 import type { ExtractionRunParams } from "../lib/dates";
 import { progressLabel } from "../lib/extractionProgress";
@@ -30,6 +21,8 @@ export function DashboardPage() {
   const [extractOpen, setExtractOpen] = useState(false);
   const [progressMessage, setProgressMessage] = useState<string | null>(null);
   const [runLogs, setRunLogs] = useState<ExtractionLog[]>([]);
+
+  const firstName = user?.full_name?.split(" ")[0] ?? "there";
 
   const load = async (silent = false) => {
     if (!silent) setLoading(true);
@@ -112,28 +105,26 @@ export function DashboardPage() {
 
   return (
     <div>
-      <PageHeader
-        title="Dashboard"
-        subtitle={
-          data
-            ? `Extract mode: ${extractModeLabel(data.finacle_mode)}`
-            : "Finacle extraction and staging"
-        }
-        actions={
-          <>
-            <button className="btn-secondary" onClick={() => load(true)}>
-              <RefreshCw className="h-4 w-4" />
-              Refresh
+      <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-[1.75rem] font-semibold tracking-tight text-content">Hello {firstName}</h1>
+          <p className="mt-1 text-sm text-content-muted">
+            {data ? `Finacle ${extractModeLabel(data.finacle_mode).toLowerCase()} · compliance overview` : "Finacle extraction and staging"}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button className="btn-secondary" onClick={() => load(true)}>
+            <RefreshCw className="h-4 w-4" />
+            Refresh
+          </button>
+          {canRunEtl(user?.role) && (
+            <button className="btn-primary" onClick={() => setExtractOpen(true)} disabled={running}>
+              {running ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+              Run extraction
             </button>
-            {canRunEtl(user?.role) && (
-              <button className="btn-primary" onClick={() => setExtractOpen(true)} disabled={running}>
-                {running ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-                Run extraction
-              </button>
-            )}
-          </>
-        }
-      />
+          )}
+        </div>
+      </div>
 
       <ExtractionRunModal
         open={extractOpen}
@@ -157,139 +148,124 @@ export function DashboardPage() {
         <LoadingGrid />
       ) : data ? (
         <>
-          <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <KpiCard
-              label="Staged transactions"
-              value={formatNumber(data.total_staged_transactions)}
-              change="from last extraction"
-              changeUp
-              ringPercent={data.data_quality.validation_rate}
-            />
-            <KpiCard
-              label="CTR flagged"
-              value={formatNumber(data.data_quality.ctr_eligible)}
-              change={`${formatNumber(data.data_quality.ftr_eligible)} FTR`}
-              changeUp
-            />
-            <KpiCard
-              label="PEP / STR"
-              value={`${formatNumber(data.data_quality.pep_eligible)} / ${formatNumber(data.data_quality.str_eligible)}`}
-              change="on staged rows"
-              changeUp
-            />
-            <KpiCard
-              label="Validation rate"
-              value={`${data.data_quality.validation_rate}%`}
-              change={`${formatNumber(data.data_quality.valid_records)} valid records`}
-              changeUp={data.data_quality.validation_rate >= 80}
-            />
-          </div>
-
-          <div className="grid gap-6 lg:grid-cols-3">
-            <div className="card lg:col-span-2">
-              <div className="border-b border-border px-5 py-4">
-                <h2 className="font-semibold text-content">Transaction flags</h2>
-                <p className="text-sm text-content-muted">Counts from flags stored on each staged Finacle row</p>
+          <div className="mb-6 overflow-hidden rounded-3xl bg-[#0B1F3A] px-6 py-6 text-white sm:px-8">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <p className="text-xs font-medium uppercase tracking-[0.14em] text-white/50">Staged warehouse</p>
+                <p className="mt-2 text-3xl font-semibold tabular-nums tracking-tight sm:text-4xl">
+                  {formatNumber(data.total_staged_transactions)}
+                </p>
+                <p className="mt-2 text-sm text-white/60">
+                  {data.last_extraction
+                    ? `Last extract ${formatDateRange(data.last_extraction.date_from, data.last_extraction.date_to)}`
+                    : "No extraction run yet"}
+                </p>
               </div>
-              <div className="grid gap-4 p-5 sm:grid-cols-2">
-                <div className="flex items-center gap-4 rounded-lg bg-surface-overlay/40 p-4">
-                  <ScoreRing value={data.data_quality.validation_rate} />
-                  <div>
-                    <p className="text-sm font-medium text-content">Data quality score</p>
-                    <p className="text-xs text-content-muted">
-                      {formatNumber(data.data_quality.invalid_records)} invalid of{" "}
-                      {formatNumber(data.data_quality.total_records)}
-                    </p>
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  <ProgressBar value={Math.min(100, data.data_quality.ctr_eligible)} color="info" />
-                  <p className="text-xs text-content-muted">CTR-eligible ({data.data_quality.ctr_eligible})</p>
-                  <ProgressBar value={Math.min(100, data.data_quality.ftr_eligible)} color="warning" />
-                  <p className="text-xs text-content-muted">FTR-eligible ({data.data_quality.ftr_eligible})</p>
-                  <ProgressBar value={Math.min(100, data.data_quality.pep_eligible)} color="brand" />
-                  <p className="text-xs text-content-muted">PEP-flagged ({data.data_quality.pep_eligible})</p>
-                </div>
-              </div>
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-t border-border bg-surface-overlay/30 text-left text-xs uppercase tracking-wide text-content-subtle">
-                    <th className="px-5 py-3">Flag</th>
-                    <th className="px-5 py-3">Count</th>
-                    <th className="px-5 py-3">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {[
-                    ["CTR", data.data_quality.ctr_eligible],
-                    ["FTR", data.data_quality.ftr_eligible],
-                    ["PEP", data.data_quality.pep_eligible],
-                    ["STR", data.data_quality.str_eligible],
-                  ].map(([flag, count]) => (
-                    <tr key={flag as string} className="border-t border-border/60">
-                      <td className="px-5 py-3 font-medium">{flag}</td>
-                      <td className="px-5 py-3">{formatNumber(count as number)}</td>
-                      <td className="px-5 py-3">
-                        <Tag color={(count as number) > 0 ? "purple" : "gray"}>
-                          {(count as number) > 0 ? "Flagged" : "None"}
-                        </Tag>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <div className="flex justify-end gap-2 border-t border-border px-5 py-3">
-                <Link to="/reports" className="btn-primary">
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="inline-flex items-center rounded-full bg-white/10 px-3 py-1 text-xs font-medium capitalize text-white/80">
+                  {data.pipeline_status.replace(/_/g, " ")}
+                </span>
+                <span className="text-sm text-white/55">{data.data_quality.validation_rate}% valid</span>
+                <Link to="/reports" className="rounded-xl bg-white px-4 py-2 text-sm font-medium text-[#0B1F3A]">
                   View transactions
                 </Link>
               </div>
             </div>
+          </div>
+
+          <div className="mb-6 grid gap-4 sm:grid-cols-3">
+            <div className="rounded-2xl bg-[#F3F6F4] p-5">
+              <p className="text-sm text-content-muted">CTR flagged</p>
+              <p className="mt-3 text-2xl font-semibold tabular-nums text-content">{formatNumber(data.data_quality.ctr_eligible)}</p>
+              <p className="mt-2 text-xs text-content-subtle">Cash transaction reports on staged rows</p>
+            </div>
+            <div className="rounded-2xl bg-[#F6F4F0] p-5">
+              <p className="text-sm text-content-muted">FTR flagged</p>
+              <p className="mt-3 text-2xl font-semibold tabular-nums text-content">{formatNumber(data.data_quality.ftr_eligible)}</p>
+              <p className="mt-2 text-xs text-content-subtle">Foreign transaction reports</p>
+            </div>
+            <div className="rounded-2xl bg-[#F0F2F6] p-5">
+              <p className="text-sm text-content-muted">PEP / STR</p>
+              <p className="mt-3 text-2xl font-semibold tabular-nums text-content">
+                {formatNumber(data.data_quality.pep_eligible)} / {formatNumber(data.data_quality.str_eligible)}
+              </p>
+              <p className="mt-2 text-xs text-content-subtle">Watchlist and suspicion flags</p>
+            </div>
+          </div>
+
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(280px,0.8fr)]">
+            <div className="card p-5">
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <h2 className="font-semibold text-content">Volume by channel</h2>
+                  <p className="text-sm text-content-muted">Staged Finacle distribution</p>
+                </div>
+              </div>
+              {chartData.length > 0 ? (
+                <div className="h-56">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={chartData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(11,31,58,0.08)" />
+                      <XAxis dataKey="name" tick={{ fontSize: 11, fill: "rgb(var(--content-muted))" }} />
+                      <YAxis tick={{ fontSize: 11, fill: "rgb(var(--content-muted))" }} />
+                      <Tooltip
+                        contentStyle={{
+                          borderRadius: 12,
+                          border: "1px solid rgb(var(--border))",
+                          background: "rgb(var(--surface-raised))",
+                        }}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="count"
+                        stroke="rgb(var(--brand))"
+                        fill="rgba(11,31,58,0.08)"
+                        strokeWidth={2}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <p className="py-12 text-center text-sm text-content-muted">No channel volume until an extraction completes.</p>
+              )}
+            </div>
 
             <div className="space-y-4">
               <div className="card p-5">
-                <p className="text-sm font-medium text-content-muted">Pipeline status</p>
-                <div className="mt-3 flex items-center justify-between">
-                  <StatusBadge status={data.pipeline_status} />
-                  {data.last_extraction && (
-                    <span className="text-xs text-content-subtle">
-                      {formatRelative(data.last_extraction.completed_at ?? data.last_extraction.started_at)}
-                    </span>
-                  )}
-                </div>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <Tag color="blue">{extractModeLabel(data.finacle_mode)}</Tag>
-                  {data.last_extraction && (
-                    <Tag color="gray">{extractSourceLabel(data.last_extraction.source)}</Tag>
-                  )}
-                </div>
-                {data.last_extraction && (
-                  <div className="mt-4 space-y-2 text-sm">
-                    <div className="flex justify-between gap-4">
+                <p className="text-sm font-semibold text-content">Last extract</p>
+                {data.last_extraction ? (
+                  <div className="mt-4 space-y-2.5 text-sm">
+                    <div className="flex justify-between gap-3">
                       <span className="text-content-muted">Period</span>
-                      <span className="text-right font-medium">
-                        {formatDateRange(data.last_extraction.date_from, data.last_extraction.date_to)}
-                      </span>
+                      <span className="text-right font-medium">{formatDateRange(data.last_extraction.date_from, data.last_extraction.date_to)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-content-muted">Source</span>
+                      <span className="font-medium">{extractSourceLabel(data.last_extraction.source)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-content-muted">Extracted</span>
-                      <span className="font-medium">{data.last_extraction.records_extracted}</span>
+                      <span className="font-medium tabular-nums">{data.last_extraction.records_extracted}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-content-muted">Valid</span>
-                      <span className="font-medium text-success">{data.last_extraction.records_valid}</span>
+                      <span className="text-content-muted">Valid / invalid</span>
+                      <span className="font-medium tabular-nums">
+                        {data.last_extraction.records_valid} / {data.last_extraction.records_invalid}
+                      </span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-content-muted">Invalid</span>
-                      <span className="font-medium">{data.last_extraction.records_invalid}</span>
-                    </div>
+                    <p className="pt-1 text-xs text-content-subtle">
+                      {formatRelative(data.last_extraction.completed_at ?? data.last_extraction.started_at)}
+                    </p>
                   </div>
+                ) : (
+                  <p className="mt-3 text-sm text-content-muted">No run yet.</p>
                 )}
               </div>
 
               <div className="card p-5">
                 <p className="text-sm font-semibold text-content">Recent activity</p>
                 <div className="mt-3 space-y-3">
-                  {data.recent_audit.slice(0, 4).map((e) => (
+                  {data.recent_audit.slice(0, 5).map((e) => (
                     <div key={e.id} className="flex items-start justify-between gap-2 text-sm">
                       <div>
                         <p className="font-medium text-content">{actionLabel(e.action)}</p>
@@ -303,36 +279,12 @@ export function DashboardPage() {
             </div>
           </div>
 
-          {chartData.length > 0 && (
-            <div className="card mt-6 p-5">
-              <h2 className="font-semibold text-content">Volume by channel</h2>
-              <p className="text-sm text-content-muted">Extracted transaction distribution</p>
-              <div className="mt-4 h-56">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(156,163,175,0.2)" />
-                    <XAxis dataKey="name" tick={{ fontSize: 11, fill: "rgb(var(--content-muted))" }} />
-                    <YAxis tick={{ fontSize: 11, fill: "rgb(var(--content-muted))" }} />
-                    <Tooltip
-                      contentStyle={{
-                        borderRadius: 8,
-                        border: "1px solid rgb(var(--border))",
-                        background: "rgb(var(--surface-raised))",
-                      }}
-                    />
-                    <Bar dataKey="count" fill="rgb(var(--brand))" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          )}
-
           {data.total_staged_transactions === 0 && canRunEtl(user?.role) && (
             <div className="card mt-6">
               <EmptyState
                 icon={Play}
                 title="No data yet"
-                description="Run your first Finacle extraction to populate the staging warehouse."
+                description="Run a Finacle extraction to populate the staging warehouse."
                 action={
                   <button className="btn-primary" onClick={() => setExtractOpen(true)} disabled={running}>
                     Run extraction
