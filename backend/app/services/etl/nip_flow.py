@@ -5,7 +5,15 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from app.schemas.compliance import RawTransaction
+from app.schemas.compliance import RawTransaction, TransactionChannel
+
+_NIP_CHANNELS = frozenset(
+    {
+        TransactionChannel.NIP,
+        TransactionChannel.MOBILE,
+        TransactionChannel.NEFT,
+    }
+)
 
 # NIBSS institution code for Nova on in/out flow tables (not vendor 60003).
 NOVA_NIBSS_INSTITUTION_CODE = "060003"
@@ -67,14 +75,37 @@ class NipFlowLookup:
             return self.names.get(code) or "Nova Bank"
         return None
 
+    def _resolve_pair(
+        self,
+        store: dict[tuple[str, float], tuple[str | None, str | None]],
+        tran_id: str,
+        amount: float,
+    ) -> tuple[str | None, str | None] | None:
+        key = _flow_key(tran_id, amount)
+        if key in store:
+            return store[key]
+        tid = tran_id.strip().upper()
+        keys = [k for k in store if k[0] == tid]
+        if not keys:
+            return None
+        if len(keys) == 1:
+            return store[keys[0]]
+        target = _amount_key(amount)
+        best = min(keys, key=lambda k: abs(k[1] - target))
+        return store[best]
+
     def apply(self, tx: RawTransaction, tran_id: str) -> None:
-        key = _flow_key(tran_id, tx.amount)
-        if key in self.outbound:
-            orig, dest = self.outbound[key]
+        if tx.channel not in _NIP_CHANNELS:
+            return
+        out = self._resolve_pair(self.outbound, tran_id, tx.amount)
+        if out is not None:
+            orig, dest = out
             self._set_source(tx, orig or NOVA_NIBSS_INSTITUTION_CODE)
             self._set_dest(tx, dest)
-        elif key in self.inbound:
-            orig, dest = self.inbound[key]
+            return
+        inbound = self._resolve_pair(self.inbound, tran_id, tx.amount)
+        if inbound is not None:
+            orig, dest = inbound
             self._set_source(tx, orig)
             self._set_dest(tx, dest or NOVA_NIBSS_INSTITUTION_CODE)
 
