@@ -7,8 +7,6 @@ from datetime import datetime
 from app.models.entities import StagingTransaction
 from app.schemas.integration import NfiuTransactionRow
 
-NOVA_INSTITUTION_CODE = "60003"
-NOVA_INSTITUTION_NAME = "NOVA BANK"
 ENTITY_MARKERS = (
     "LTD",
     "LIMITED",
@@ -43,7 +41,13 @@ def _split_person(name: str) -> tuple[str, str]:
     return parts[0], " ".join(parts[1:])
 
 
-def _party_fields(prefix: str, name: str, account: str) -> dict[str, str | int | float]:
+def _party_fields(
+    prefix: str,
+    name: str,
+    account: str,
+    institution_code: str | None = None,
+    institution_name: str | None = None,
+) -> dict[str, str | int | float]:
     entity = _is_entity_name(name)
     first, last = ("", "") if entity else _split_person(name)
     return {
@@ -54,8 +58,8 @@ def _party_fields(prefix: str, name: str, account: str) -> dict[str, str | int |
         f"t_{prefix}_foreign_amount": 0,
         f"t_{prefix}_exchange_rate": 1,
         f"t_{prefix}_country": "NG",
-        f"t_{prefix}_institution_code": NOVA_INSTITUTION_CODE,
-        f"t_{prefix}_institution_name": NOVA_INSTITUTION_NAME,
+        f"t_{prefix}_institution_code": (institution_code or "").strip(),
+        f"t_{prefix}_institution_name": (institution_name or "").strip(),
         f"t_{prefix}_account_number": account,
         f"t_{prefix}_account_name": name,
         f"t_{prefix}_person_first_name": first,
@@ -80,8 +84,20 @@ def _tran_type(channel: str) -> str:
 def map_nfiu_row(tx: StagingTransaction) -> NfiuTransactionRow:
     """One NFIU sample-data row. Fields we do not have from HTD use Nova defaults."""
     date_s = _iso_date(tx.transaction_date)
-    source = _party_fields("source", tx.sender_name or "", tx.sender_account or "")
-    dest = _party_fields("dest", tx.receiver_name or "", tx.receiver_account or "")
+    source = _party_fields(
+        "source",
+        tx.sender_name or "",
+        tx.sender_account or "",
+        getattr(tx, "source_institution_code", None),
+        getattr(tx, "source_institution_name", None),
+    )
+    dest = _party_fields(
+        "dest",
+        tx.receiver_name or "",
+        tx.receiver_account or "",
+        getattr(tx, "dest_institution_code", None),
+        getattr(tx, "dest_institution_name", None),
+    )
     branch = tx.branch_code or ""
     location = "HEAD OFFICE BRANCH" if branch in {"001", "1", ""} else branch
     return NfiuTransactionRow.model_validate(

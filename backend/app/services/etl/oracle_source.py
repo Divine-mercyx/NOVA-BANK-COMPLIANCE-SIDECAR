@@ -18,6 +18,12 @@ from app.services.etl.finacle_mappers import (
     map_withdrawal_rows,
 )
 from app.services.etl.htd_mapper import map_htd_rows
+from app.services.etl.nip_flow import (
+    NipFlowLookup,
+    collect_tran_ids_from_legs,
+    register_inbound_row,
+    register_outbound_row,
+)
 from app.services.etl.oracle_client import connect_oracle, get_oracledb
 
 logger = logging.getLogger(__name__)
@@ -272,6 +278,126 @@ class OracleFinacleSource:
         logger.info("Loaded %s bank codes from %s.BANK_CODE_TABLE", len(names), admin_schema)
         return names
 
+    def fetch_nip_institution_names(self, oracledb, nip_schema: str) -> dict[str, str]:
+        """APIUSER.NIP_INST_LIST — NIBSS institution code → name."""
+        names: dict[str, str] = {}
+        try:
+            with connect_oracle(oracledb) as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute(
+                        f"""
+                        SELECT INSTITUTIONCODE, INSTITUTIONNAME
+                        FROM {nip_schema}.NIP_INST_LIST
+                        WHERE INSTITUTIONCODE IS NOT NULL
+                        """
+                    )
+                    for code, name in cursor.fetchall():
+                        key = str(code or "").strip()
+                        label = str(name or "").strip()
+                        if not key:
+                            continue
+                        names[key] = label
+                        if key.isdigit():
+                            names[key.zfill(6)] = label
+                            stripped = key.lstrip("0") or "0"
+                            names[stripped] = label
+        except Exception as exc:
+            logger.warning("NIP_INST_LIST load failed; institution names skipped: %s", exc)
+        logger.info("Loaded %s NIP institution names from %s.NIP_INST_LIST", len(names), nip_schema)
+        return names
+
+    def fetch_nip_flow_lookup(
+        self,
+        oracledb,
+        nip_schema: str,
+        tran_ids: list[str],
+        names: dict[str, str] | None = None,
+    ) -> NipFlowLookup:
+        """Join NIP out/in flow rows by Finacle TRAN_ID + amount for the current HTD/DTD page."""
+        if not tran_ids:
+            return NipFlowLookup.empty()
+        if names is None:
+            names = self.fetch_nip_institution_names(oracledb, nip_schema)
+        outbound: dict[tuple[str, float], tuple[str | None, str | None]] = {}
+        inbound: dict[tuple[str, float], tuple[str | None, str | None]] = {}
+        try:
+            with connect_oracle(oracledb) as conn:
+                self._load_nip_out_flow(conn, nip_schema, tran_ids, outbound)
+                self._load_nip_in_flow(conn, nip_schema, tran_ids, inbound)
+        except Exception as exc:
+            logger.warning("NIP flow lookup failed; institution codes skipped: %s", exc)
+            return NipFlowLookup.empty()
+        logger.info(
+            "NIP flow lookup: %s outbound keys, %s inbound keys for %s tran id(s)",
+            len(outbound),
+            len(inbound),
+            len(tran_ids),
+        )
+        return NipFlowLookup(outbound=outbound, inbound=inbound, names=names)
+
+    def _load_nip_out_flow(
+        self,
+        conn,
+        nip_schema: str,
+        tran_ids: list[str],
+        outbound: dict[tuple[str, float], tuple[str | None, str | None]],
+    ) -> None:
+        binds = {f"id{i}": tid for i, tid in enumerate(tran_ids)}
+        placeholders = ", ".join(f":id{i}" for i in range(len(tran_ids)))
+        sql = f"""
+            SELECT CBS_TRAN_ID, AMOUNT,
+                   ORIGINATORINSTITUTIONCODE, DESTINATIONINSTITUTIONCODE
+            FROM {nip_schema}.NIP_OUT_FLW
+            WHERE CBS_TRAN_ID IN ({placeholders})
+        """
+        with conn.cursor() as cursor:
+            cursor.execute(sql, binds)
+            cols = [d[0].lower() for d in cursor.description]
+            for row in cursor.fetchall():
+                record = dict(zip(cols, row))
+                tid = str(record.get("cbs_tran_id") or "").strip()
+                if not tid:
+                    continue
+                register_outbound_row(
+                    outbound,
+                    tid,
+                    record.get("amount"),
+                    record.get("originatorinstitutioncode"),
+                    record.get("destinationinstitutioncode"),
+                )
+
+    def _load_nip_in_flow(
+        self,
+        conn,
+        nip_schema: str,
+        tran_ids: list[str],
+        inbound: dict[tuple[str, float], tuple[str | None, str | None]],
+    ) -> None:
+        binds = {f"id{i}": tid for i, tid in enumerate(tran_ids)}
+        placeholders = ", ".join(f":id{i}" for i in range(len(tran_ids)))
+        sql = f"""
+            SELECT POSTING_TRAN_ID, AMOUNT,
+                   ORIGINATORINSTITUTIONCODE, DESTINATIONINSTITUTIONCODE
+            FROM {nip_schema}.NIP_IN_FLW
+            WHERE POSTING_TRAN_ID IN ({placeholders})
+              AND POSTING_TRAN_ID IS NOT NULL
+        """
+        with conn.cursor() as cursor:
+            cursor.execute(sql, binds)
+            cols = [d[0].lower() for d in cursor.description]
+            for row in cursor.fetchall():
+                record = dict(zip(cols, row))
+                tid = str(record.get("posting_tran_id") or "").strip()
+                if not tid:
+                    continue
+                register_inbound_row(
+                    inbound,
+                    tid,
+                    record.get("amount"),
+                    record.get("originatorinstitutioncode"),
+                    record.get("destinationinstitutioncode"),
+                )
+
     def extract_htd_window(
         self,
         date_from: datetime,
@@ -287,7 +413,12 @@ class OracleFinacleSource:
         )
         rows = self._attach_gam_names(oracledb, admin_schema, rows)
         banks = self.fetch_bank_directory(oracledb, admin_schema)
-        return map_htd_rows(rows, customers, banks)
+        nip_schema = settings.finacle_nip_schema
+        nip_names = self.fetch_nip_institution_names(oracledb, nip_schema)
+        nip_lookup = self.fetch_nip_flow_lookup(
+            oracledb, nip_schema, collect_tran_ids_from_legs(rows), nip_names
+        )
+        return map_htd_rows(rows, customers, banks, nip_lookup)
 
     def fetch_htd_flush_page(
         self,

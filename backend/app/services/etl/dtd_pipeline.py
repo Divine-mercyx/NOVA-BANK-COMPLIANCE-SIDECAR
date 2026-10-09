@@ -19,6 +19,7 @@ from app.models.entities import (
 )
 from app.services.etl.customer_registry import CustomerRegistry
 from app.services.etl.htd_mapper import map_htd_rows
+from app.services.etl.nip_flow import collect_tran_ids_from_legs
 from app.services.etl.oracle_client import get_oracledb
 from app.services.etl.oracle_source import HTD_BETWEEN_PAGES_SEC, HtdDayCursor, OracleFinacleSource
 
@@ -69,6 +70,9 @@ class DtdPipeline:
         banks = await asyncio.to_thread(
             source.fetch_bank_directory, oracledb, settings.finacle_admin_schema
         )
+        nip_names = await asyncio.to_thread(
+            source.fetch_nip_institution_names, oracledb, settings.finacle_nip_schema
+        )
         cursor = HtdDayCursor()
         total_new = total_skipped = 0
 
@@ -83,7 +87,20 @@ class DtdPipeline:
                     cursor,
                     since_naive,
                 )
-                raw = map_htd_rows(flush_rows, customers, banks) if flush_rows else []
+                nip_lookup = (
+                    await asyncio.to_thread(
+                        source.fetch_nip_flow_lookup,
+                        oracledb,
+                        settings.finacle_nip_schema,
+                        collect_tran_ids_from_legs(flush_rows),
+                        nip_names,
+                    )
+                    if flush_rows
+                    else None
+                )
+                raw = (
+                    map_htd_rows(flush_rows, customers, banks, nip_lookup) if flush_rows else []
+                )
                 new, skipped = await self._stage(run.id, business_start, raw)
                 total_new += new
                 total_skipped += skipped

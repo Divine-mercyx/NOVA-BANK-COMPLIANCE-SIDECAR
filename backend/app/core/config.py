@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     etl_skip_duplicates: bool = True
     finacle_schema: str = "CUSTOM"
     finacle_admin_schema: str = "TBAADM"
+    finacle_nip_schema: str = "APIUSER"
     finacle_oracle_source: str = "htd"
     finacle_samples_dir: str = "finacle_samples"
     finacle_customer_names_csv: str = "CUSTOMER_NAMES.csv"

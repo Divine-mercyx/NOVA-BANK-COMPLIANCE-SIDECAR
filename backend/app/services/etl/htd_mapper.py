@@ -12,6 +12,7 @@ from typing import Any
 from app.schemas.compliance import RawTransaction, TransactionChannel
 from app.services.etl.customer_registry import CustomerRegistry
 from app.services.etl.institution import resolve_institution
+from app.services.etl.nip_flow import NipFlowLookup
 from app.services.etl.finacle_mappers import (
     normalize_account,
     parse_oracle_date,
@@ -84,6 +85,7 @@ def map_htd_transaction(
     credit: dict[str, Any] | None,
     customers: CustomerRegistry | None = None,
     banks: dict[str, str] | None = None,
+    nip_lookup: NipFlowLookup | None = None,
 ) -> RawTransaction | None:
     primary = debit or credit
     if not primary:
@@ -115,7 +117,7 @@ def map_htd_transaction(
     ref_suffix = f"{amount_val:.2f}-{sender_acct}".replace(".", "")
     finacle_ref = f"{tran_id}-{ref_suffix}" if tran_id else ref_suffix
 
-    return RawTransaction(
+    tx = RawTransaction(
         finacle_ref=finacle_ref,
         channel=channel,
         transaction_date=parse_oracle_date(
@@ -134,12 +136,16 @@ def map_htd_transaction(
         branch_code=str(primary.get("sol_id") or primary.get("SOL_ID") or "001").strip()[:20],
         narration=particular or None,
     )
+    if nip_lookup:
+        nip_lookup.apply(tx, tran_id)
+    return tx
 
 
 def map_htd_rows(
     rows: list[dict[str, Any]],
     customers: CustomerRegistry | None = None,
     banks: dict[str, str] | None = None,
+    nip_lookup: NipFlowLookup | None = None,
 ) -> list[RawTransaction]:
     """Pair debit/credit legs by TRAN_ID + TRAN_AMT (one Finacle txn can have many legs)."""
     debits: dict[tuple[str, str], dict[str, Any]] = {}
@@ -161,7 +167,7 @@ def map_htd_rows(
     for key, debit in debits.items():
         tran_id, _ = key
         credit = credits.get(key)
-        tx = map_htd_transaction(tran_id, debit, credit, customers, banks)
+        tx = map_htd_transaction(tran_id, debit, credit, customers, banks, nip_lookup)
         if tx and tx.amount > 0:
             out.append(tx)
     return out

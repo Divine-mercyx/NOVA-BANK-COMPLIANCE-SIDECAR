@@ -23,6 +23,7 @@ from app.schemas.compliance import RawTransaction, TransactionChannel
 from app.services.etl.customer_registry import CustomerRegistry
 from app.services.etl.extractor import FinacleExtractor
 from app.services.etl.htd_mapper import map_htd_rows
+from app.services.etl.nip_flow import collect_tran_ids_from_legs
 from app.services.etl.oracle_client import get_oracledb
 from app.services.etl.oracle_source import (
     HTD_BETWEEN_PAGES_SEC,
@@ -166,6 +167,7 @@ class ETLPipeline:
         await self.db.commit()
         customers = CustomerRegistry.default()
         banks = source.fetch_bank_directory(oracledb, settings.finacle_admin_schema)
+        nip_names = source.fetch_nip_institution_names(oracledb, settings.finacle_nip_schema)
 
         for index, (day_start, day_end) in enumerate(days, start=1):
             day_label = day_start.date().isoformat()
@@ -229,7 +231,20 @@ class ETLPipeline:
                     len(cursor.leftover),
                 )
 
-                raw_records = map_htd_rows(flush_rows, customers, banks) if flush_rows else []
+                nip_lookup = (
+                    await asyncio.to_thread(
+                        source.fetch_nip_flow_lookup,
+                        oracledb,
+                        settings.finacle_nip_schema,
+                        collect_tran_ids_from_legs(flush_rows),
+                        nip_names,
+                    )
+                    if flush_rows
+                    else None
+                )
+                raw_records = (
+                    map_htd_rows(flush_rows, customers, banks, nip_lookup) if flush_rows else []
+                )
                 logger.info(
                     "[HTD %s] %s page %s mapped: %s HTD legs → %s transactions",
                     run.id[:8],
@@ -420,6 +435,10 @@ class ETLPipeline:
                     sender_account=raw.sender_account,
                     receiver_name=raw.receiver_name,
                     receiver_account=raw.receiver_account,
+                    source_institution_code=raw.source_institution_code,
+                    source_institution_name=raw.source_institution_name,
+                    dest_institution_code=raw.dest_institution_code,
+                    dest_institution_name=raw.dest_institution_name,
                     branch_code=raw.branch_code,
                     narration=raw.narration,
                     is_valid=is_valid,
