@@ -117,9 +117,8 @@ export interface LoginResponse {
   message: string;
 }
 
+/** The session JWT is set as an httpOnly cookie; only the user comes back in the body. */
 export interface AuthResponse {
-  access_token: string;
-  token_type: string;
   user: User;
 }
 
@@ -272,20 +271,29 @@ export interface DtdFeedStatus {
   transactions: DtdLiveTransaction[];
 }
 
-function getToken() {
-  return localStorage.getItem("nova-token");
+const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
+
+/** The readable half of the double-submit pair; the session cookie itself is httpOnly. */
+function csrfToken(): string | null {
+  const match = document.cookie.match(/(?:^|;\s*)nova_csrf=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : null;
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const token = getToken();
+  const method = (options?.method ?? "GET").toUpperCase();
+  const csrf = SAFE_METHODS.has(method) ? null : csrfToken();
   const res = await fetch(path, {
     ...options,
+    credentials: "same-origin",
     headers: {
       "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(csrf ? { "X-CSRF-Token": csrf } : {}),
       ...options?.headers,
     },
   });
+  if (res.status === 401 && !path.startsWith("/api/v1/auth/")) {
+    window.dispatchEvent(new Event("nova:unauthorized"));
+  }
   if (!res.ok) {
     let message = res.statusText;
     try {
@@ -297,6 +305,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     }
     throw new Error(typeof message === "string" ? message : JSON.stringify(message));
   }
+  if (res.status === 204) return undefined as T;
   return res.json();
 }
 
@@ -312,6 +321,7 @@ export const api = {
       body: JSON.stringify({ otp_session_id, code }),
     }),
   me: () => request<User>("/api/v1/auth/me"),
+  logout: () => request<void>("/api/v1/auth/logout", { method: "POST" }),
   createStaff: (payload: CreateStaffRequest) =>
     request<User>("/api/v1/auth/staff", { method: "POST", body: JSON.stringify(payload) }),
   updateStaff: (id: string, payload: UpdateStaffRequest) =>

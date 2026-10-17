@@ -1,62 +1,72 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { api, type User } from "./api";
+import { live } from "./live";
 
 interface AuthContextValue {
   user: User | null;
-  token: string | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<{ otp_session_id: string; message: string }>;
   verifyOtp: (otpSessionId: string, code: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+/**
+ * The session lives in an httpOnly cookie the browser manages, so there is no token in JS memory
+ * or storage. On load we ask /auth/me who we are; a 401 anywhere drops back to signed-out.
+ */
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(() => localStorage.getItem("nova-token"));
   const [loading, setLoading] = useState(true);
 
   const refreshUser = async () => {
-    if (!token) {
-      setUser(null);
-      return;
-    }
     try {
-      const me = await api.me();
-      setUser(me);
+      setUser(await api.me());
     } catch {
-      localStorage.removeItem("nova-token");
-      setToken(null);
       setUser(null);
     }
   };
 
   useEffect(() => {
+    // Tokens from the old localStorage scheme are dead weight; remove them.
+    try {
+      localStorage.removeItem("nova-token");
+    } catch {
+      /* storage unavailable */
+    }
     refreshUser().finally(() => setLoading(false));
-  }, [token]);
 
-  const login = async (email: string, password: string) => {
-    const result = await api.login(email, password);
-    return result;
-  };
+    const onUnauthorized = () => setUser(null);
+    window.addEventListener("nova:unauthorized", onUnauthorized);
+    return () => window.removeEventListener("nova:unauthorized", onUnauthorized);
+  }, []);
+
+  // One live socket per signed-in session.
+  useEffect(() => {
+    if (user) live.start();
+    else live.stop();
+  }, [user]);
+
+  const login = (email: string, password: string) => api.login(email, password);
 
   const verifyOtp = async (otpSessionId: string, code: string) => {
     const result = await api.verifyOtp(otpSessionId, code);
-    localStorage.setItem("nova-token", result.access_token);
-    setToken(result.access_token);
     setUser(result.user);
   };
 
-  const logout = () => {
-    localStorage.removeItem("nova-token");
-    setToken(null);
+  const logout = async () => {
+    try {
+      await api.logout();
+    } catch {
+      /* already signed out server-side */
+    }
     setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, verifyOtp, logout, refreshUser }}>
+    <AuthContext.Provider value={{ user, loading, login, verifyOtp, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

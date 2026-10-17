@@ -22,6 +22,7 @@ import {
 import { api, ScreeningAlert } from "../../lib/api";
 import { formatCurrency, formatDate, formatNumber, formatRelative } from "../../lib/format";
 import { useAuth } from "../../lib/auth";
+import { useLiveRefresh } from "../../lib/live";
 import { canEscalateAlerts, canResolveAlerts, canSimulateScreening } from "../../lib/roles";
 
 export function ScreeningAlertsPage() {
@@ -51,9 +52,10 @@ export function ScreeningAlertsPage() {
 
   useEffect(() => {
     load();
-    const interval = setInterval(load, 15000);
-    return () => clearInterval(interval);
   }, [load]);
+
+  // New and resolved alerts arrive as live hints; poll every 15s only while the socket is down.
+  useLiveRefresh(["screening.alert"], load, { fallbackMs: 15_000 });
 
   const simulate = async () => {
     setSimulating(true);

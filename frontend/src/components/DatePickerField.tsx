@@ -46,7 +46,7 @@ export function DatePickerField({ label, value, onChange, min, max, disabled }: 
       <p className="text-xs text-content-muted">{formatCalendarDateLabel(value)} · WAT (Africa/Lagos)</p>
       <div className="grid grid-cols-3 gap-2">
         <div className="relative">
-          <label className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-content-subtle">Year</label>
+          <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-content-subtle">Year</label>
           <div className="relative">
             <select
               className={`${selectClass} w-full`}
@@ -65,7 +65,7 @@ export function DatePickerField({ label, value, onChange, min, max, disabled }: 
           </div>
         </div>
         <div className="relative">
-          <label className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-content-subtle">Month</label>
+          <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-content-subtle">Month</label>
           <div className="relative">
             <select
               className={`${selectClass} w-full`}
@@ -88,7 +88,7 @@ export function DatePickerField({ label, value, onChange, min, max, disabled }: 
           </div>
         </div>
         <div className="relative">
-          <label className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-content-subtle">Day</label>
+          <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-content-subtle">Day</label>
           <div className="relative">
             <select
               className={`${selectClass} w-full`}

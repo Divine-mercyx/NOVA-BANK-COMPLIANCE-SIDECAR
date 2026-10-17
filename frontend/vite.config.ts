@@ -6,7 +6,8 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      "/api": "http://localhost:8000",
+      // ws: true also forwards the /api/v1/ws live-updates socket.
+      "/api": { target: "http://localhost:8000", ws: true },
       "/health": "http://localhost:8000",
     },
   },

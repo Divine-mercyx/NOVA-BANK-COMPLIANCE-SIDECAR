@@ -2,13 +2,17 @@ import { useEffect, useRef, useState } from "react";
 import { Activity, Play, RefreshCw } from "lucide-react";
 import { ExtractionProgressBanner } from "../components/ExtractionProgressBanner";
 import { ExtractionRunModal } from "../components/ExtractionRunModal";
+import { AnimatePresence, motion } from "motion/react";
+import { SkeletonCard, StaggerItem } from "../components/motion";
 import { EmptyState, PageHeader, StatusBadge, TableToolbar, Tag } from "../components/ui";
+import { spring } from "../lib/motion";
 import { api, ExtractionLog, ExtractionRun } from "../lib/api";
 import type { ExtractionRunParams } from "../lib/dates";
 import { displayLogMessage, latestHtdProgress } from "../lib/extractionProgress";
 import { channelLabel, formatDate, formatDateRange, formatNumber } from "../lib/format";
 import { canRunEtl, extractSourceLabel } from "../lib/roles";
 import { useAuth } from "../lib/auth";
+import { useLiveRefresh } from "../lib/live";
 
 export function ExtractionPage() {
   const { user } = useAuth();
@@ -59,34 +63,32 @@ export function ExtractionPage() {
     }
   }, [runs, starting, selected]);
 
-  useEffect(() => {
+  const poll = async () => {
     if (!selected) return;
-    let cancelled = false;
+    const id = selected;
+    try {
+      const [run, runLogs] = await Promise.all([api.getRun(id), api.runLogs(id)]);
+      setLogs(runLogs);
+      setRuns((prev) => {
+        const exists = prev.some((r) => r.id === run.id);
+        if (!exists) return [run, ...prev];
+        return prev.map((r) => (r.id === run.id ? run : r));
+      });
+      const last = runLogs[runLogs.length - 1];
+      if (last && run.status === "running") setProgressMessage(displayLogMessage(last.message));
+    } catch {
+      /* run may not exist yet */
+    }
+  };
 
-    const poll = async () => {
-      try {
-        const [run, runLogs] = await Promise.all([api.getRun(selected), api.runLogs(selected)]);
-        if (cancelled) return;
-        setLogs(runLogs);
-        setRuns((prev) => {
-          const exists = prev.some((r) => r.id === run.id);
-          if (!exists) return [run, ...prev];
-          return prev.map((r) => (r.id === run.id ? run : r));
-        });
-        const last = runLogs[runLogs.length - 1];
-        if (last && run.status === "running") setProgressMessage(displayLogMessage(last.message));
-      } catch {
-        /* run may not exist yet */
-      }
-    };
-
-    poll();
-    const timer = window.setInterval(poll, 1000);
-    return () => {
-      cancelled = true;
-      window.clearInterval(timer);
-    };
+  useEffect(() => {
+    void poll();
   }, [selected, running]);
+
+  // The selected run's status and log lines arrive as live hints; poll only while the socket is down.
+  useLiveRefresh(["extraction.run", "extraction.log"], poll, { enabled: Boolean(selected), match: selected, fallbackMs: running ? 2000 : undefined });
+  // A run started by someone else, or by the scheduler, appears in the list without a reload.
+  useLiveRefresh(["extraction.run"], load);
 
   useEffect(() => {
     logEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -115,6 +117,7 @@ export function ExtractionPage() {
   return (
     <div>
       <PageHeader
+        eyebrow="Pipeline"
         title="Extraction runs"
         subtitle="Finacle pulls by date range with channel-level processing logs."
         count={`${runs.length} runs`}
@@ -143,17 +146,20 @@ export function ExtractionPage() {
         progressMessage={progressMessage}
       />
 
-      {running && (
-        <ExtractionProgressBanner
-          running={running}
-          run={activeRun}
-          logs={logs}
-          fallbackMessage={progressMessage}
-        />
-      )}
+      <AnimatePresence>
+        {running && (
+          <ExtractionProgressBanner
+            key="extraction-progress"
+            running={running}
+            run={activeRun}
+            logs={logs}
+            fallbackMessage={progressMessage}
+          />
+        )}
+      </AnimatePresence>
 
       {loading ? (
-        <div className="card h-64 animate-pulse bg-surface-overlay/50" />
+        <SkeletonCard />
       ) : runs.length === 0 ? (
         <div className="card">
           <EmptyState
@@ -170,34 +176,41 @@ export function ExtractionPage() {
           />
         </div>
       ) : (
-        <div className="grid gap-6 lg:grid-cols-5">
-          <div className="card overflow-hidden lg:col-span-2">
+        <div className="grid grid-cols-12 gap-6">
+          <StaggerItem className="card col-span-12 overflow-hidden lg:col-span-5">
             <TableToolbar search={search} onSearchChange={setSearch} />
             <div className="max-h-[520px] overflow-y-auto">
               {filtered.map((run) => (
-                <button
+                <motion.button
                   key={run.id}
                   onClick={() => setSelected(run.id)}
-                  className={`w-full border-b border-border/60 px-4 py-4 text-left transition hover:bg-surface-overlay/40 ${
-                    selected === run.id ? "bg-brand-muted/40" : ""
-                  }`}
+                  whileTap={{ scale: 0.99 }}
+                  transition={spring}
+                  className="relative w-full border-b border-border/60 px-4 py-4 text-left transition-colors hover:bg-surface-overlay/40"
                 >
-                  <div className="flex items-center justify-between">
+                  {selected === run.id && (
+                    <motion.span
+                      layoutId="extraction-run-selected"
+                      className="absolute inset-0 bg-brand-muted/40"
+                      transition={spring}
+                    />
+                  )}
+                  <div className="relative flex items-center justify-between">
                     <span className="font-mono text-xs text-content-muted">{run.id.slice(0, 8)}</span>
                     <StatusBadge status={run.status} />
                   </div>
-                  <p className="mt-1 text-sm font-medium">{formatNumber(run.records_extracted)} records</p>
-                  <p className="mt-1 text-xs text-content-muted">
+                  <p className="relative mt-1 text-sm font-medium">{formatNumber(run.records_extracted)} records</p>
+                  <p className="relative mt-1 text-xs text-content-muted">
                     {formatDateRange(run.date_from, run.date_to)}
                   </p>
-                  <p className="text-xs text-content-subtle">{extractSourceLabel(run.source)}</p>
-                  <p className="text-xs text-content-subtle">{formatDate(run.started_at)}</p>
-                </button>
+                  <p className="relative text-xs text-content-subtle">{extractSourceLabel(run.source)}</p>
+                  <p className="relative text-xs text-content-subtle">{formatDate(run.started_at)}</p>
+                </motion.button>
               ))}
             </div>
-          </div>
+          </StaggerItem>
 
-          <div className="card overflow-hidden lg:col-span-3">
+          <StaggerItem className="card col-span-12 overflow-hidden lg:col-span-7">
             <div className="border-b border-border px-4 py-3">
               <p className="font-semibold text-content">Log stream</p>
               {activeRun && (
@@ -212,18 +225,27 @@ export function ExtractionPage() {
               )}
             </div>
             <div className="max-h-[520px] overflow-y-auto bg-surface-overlay/30 p-4 font-mono text-xs">
+              {/* Re-keyed per run so only lines that arrive while watching animate in. */}
+              <AnimatePresence initial={false} key={selected}>
               {logs.map((log) => (
-                <div key={log.id} className="mb-2 flex gap-2">
-                  <span className={log.level === "ERROR" ? "text-danger" : log.level === "WARN" ? "text-warning" : "text-success"}>
+                <motion.div
+                  key={log.id}
+                  className="mb-2 flex gap-2"
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.18 }}
+                >
+                  <span className={log.level === "ERROR" ? "text-danger" : log.level === "WARN" ? "text-amber-700" : "text-emerald-700"}>
                     [{log.level}]
                   </span>
                   {log.channel && <span className="text-brand">[{channelLabel(log.channel)}]</span>}
                   <span className="text-content-muted">{displayLogMessage(log.message)}</span>
-                </div>
+                </motion.div>
               ))}
+              </AnimatePresence>
               <div ref={logEndRef} />
             </div>
-          </div>
+          </StaggerItem>
         </div>
       )}
     </div>

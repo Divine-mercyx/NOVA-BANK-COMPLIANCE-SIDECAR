@@ -8,9 +8,11 @@ from app.api.routes.auth import router as auth_router
 from app.api.routes.compliance import router as compliance_router
 from app.api.routes.dtd import router as dtd_router
 from app.api.routes.integration import partner_router, router as integration_router
+from app.api.routes.live import router as live_router
 from app.api.routes.screening import router as screening_router
 from app.core.config import settings
 from app.core.database import Base, engine
+from app.core.events import bus, install_change_listeners
 from app.db.migrate import run_migrations
 from app.models import entities  # noqa: F401
 from app.seed.bootstrap import seed_database
@@ -35,10 +37,13 @@ async def lifespan(app: FastAPI):
         await conn.run_sync(Base.metadata.create_all)
     run_migrations()
     await seed_database()
+    install_change_listeners()
+    await bus.start()
     start_etl_scheduler()
     await restore_dtd_job_from_db()
     yield
     stop_etl_scheduler()
+    await bus.stop()
 
 
 app = FastAPI(
@@ -49,7 +54,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -61,6 +66,7 @@ app.include_router(screening_router)
 app.include_router(dtd_router)
 app.include_router(integration_router)
 app.include_router(partner_router)
+app.include_router(live_router)
 
 
 @app.get("/health")

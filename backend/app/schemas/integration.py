@@ -12,6 +12,7 @@ class ExportMeta(BaseModel):
     period_end: datetime
     report_type: str | None = None
     scope: str = "all"
+    channel: str | None = Field(default=None, description="Channel the rows are restricted to, e.g. NIP.")
     ctr_threshold_ngn: float | None = None
     total_matching: int
     returned: int

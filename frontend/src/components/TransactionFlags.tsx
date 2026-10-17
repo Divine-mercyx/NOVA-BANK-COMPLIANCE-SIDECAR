@@ -1,4 +1,5 @@
 import { Tag } from "./ui";
+import type { ReviewState } from "./workbench";
 import type { StagingTransaction } from "../lib/api";
 
 const FLAG_COLOR = {
@@ -31,4 +32,10 @@ export function TransactionFlags({ tx }: { tx: StagingTransaction }) {
       ))}
     </div>
   );
+}
+
+/** Staged rows have no review workflow yet: flagged rows need a report, failed rows need fixing. */
+export function reviewState(tx: StagingTransaction): ReviewState {
+  if (!tx.is_valid) return "invalid";
+  return transactionFlags(tx).length > 0 ? "flagged" : "verified";
 }

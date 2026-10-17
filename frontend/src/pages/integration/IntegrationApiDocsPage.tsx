@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { DatePickerField } from "../../components/DatePickerField";
 import { ApiCopyButton } from "../../components/integration/ApiCopyButton";
 import { ApiResponsePanel } from "../../components/integration/ApiResponsePanel";
+import { AnimatedAlert, RevealSection } from "../../components/motion";
 import { PageHeader } from "../../components/ui";
 import { api, IntegrationInfo } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
@@ -46,7 +47,7 @@ function defaultRange(): { from: CalendarDate; to: CalendarDate } {
 
 function MethodBadge() {
   return (
-    <span className="border border-border bg-surface-overlay px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wide text-content-muted">
+    <span className="border border-border bg-surface-overlay px-1.5 py-0.5 font-mono text-[11px] font-semibold uppercase tracking-wider text-content-muted">
       GET
     </span>
   );
@@ -155,13 +156,13 @@ export function IntegrationApiDocsPage() {
       section: "transactions",
       method: "GET",
       path: "/api/v1/export/transactions",
-      title: "All staged transactions",
+      title: "NIP transactions",
       description:
-        "Every staged Finacle transaction in the date range, in the NFIU sample-data column layout (same as CTR).",
+        "Staged NIP (NIBSS Instant Payment) transactions in the date range, in the NFIU sample-data column layout. Other channels are not included.",
       params: [
         { name: "date_from", required: true, hint: "YYYY-MM-DD or ISO datetime" },
         { name: "date_to", required: true, hint: "Inclusive end date" },
-        { name: "limit", hint: "Optional. Omit for all rows (server cap 50,000). Fewer matches still return." },
+        { name: "limit", hint: "Optional. Omit for all NIP rows (server cap 50,000). Fewer matches still return." },
         { name: "offset", hint: "Pagination offset (default 0)" },
       ],
       run: async () => execute("transactions", "/api/v1/export/transactions", transactionQuery),
@@ -273,6 +274,7 @@ export function IntegrationApiDocsPage() {
   return (
     <div className="pb-12">
       <PageHeader
+        eyebrow="Integration"
         title="API documentation"
         subtitle="Export staged Finacle data. Authenticate with X-API-Key on GET /api/v1/export/*."
         actions={
@@ -294,37 +296,40 @@ export function IntegrationApiDocsPage() {
       />
 
       {info && (
-        <dl className="mb-8 grid gap-px border border-border bg-border sm:grid-cols-3">
-          <div className="bg-surface-raised px-4 py-3">
+        <dl className="mb-6 grid grid-cols-12 gap-px overflow-hidden rounded-xl border border-border bg-border shadow-card">
+          <div className="col-span-12 bg-surface-raised px-4 py-3 sm:col-span-4">
             <dt className="text-xs text-content-muted">Base URL</dt>
             <dd className="mt-1 truncate font-mono text-sm text-content">{info.base_url}</dd>
           </div>
-          <div className="bg-surface-raised px-4 py-3">
+          <div className="col-span-12 bg-surface-raised px-4 py-3 sm:col-span-4">
             <dt className="text-xs text-content-muted">Header</dt>
             <dd className="mt-1 font-mono text-sm text-content">X-API-Key</dd>
           </div>
-          <div className="bg-surface-raised px-4 py-3">
+          <div className="col-span-12 bg-surface-raised px-4 py-3 sm:col-span-4">
             <dt className="text-xs text-content-muted">Finacle mode</dt>
             <dd className="mt-1 text-sm capitalize text-content">{info.finacle_mode}</dd>
           </div>
         </dl>
       )}
 
-      {loadError && (
-        <div className="mb-4 rounded-lg border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">{loadError}</div>
-      )}
+      <AnimatedAlert
+        show={Boolean(loadError)}
+        className="mb-4 rounded-lg border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger"
+      >
+        {loadError}
+      </AnimatedAlert>
 
-      <div className="card mb-8 overflow-hidden">
-        <div className="border-b border-border px-5 py-3">
+      <div className="card mb-6 overflow-hidden">
+        <div className="border-b border-border px-6 py-3">
           <h2 className="text-sm font-semibold text-content">Procedure</h2>
         </div>
-        <div className="grid gap-0 divide-y divide-border sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+        <div className="grid grid-cols-12 gap-0 divide-y divide-border sm:divide-x sm:divide-y-0">
           {[
             { n: "1", title: "Run extraction", body: "Dashboard or Extraction — same dates you will pull." },
             { n: "2", title: "Issue an API key", body: "Paste the nova_… key in the credentials section below." },
             { n: "3", title: "Call export", body: "Verify, then summary, then transaction or DTD pull." },
           ].map((step) => (
-            <div key={step.n} className="flex gap-3 p-5">
+            <div key={step.n} className="col-span-12 flex gap-3 p-5 sm:col-span-4">
               <span className="flex h-7 w-7 shrink-0 items-center justify-center border border-border text-xs font-semibold text-content">
                 {step.n}
               </span>
@@ -338,11 +343,11 @@ export function IntegrationApiDocsPage() {
       </div>
 
       <div className="card mb-6 overflow-hidden">
-        <div className="border-b border-border px-5 py-3">
-          <p className="text-xs font-medium uppercase tracking-wider text-content-muted">Credentials and period</p>
+        <div className="border-b border-border px-6 py-3">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-content-muted">Credentials and period</p>
         </div>
-        <div className="grid gap-6 p-5 lg:grid-cols-[minmax(240px,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(140px,180px)]">
-          <label className="block text-xs font-medium text-content-muted">
+        <div className="grid grid-cols-12 gap-6 p-5">
+          <label className="col-span-12 block text-xs font-medium text-content-muted lg:col-span-4">
             API key
             <div className="relative mt-2">
               <input
@@ -355,16 +360,20 @@ export function IntegrationApiDocsPage() {
               />
               <button
                 type="button"
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-medium text-content-muted hover:text-content"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-medium text-content-muted hover:text-content"
                 onClick={() => setShowKey((v) => !v)}
               >
                 {showKey ? "Hide" : "Show"}
               </button>
             </div>
           </label>
-          <DatePickerField label="From" value={periodFrom} onChange={setPeriodFrom} max={periodTo} />
-          <DatePickerField label="To" value={periodTo} onChange={setPeriodTo} min={periodFrom} />
-          <label className="block text-xs font-medium text-content-muted">
+          <div className="col-span-12 sm:col-span-6 lg:col-span-3">
+            <DatePickerField label="From" value={periodFrom} onChange={setPeriodFrom} max={periodTo} />
+          </div>
+          <div className="col-span-12 sm:col-span-6 lg:col-span-3">
+            <DatePickerField label="To" value={periodTo} onChange={setPeriodTo} min={periodFrom} />
+          </div>
+          <label className="col-span-12 block text-xs font-medium text-content-muted sm:col-span-6 lg:col-span-2">
             Row limit
             <input
               className="input mt-2 w-full font-mono text-sm"
@@ -373,26 +382,26 @@ export function IntegrationApiDocsPage() {
               value={pullLimit}
               onChange={(e) => setPullLimit(e.target.value.replace(/[^\d]/g, ""))}
             />
-            <span className="mt-1.5 block text-[11px] font-normal leading-relaxed text-content-subtle">
+            <span className="mt-1.5 block text-xs font-normal leading-relaxed text-content-subtle">
               Leave blank to fetch every matching row.
             </span>
           </label>
         </div>
-        <p className="border-t border-border px-5 py-3 text-[11px] text-content-subtle">
+        <p className="border-t border-border px-6 py-3 text-xs text-content-subtle">
           Period {formatCalendarDateLabel(periodFrom)} – {formatCalendarDateLabel(periodTo)} (Africa/Lagos, inclusive)
         </p>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[220px_minmax(0,1fr)_minmax(320px,380px)]">
-        <aside className="space-y-4 xl:sticky xl:top-4 xl:self-start">
+      <div className="grid grid-cols-12 gap-6">
+        <aside className="col-span-12 space-y-4 xl:sticky xl:top-20 xl:col-span-3 xl:self-start">
           <nav className="card overflow-hidden">
             <div className="border-b border-border px-4 py-3">
-              <p className="text-xs font-semibold uppercase tracking-wider text-content-muted">Endpoints</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-content-muted">Endpoints</p>
             </div>
             <div className="p-2">
               {(["start", "transactions", "dtd", "reports"] as EndpointSection[]).map((section) => (
                 <div key={section} className="mb-2">
-                  <p className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-content-subtle">
+                  <p className="px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-content-subtle">
                     {SECTION_LABELS[section]}
                   </p>
                   {endpoints
@@ -418,7 +427,7 @@ export function IntegrationApiDocsPage() {
         </aside>
 
         {/* Endpoint reference */}
-        <main className="min-w-0 space-y-6">
+        <main className="col-span-12 min-w-0 space-y-6 xl:col-span-5">
           {endpoints.map((ep) => {
             const curl = buildExportCurl(
               ep.path.replace("{finacle_ref}", finacleRef || "FINACLE_REF").replace("{id}", reportId || "REPORT_ID"),
@@ -437,10 +446,10 @@ export function IntegrationApiDocsPage() {
             );
 
             return (
-              <section
+              <RevealSection
                 key={ep.id}
                 id={`endpoint-${ep.id}`}
-                className={`card scroll-mt-4 overflow-hidden border-l-2 ${
+                className={`card scroll-mt-4 overflow-hidden border-l-2 transition-colors ${
                   activeId === ep.id ? "border-l-content" : "border-l-transparent"
                 }`}
                 onFocus={() => setActiveId(ep.id)}
@@ -481,10 +490,10 @@ export function IntegrationApiDocsPage() {
 
                   <div className="mt-4 overflow-hidden border border-border bg-surface-overlay">
                     <div className="flex items-center justify-between border-b border-border px-3 py-2">
-                      <span className="text-[10px] font-semibold uppercase tracking-wider text-content-subtle">Example request</span>
+                      <span className="text-[11px] font-semibold uppercase tracking-wider text-content-subtle">Example request</span>
                       <ApiCopyButton text={curl} label="Copy cURL" />
                     </div>
-                    <pre className="overflow-x-auto p-3 font-mono text-[11px] leading-relaxed text-content">{curl}</pre>
+                    <pre className="overflow-x-auto p-3 font-mono text-xs leading-relaxed text-content">{curl}</pre>
                   </div>
 
                   <button
@@ -506,16 +515,16 @@ export function IntegrationApiDocsPage() {
                     </div>
                   )}
                 </div>
-              </section>
+              </RevealSection>
             );
           })}
         </main>
 
         {/* Sticky response panel (desktop) */}
-        <aside className="hidden xl:block xl:sticky xl:top-4 xl:self-start">
+        <aside className="hidden xl:sticky xl:top-20 xl:col-span-4 xl:block xl:self-start">
           <div className="card overflow-hidden">
             <div className="flex items-center justify-between border-b border-border px-4 py-3">
-              <p className="text-xs font-semibold uppercase tracking-wider text-content-muted">Response</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-content-muted">Response</p>
               {active && <span className="text-xs text-content-subtle">{active.title}</span>}
             </div>
             <div className="p-4">

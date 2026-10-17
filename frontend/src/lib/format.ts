@@ -26,6 +26,7 @@ const ACTION_LABELS: Record<string, string> = {
   STAFF_UPDATED: "Staff member updated",
   STAFF_REMOVED: "Staff member removed",
   LOGIN_SUCCESS: "Successful login",
+  LOGOUT: "Signed out",
   SCREENING_SIMULATED: "Screening batch simulated",
   ALERT_APPROVED: "Alert marked false positive",
   ALERT_REJECTED: "Transaction rejected",

@@ -1,6 +1,9 @@
 import { AlertTriangle, Play, RefreshCw, X } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState } from "react";
+import { spring } from "../lib/motion";
 import { DatePickerField } from "./DatePickerField";
+import { AnimatedAlert, ModalShell } from "./motion";
 import { InfoCallout } from "./ui";
 import {
   CalendarDate,
@@ -61,17 +64,6 @@ export function ExtractionRunModal({ open, onClose, onRun, finacleMode, running,
     setTo(range.to);
   }, [preset]);
 
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !running) onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose, running]);
-
-  if (!open) return null;
-
   const dayCount = rangeDayCount(from, to);
   const invalidRange = compareDates(from, to) > 0;
   const largeRange = dayCount > 90;
@@ -88,18 +80,13 @@ export function ExtractionRunModal({ open, onClose, onRun, finacleMode, running,
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <button
-        type="button"
-        className="absolute inset-0 bg-content/40 backdrop-blur-sm"
-        aria-label="Close dialog"
-        onClick={() => !running && onClose()}
-      />
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="extract-modal-title"
-        className="relative z-10 w-full max-w-2xl rounded-2xl border border-border bg-surface-raised shadow-lg"
+    <AnimatePresence>
+      {open && (
+      <ModalShell
+        onClose={onClose}
+        dismissible={!running}
+        labelledBy="extract-modal-title"
+        panelClassName="max-w-2xl rounded-xl border border-border bg-surface-raised shadow-lg"
       >
         <div className="flex items-start justify-between border-b border-border px-6 py-5">
           <div>
@@ -118,7 +105,7 @@ export function ExtractionRunModal({ open, onClose, onRun, finacleMode, running,
 
         <div className="space-y-6 px-6 py-5">
           <div>
-            <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-content-subtle">Quick presets</p>
+            <p className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-content-subtle">Quick presets</p>
             <div className="grid gap-2 sm:grid-cols-2">
               {PRESETS.map((item) => (
                 <button
@@ -126,14 +113,22 @@ export function ExtractionRunModal({ open, onClose, onRun, finacleMode, running,
                   type="button"
                   disabled={running}
                   onClick={() => setPreset(item.id)}
-                  className={`rounded-xl border px-4 py-3 text-left transition ${
+                  className={`relative rounded-xl border px-4 py-3 text-left transition ${
                     preset === item.id
-                      ? "border-brand bg-brand-muted/60 ring-2 ring-brand/20"
+                      ? "border-transparent"
                       : "border-border bg-surface-overlay/30 hover:border-brand/40 hover:bg-surface-overlay/60"
                   }`}
                 >
-                  <p className="text-sm font-semibold text-content">{item.label}</p>
-                  <p className="text-xs text-content-muted">{item.hint}</p>
+                  {preset === item.id && (
+                    // Shared-layout highlight: slides from the previous preset to the chosen one.
+                    <motion.span
+                      layoutId="extraction-preset-highlight"
+                      className="absolute inset-0 rounded-xl border border-brand bg-brand-muted/60 ring-2 ring-brand/20"
+                      transition={spring}
+                    />
+                  )}
+                  <p className="relative text-sm font-semibold text-content">{item.label}</p>
+                  <p className="relative text-xs text-content-muted">{item.hint}</p>
                 </button>
               ))}
             </div>
@@ -185,22 +180,28 @@ export function ExtractionRunModal({ open, onClose, onRun, finacleMode, running,
             </InfoCallout>
           )}
 
-          {largeRange && (
-            <div className="flex items-start gap-3 rounded-lg border border-warning/30 bg-amber-50/80 p-3 text-sm text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-              <p>
-                Ranges over 90 days can be slow on VPN. Prefer weekly or monthly slices for production Finacle extracts.
-              </p>
-            </div>
-          )}
+          <AnimatedAlert
+            show={largeRange}
+            role="status"
+            className="flex items-start gap-3 rounded-lg border border-warning/30 bg-amber-50 p-3 text-sm text-amber-800"
+          >
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <p>
+              Ranges over 90 days can be slow on VPN. Prefer weekly or monthly slices for production Finacle extracts.
+            </p>
+          </AnimatedAlert>
 
-          {error && <p className="text-sm font-medium text-danger">{error}</p>}
+          <AnimatedAlert show={Boolean(error)} className="text-sm font-medium text-danger">
+            {error}
+          </AnimatedAlert>
 
-          {running && progressMessage && (
-            <div className="rounded-lg border border-brand/30 bg-brand-muted/30 px-3 py-2 text-sm text-content-muted">
-              {progressMessage}
-            </div>
-          )}
+          <AnimatedAlert
+            show={Boolean(running && progressMessage)}
+            role="status"
+            className="rounded-lg border border-brand/30 bg-brand-muted/30 px-3 py-2 text-sm text-content-muted"
+          >
+            {progressMessage}
+          </AnimatedAlert>
         </div>
 
         <div className="flex flex-col-reverse gap-2 border-t border-border px-6 py-4 sm:flex-row sm:justify-end">
@@ -212,7 +213,8 @@ export function ExtractionRunModal({ open, onClose, onRun, finacleMode, running,
             {running ? "Extracting…" : "Run extraction"}
           </button>
         </div>
-      </div>
-    </div>
+      </ModalShell>
+      )}
+    </AnimatePresence>
   );
 }

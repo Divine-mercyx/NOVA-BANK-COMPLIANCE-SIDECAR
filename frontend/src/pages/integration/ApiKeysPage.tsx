@@ -1,6 +1,8 @@
 import { Check, Copy, ExternalLink, Key, Plus, Trash2, X } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import { FormEvent, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { AnimatedAlert, AnimatedRow, AnimatedTBody, ModalShell, Stagger, StaggerItem } from "../../components/motion";
 import { EmptyState, PageHeader, StatusBadge } from "../../components/ui";
 import { api, ApiKey, ApiKeyCreated } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
@@ -76,6 +78,7 @@ export function ApiKeysPage() {
   return (
     <div>
       <PageHeader
+        eyebrow="Integration"
         title="API keys"
         subtitle="Machine credentials for GET /api/v1/export/* . The full key is shown once at creation."
         actions={
@@ -86,56 +89,69 @@ export function ApiKeysPage() {
         }
       />
 
-      <div className="mb-6 grid gap-px border border-border bg-border sm:grid-cols-3">
-        <div className="bg-surface-raised px-4 py-3">
+      <Stagger className="mb-6 grid grid-cols-12 gap-px overflow-hidden rounded-xl border border-border bg-border shadow-card">
+        <StaggerItem className="col-span-12 bg-surface-raised px-4 py-3 sm:col-span-4">
           <p className="text-xs text-content-muted">Active</p>
           <p className="mt-1 text-xl font-semibold tabular-nums text-content">{activeCount}</p>
-        </div>
-        <div className="bg-surface-raised px-4 py-3">
+        </StaggerItem>
+        <StaggerItem className="col-span-12 bg-surface-raised px-4 py-3 sm:col-span-4">
           <p className="text-xs text-content-muted">Revoked</p>
           <p className="mt-1 text-xl font-semibold tabular-nums text-content">{keys.filter((k) => !k.is_active).length}</p>
-        </div>
-        <div className="bg-surface-raised px-4 py-3">
+        </StaggerItem>
+        <StaggerItem className="col-span-12 bg-surface-raised px-4 py-3 sm:col-span-4">
           <p className="text-xs text-content-muted">Issued</p>
           <p className="mt-1 text-xl font-semibold tabular-nums text-content">{keys.length}</p>
-        </div>
-      </div>
+        </StaggerItem>
+      </Stagger>
 
-      {error && (
-        <div className="mb-4 border border-border bg-surface-overlay px-4 py-3 text-sm text-content">{error}</div>
-      )}
+      <AnimatedAlert show={Boolean(error)} className="mb-4 border border-border bg-surface-overlay px-4 py-3 text-sm text-content">
+        {error}
+      </AnimatedAlert>
 
-      {created?.api_key && (
-        <div className="mb-6 border border-border bg-surface-raised p-5">
-          <p className="text-sm font-medium text-content">Copy this key now. It will not be shown again.</p>
-          <p className="mt-1 text-xs text-content-muted">
-            {created.name} · prefix {created.key_prefix}
-          </p>
-          <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center">
-            <code className="flex-1 break-all border border-border bg-surface-overlay px-3 py-2 font-mono text-sm text-content">
-              {created.api_key}
-            </code>
-            <div className="flex shrink-0 gap-2">
-              <button type="button" className="btn-secondary" onClick={copyKey}>
-                {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                {copied ? "Copied" : "Copy"}
-              </button>
-              <Link to="/integration/docs" className="btn-secondary">
-                <ExternalLink className="h-4 w-4" />
-                Documentation
-              </Link>
-              <button type="button" className="btn-ghost" onClick={() => setCreated(null)}>
-                Dismiss
-              </button>
-            </div>
+      <AnimatedAlert
+        show={Boolean(created?.api_key)}
+        role="status"
+        className="card mb-6 p-6"
+      >
+        <p className="text-sm font-medium text-content">Copy this key now. It will not be shown again.</p>
+        <p className="mt-1 text-xs text-content-muted">
+          {created?.name} · prefix {created?.key_prefix}
+        </p>
+        <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center">
+          <code className="flex-1 break-all border border-border bg-surface-overlay px-3 py-2 font-mono text-sm text-content">
+            {created?.api_key}
+          </code>
+          <div className="flex shrink-0 gap-2">
+            <button type="button" className="btn-secondary" onClick={copyKey}>
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.span
+                  key={copied ? "done" : "idle"}
+                  className="flex items-center gap-2"
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  transition={{ duration: 0.12 }}
+                >
+                  {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                  {copied ? "Copied" : "Copy"}
+                </motion.span>
+              </AnimatePresence>
+            </button>
+            <Link to="/integration/docs" className="btn-secondary">
+              <ExternalLink className="h-4 w-4" />
+              Documentation
+            </Link>
+            <button type="button" className="btn-ghost" onClick={() => setCreated(null)}>
+              Dismiss
+            </button>
           </div>
         </div>
-      )}
+      </AnimatedAlert>
 
       {keys.length === 0 ? (
         <EmptyState icon={Key} title="No keys issued" description="Issue a key for Nova middleware or the screening vendor." />
       ) : (
-        <div className="overflow-x-auto border border-border">
+        <StaggerItem className="overflow-x-auto border border-border">
           <table className="data-table">
             <thead>
               <tr>
@@ -147,9 +163,9 @@ export function ApiKeysPage() {
                 <th />
               </tr>
             </thead>
-            <tbody>
-              {keys.map((key) => (
-                <tr key={key.id}>
+            <AnimatedTBody>
+              {keys.map((key, rowIndex) => (
+                <AnimatedRow key={key.id} index={rowIndex}>
                   <td>
                     <p className="font-medium text-content">{key.name}</p>
                     {key.description && <p className="text-xs text-content-muted">{key.description}</p>}
@@ -170,16 +186,20 @@ export function ApiKeysPage() {
                       </button>
                     )}
                   </td>
-                </tr>
+                </AnimatedRow>
               ))}
-            </tbody>
+            </AnimatedTBody>
           </table>
-        </div>
+        </StaggerItem>
       )}
 
-      {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md border border-border bg-surface-raised p-6">
+      <AnimatePresence>
+        {modalOpen && (
+          <ModalShell
+            onClose={() => setModalOpen(false)}
+            overlayClassName="absolute inset-0 bg-slate-900/40"
+            panelClassName="max-w-md border border-border bg-surface-raised p-6"
+          >
             <div className="flex items-center justify-between">
               <h2 className="text-base font-semibold text-content">Issue API key</h2>
               <button type="button" className="btn-ghost" onClick={() => setModalOpen(false)}>
@@ -217,9 +237,9 @@ export function ApiKeysPage() {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+          </ModalShell>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

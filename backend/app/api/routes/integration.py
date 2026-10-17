@@ -47,7 +47,7 @@ EXPORT_DOCS = [
     IntegrationEndpointDoc(
         method="GET",
         path="/api/v1/export/transactions",
-        summary="Pull all staged transactions in the NFIU sample-data column layout",
+        summary="Pull staged NIP transactions in the NFIU sample-data column layout",
     ),
     IntegrationEndpointDoc(
         method="GET",
@@ -117,7 +117,6 @@ async def export_dtd_transactions(
 async def export_transactions(
     period: tuple[datetime, datetime] = Depends(export_period_params),
     valid_only: bool = Query(False, description="If true, skip invalid staged rows"),
-    channel: str | None = Query(None, description="Optional channel filter, e.g. NIP or RTGS"),
     limit: int | None = Query(
         None,
         ge=1,
@@ -128,13 +127,14 @@ async def export_transactions(
     client: ApiKey = Depends(get_api_client),
     db: AsyncSession = Depends(get_db),
 ):
+    """Staged NIP (NIBSS Instant Payment) transactions only. Other channels (RTGS, NEFT, cash,
+    mobile, SWIFT…) are not returned here; CTR rows across all channels come from /transactions/ctr."""
     period_start, period_end = period
-    channel_filter = _parse_channel(channel)
     return await ExportService(db).list_transactions(
         period_start,
         period_end,
         valid_only=valid_only,
-        channel=channel_filter,
+        channel=TransactionChannel.NIP,
         limit=limit,
         offset=offset,
         scope="all",

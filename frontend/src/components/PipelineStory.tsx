@@ -32,7 +32,7 @@ export function PipelineStory({ activeStep = 0 }: { activeStep?: number }) {
   return (
     <div className="card overflow-hidden">
       <div className="border-b border-border px-6 py-4">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand">How it works</p>
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-brand">How it works</p>
         <h3 className="mt-1 font-display text-xl text-content">From Finacle to NFIU submission</h3>
         <p className="mt-1 text-sm text-content-muted">
           Every transaction follows a controlled path — extract, validate, stage, then report.
@@ -55,7 +55,7 @@ export function PipelineStory({ activeStep = 0 }: { activeStep?: number }) {
                 <div
                   className={`rounded-lg p-2 ${
                     done
-                      ? "bg-success/10 text-success"
+                      ? "bg-success/10 text-emerald-700"
                       : active
                         ? "bg-brand/15 text-brand"
                         : "bg-surface-overlay text-content-muted"

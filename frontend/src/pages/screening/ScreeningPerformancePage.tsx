@@ -39,7 +39,7 @@ export function ScreeningPerformancePage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <div className="card p-5">
+        <div className="card p-6">
           <h2 className="font-semibold text-content">Matches by watchlist</h2>
           {watchlistChart.length === 0 ? (
             <EmptyState icon={Gauge} title="No data" description="Simulate alerts to populate metrics." />
@@ -58,7 +58,7 @@ export function ScreeningPerformancePage() {
           )}
         </div>
 
-        <div className="card p-5">
+        <div className="card p-6">
           <h2 className="font-semibold text-content">Resolution breakdown</h2>
           <div className="mt-4 space-y-4">
             {statusChart.map(({ status, count }) => (

@@ -3,48 +3,35 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
-    --surface: 242 244 247;
-    --surface-raised: 255 255 255;
-    --surface-overlay: 236 239 243;
-    --border: 226 230 236;
-    --border-strong: 203 210 219;
-    --content: 11 31 58;
-    --content-muted: 90 102 120;
-    --content-subtle: 148 157 172;
-    --brand: 11 31 58;
-    --brand-hover: 18 48 86;
-    --brand-muted: 232 237 244;
-    --brand-foreground: 255 255 255;
-    --success: 30 64 52;
-    --warning: 120 80 30;
-    --danger: 127 29 29;
-    --info: 11 31 58;
-    --shadow-soft: 0 1px 2px rgba(11, 31, 58, 0.06);
-    --shadow-card: 0 8px 24px rgba(11, 31, 58, 0.06);
-    --shadow-lg: 0 20px 40px rgba(11, 31, 58, 0.1);
-  }
-
+  /* Light, high-contrast banking theme. One palette: the .dark selector is kept only so a stored
+     theme class on <html> resolves to the same values. */
+  :root,
   .dark {
-    --surface: 17 24 39;
-    --surface-raised: 31 41 55;
-    --surface-overlay: 55 65 81;
-    --border: 55 65 81;
-    --border-strong: 75 85 99;
-    --content: 249 250 251;
-    --content-muted: 156 163 175;
-    --content-subtle: 107 114 128;
-    --brand: 226 232 240;
-    --brand-hover: 248 250 252;
-    --brand-muted: 51 65 85;
-    --brand-foreground: 15 23 42;
-    --success: 203 213 225;
-    --warning: 168 162 158;
-    --danger: 252 165 165;
-    --info: 148 163 184;
-    --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.3);
-    --shadow-card: 0 4px 6px rgba(0, 0, 0, 0.25);
-    --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.35);
+    color-scheme: light;
+
+    --surface: 248 250 252; /* #F8FAFC page canvas */
+    --surface-raised: 255 255 255; /* #FFFFFF cards, inputs */
+    --surface-overlay: 241 245 249; /* #F1F5F9 hover / inset / table heads */
+    --border: 226 232 240; /* #E2E8F0 */
+    --border-strong: 203 213 225; /* #CBD5E1 */
+    --content: 15 23 42; /* #0F172A charcoal text */
+    --content-muted: 71 85 105; /* #475569 body + metadata (7.6:1 on white) */
+    --content-subtle: 100 116 139; /* #64748B hints + placeholders (4.8:1 on white) */
+    --input-border: 203 213 225; /* #CBD5E1: 1px field border */
+
+    --brand: 30 64 175; /* #1E40AF deep cobalt: primary actions, links, focus */
+    --brand-hover: 30 58 138; /* #1E3A8A */
+    --brand-muted: 239 246 255; /* #EFF6FF */
+    --brand-foreground: 255 255 255;
+
+    --success: 5 150 105; /* #059669 compliant / verified (icons, dots, fills) */
+    --warning: 217 119 6; /* #D97706 pending review (icons, dots, fills) */
+    --danger: 220 38 38; /* #DC2626 flagged risk (4.8:1, safe for text) */
+    --info: 30 64 175;
+
+    --shadow-soft: 0 1px 2px rgba(15, 23, 42, 0.05);
+    --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 6px 20px -8px rgba(15, 23, 42, 0.08);
+    --shadow-lg: 0 24px 48px -16px rgba(15, 23, 42, 0.22);
   }
 
   html {
@@ -54,99 +41,354 @@
   body {
     @apply min-h-screen bg-surface text-content antialiased;
   }
+
+  h1,
+  h2,
+  h3 {
+    @apply tracking-tight;
+  }
+
+  ::selection {
+    background: rgba(30, 64, 175, 0.18);
+  }
 }
 
 @layer components {
+  /* Floating white surface: 12px radius, hairline border, soft low-spread shadow. */
   .card {
-    @apply rounded-2xl border border-border bg-surface-raised shadow-card;
+    @apply rounded-xl border border-slate-200/80 bg-surface-raised shadow-card transition-colors;
   }
 
   .card-muted {
-    @apply rounded-xl border border-border bg-surface-overlay/50;
+    @apply rounded-xl border border-border bg-surface-overlay/60;
   }
 
+  /* Buttons: 8px radius, sentence case, one hover (colour) and one press (0.98) behaviour. */
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-brand-foreground transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-brand px-4 text-sm font-semibold text-white shadow-soft transition hover:bg-brand-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  /* Destructive confirm buttons reuse btn-primary with bg-danger. */
+  .btn-primary.bg-danger {
+    @apply text-white hover:bg-red-800;
+  }
+
+  /* Solid dark-slate action (used where a second filled action is needed). */
+  .btn-dark {
+    @apply inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white shadow-soft transition hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  /* Lime accent for the one headline action on a blue hero (dark text: 15:1). */
+  .btn-accent {
+    @apply inline-flex h-10 items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold text-slate-900 shadow-soft transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:cursor-not-allowed disabled:opacity-60;
+    background-color: #e4f53c;
+  }
+
+  .btn-accent:hover:not(:disabled) {
+    background-color: #d6ea22;
+  }
+
+  /* Quiet secondary action on a blue hero. */
+  .btn-on-blue {
+    @apply inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-white/30 bg-white/10 px-4 text-sm font-semibold text-white transition hover:bg-white/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:cursor-not-allowed disabled:opacity-60;
   }
 
   .btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-surface-raised px-4 py-2.5 text-sm font-medium text-content transition hover:bg-surface-overlay disabled:opacity-50;
+    @apply inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-border bg-white px-4 text-sm font-semibold text-content shadow-soft transition hover:border-border-strong hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:cursor-not-allowed disabled:opacity-50;
   }
 
   .btn-ghost {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-content-muted transition hover:bg-surface-overlay hover:text-content;
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-content-muted transition hover:bg-slate-100 hover:text-content focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand;
   }
 
+  /* Inputs: white, 1px #E2E8F0, 8px radius, cobalt focus border + ring. */
   .input {
-    @apply w-full rounded-xl border border-border bg-surface-raised px-3.5 py-2.5 text-sm text-content outline-none transition placeholder:text-content-subtle focus:border-brand focus:ring-1 focus:ring-brand/20;
+    @apply w-full rounded-lg border bg-white px-3.5 py-2.5 text-sm text-content outline-none transition placeholder:text-content-subtle hover:border-border-strong focus:border-brand focus:ring-2 focus:ring-brand/15;
+    border-color: rgb(var(--input-border));
+  }
+
+  .input:focus {
+    border-color: rgb(var(--brand));
+  }
+
+  /* Compact uppercase label: the smallest step of the type scale (11px). */
+  .caps-label {
+    @apply text-[11px] font-semibold uppercase tracking-wider text-content-muted;
   }
 
   .label {
     @apply mb-1.5 block text-sm font-medium text-content;
   }
 
+  /* Tables: sticky header inside scroll containers, quiet rows, hover tint + accent bar. */
   .data-table {
     @apply w-full text-left text-sm;
   }
 
-  .data-table thead {
-    @apply border-b border-border bg-surface text-xs font-medium text-content-muted;
-  }
-
-  .data-table th {
-    @apply px-4 py-3;
+  .data-table thead th {
+    @apply sticky top-0 z-10 border-b border-border bg-slate-50 px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-content-muted;
   }
 
   .data-table td {
-    @apply px-4 py-4 text-content;
+    @apply px-4 py-3.5 text-content;
   }
 
   .data-table tbody tr {
-    @apply border-b border-border/70 transition hover:bg-surface-overlay/40;
+    @apply border-b border-border/80 transition-colors last:border-b-0 hover:bg-slate-50;
+  }
+
+  .data-table tbody td:first-child {
+    position: relative;
+  }
+
+  .data-table tbody td:first-child::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 2px;
+    background: rgb(var(--brand));
+    transform: scaleY(0);
+    transition: transform 0.15s ease-out;
+  }
+
+  .data-table tbody tr:hover td:first-child::before {
+    transform: scaleY(1);
+  }
+
+  /* Live state: a slow opacity pulse on the status dot. Static under reduced motion. */
+  .status-live {
+    animation: status-live 1.6s ease-in-out infinite;
   }
 
   .tab-active {
-    @apply border-b-2 border-content text-content;
+    @apply border-b-2 border-brand text-content;
   }
 
   .tab-inactive {
     @apply border-b-2 border-transparent text-content-muted hover:text-content;
   }
 
+  /* Small section label above page titles. */
+  .pill {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-border bg-white px-2.5 py-0.5 text-xs font-medium text-content-muted shadow-soft;
+  }
+
+  .pill::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 9999px;
+    background: rgb(var(--brand));
+  }
+
+  /* Page canvas: plain soft off-white. */
+  .app-canvas {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background: rgb(var(--surface));
+  }
+
+  /* ───────────── Auth pages ─────────────
+     Light canvas, original navy split card. The card is sized by its content (no internal scroll);
+     on a very short screen the page itself scrolls. */
   .auth-shell {
-    @apply flex min-h-screen items-center justify-center p-4 sm:p-8;
-    background: #081628;
-  }
-
-  .auth-frame {
-    @apply flex w-full max-w-5xl overflow-hidden rounded-[28px] bg-white shadow-lg;
-  }
-
-  .auth-hero {
-    background:
-      linear-gradient(180deg, #0b1f3a 0%, #081628 100%);
     position: relative;
-    overflow: hidden;
+    display: flex;
+    min-height: 100vh;
+    min-height: 100dvh;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    /* py-12 on tall screens, easing down on short ones. Extended for notches / the home
+       indicator; --kb-inset clears an on-screen keyboard. */
+    padding-top: max(clamp(1rem, 4vh, 3rem), env(safe-area-inset-top));
+    padding-right: max(1rem, env(safe-area-inset-right));
+    padding-bottom: calc(max(clamp(1rem, 4vh, 3rem), env(safe-area-inset-bottom)) + var(--kb-inset, 0px));
+    padding-left: max(1rem, env(safe-area-inset-left));
   }
 
-  .auth-hero::after {
+  /* Short windows (a laptop browser is often ~650px tall): drop the eyebrow and trim the gutter
+     so the whole card stays on screen without scrolling. */
+  @media (max-height: 720px) {
+    .auth-shell {
+      padding-top: max(0.75rem, env(safe-area-inset-top));
+      padding-bottom: calc(max(0.75rem, env(safe-area-inset-bottom)) + var(--kb-inset, 0px));
+    }
+
+    .auth-eyebrow {
+      display: none;
+    }
+
+    .auth-shell .auth-form-area {
+      padding-top: 1.25rem;
+      padding-bottom: 1.25rem;
+    }
+
+    .auth-shell .auth-band {
+      padding-top: 0.75rem;
+      padding-bottom: 0.75rem;
+    }
+  }
+
+  /* Each block of the active auth view (heading, every field, actions) rises in turn. The view
+     remounts per step, so the cascade replays on Sign in → Code → Forgot password. */
+  .auth-stagger > *,
+  .auth-stagger form > * {
+    animation: auth-rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .auth-stagger > :nth-child(1) { animation-delay: 0.12s; }
+  .auth-stagger > :nth-child(2) { animation-delay: 0.18s; }
+  .auth-stagger > :nth-child(3) { animation-delay: 0.42s; }
+  .auth-stagger > :nth-child(4) { animation-delay: 0.48s; }
+  .auth-stagger form > :nth-child(1) { animation-delay: 0.22s; }
+  .auth-stagger form > :nth-child(2) { animation-delay: 0.27s; }
+  .auth-stagger form > :nth-child(3) { animation-delay: 0.32s; }
+  .auth-stagger form > :nth-child(4) { animation-delay: 0.36s; }
+  .auth-stagger form > :nth-child(5) { animation-delay: 0.4s; }
+  .auth-stagger form > :nth-child(n + 6) { animation-delay: 0.44s; }
+
+  /* One-time-code cells */
+  .auth-otp-cell {
+    position: relative;
+    display: flex;
+    height: 3.5rem;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgb(var(--border-strong));
+    border-radius: 8px;
+    background: #ffffff;
+    font-size: 1.5rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: rgb(var(--content));
+    transition:
+      border-color 0.12s,
+      box-shadow 0.12s;
+  }
+
+  .auth-otp-cell.is-active {
+    border-color: rgb(var(--brand));
+    box-shadow: 0 0 0 3px rgb(var(--brand) / 0.15);
+  }
+
+  .auth-otp-cell.is-invalid {
+    border-color: rgb(var(--danger));
+    box-shadow: 0 0 0 3px rgb(var(--danger) / 0.12);
+  }
+
+  .auth-otp-caret {
+    position: absolute;
+    width: 2px;
+    height: 1.5rem;
+    background: rgb(var(--brand));
+    animation: auth-caret 1s steps(1) infinite;
+  }
+
+  /* Fixed layer that holds the arrow-field backdrop behind the auth card. */
+  .auth-canvas {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background: rgb(var(--surface));
+  }
+
+  /* Press feedback for CSS buttons (Framer-driven ones opt out with data-motion). */
+  .btn-primary:not([data-motion]),
+  .btn-dark:not([data-motion]),
+  .btn-accent:not([data-motion]),
+  .btn-on-blue:not([data-motion]),
+  .btn-secondary:not([data-motion]),
+  .btn-ghost:not([data-motion]) {
+    transition-property: transform, background-color, border-color, color, opacity, box-shadow;
+    transition-duration: 150ms;
+    transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .btn-primary:not([data-motion]):not(:disabled):active,
+  .btn-dark:not([data-motion]):not(:disabled):active,
+  .btn-accent:not([data-motion]):not(:disabled):active,
+  .btn-on-blue:not([data-motion]):not(:disabled):active,
+  .btn-secondary:not([data-motion]):not(:disabled):active,
+  .btn-ghost:not([data-motion]):not(:disabled):active {
+    transform: scale(0.98);
+  }
+
+  /* Skeleton loader: a light band sliding across (translateX only). */
+  .skeleton {
+    @apply relative overflow-hidden bg-slate-200/70;
+  }
+
+  .skeleton::after {
     content: "";
     position: absolute;
     inset: 0;
-    background:
-      linear-gradient(90deg, transparent 8%, rgba(196, 165, 116, 0.08) 8.4%, transparent 9%),
-      linear-gradient(90deg, transparent 22%, rgba(196, 165, 116, 0.14) 22.5%, transparent 28%),
-      linear-gradient(90deg, transparent 40%, rgba(196, 165, 116, 0.22) 41%, transparent 48%),
-      linear-gradient(90deg, transparent 58%, rgba(196, 165, 116, 0.1) 59%, transparent 64%),
-      linear-gradient(180deg, transparent 35%, rgba(8, 22, 40, 0.55) 100%);
-    pointer-events: none;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.7), transparent);
+    animation: skeleton-shimmer 1.4s ease-in-out infinite;
+  }
+}
+
+@keyframes auth-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes auth-caret {
+  50% { opacity: 0; }
+}
+
+@keyframes status-live {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+@keyframes skeleton-shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+/* Respect the OS "reduce motion" setting for everything that is not Framer Motion
+   (Framer is switched to opacity-only via MotionConfig reducedMotion="user").
+   Spinners are kept: they signal loading rather than decorate. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
   }
 
-  .auth-input {
-    @apply w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:border-[#0B1F3A] focus:ring-1 focus:ring-[#0B1F3A]/15;
+  *:not(.animate-spin),
+  *:not(.animate-spin)::before,
+  *:not(.animate-spin)::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 
-  .auth-submit-btn {
-    @apply w-full rounded-xl bg-[#0B1F3A] py-3.5 text-sm font-semibold text-white transition hover:bg-[#123056] disabled:cursor-not-allowed disabled:opacity-50;
+  .skeleton::after {
+    display: none;
+  }
+
+  .auth-stagger > *,
+  .auth-stagger form > * {
+    animation: none;
+  }
+
+  .btn-primary:not([data-motion]):not(:disabled):active,
+  .btn-dark:not([data-motion]):not(:disabled):active,
+  .btn-accent:not([data-motion]):not(:disabled):active,
+  .btn-on-blue:not([data-motion]):not(:disabled):active,
+  .btn-secondary:not([data-motion]):not(:disabled):active,
+  .btn-ghost:not([data-motion]):not(:disabled):active {
+    transform: none;
   }
 }

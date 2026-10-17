@@ -19,8 +19,8 @@ class VerifyOtpRequest(BaseModel):
 
 
 class AuthResponse(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
+    """The session token is set as an httpOnly cookie and never returned in the body."""
+
     user: UserOut
 
 

@@ -8,6 +8,8 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { AnimatePresence } from "motion/react";
+import { AnimatedAlert, AnimatedRow, AnimatedTBody, ModalShell, Stagger, StaggerItem } from "../components/motion";
 import {
   EmptyState,
   InfoCallout,
@@ -163,6 +165,7 @@ export function UsersPage() {
   return (
     <div>
       <PageHeader
+        eyebrow="Access control"
         title="Team"
         subtitle="Manage compliance officers, roles, and access levels across the platform."
         count={`${activeUsers.length} active`}
@@ -176,20 +179,20 @@ export function UsersPage() {
         }
       />
 
-      {(message || error) && (
-        <div
-          className={`mb-4 rounded-lg px-4 py-3 text-sm ${error ? "border border-danger/30 bg-danger/10 text-danger" : "border border-success/30 bg-success/10 text-success"}`}
-        >
-          {error || message}
-        </div>
-      )}
+      <AnimatedAlert
+        show={Boolean(message || error)}
+        role={error ? "alert" : "status"}
+        className={`mb-4 rounded-lg px-4 py-3 text-sm ${error ? "border border-danger/30 bg-danger/10 text-danger" : "border border-success/30 bg-emerald-50 text-emerald-700"}`}
+      >
+        {error || message}
+      </AnimatedAlert>
 
-      <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard label="Active members" value={activeUsers.length} changeUp />
-        <KpiCard label="Admins" value={roleCounts.admin} />
-        <KpiCard label="Approvers" value={roleCounts.approver} />
-        <KpiCard label="Analysts & viewers" value={roleCounts.analyst + roleCounts.viewer} />
-      </div>
+      <Stagger className="mb-6 grid grid-cols-12 gap-6">
+        <KpiCard className="col-span-12 sm:col-span-6 xl:col-span-3" label="Active members" value={activeUsers.length} changeUp />
+        <KpiCard className="col-span-12 sm:col-span-6 xl:col-span-3" label="Admins" value={roleCounts.admin} />
+        <KpiCard className="col-span-12 sm:col-span-6 xl:col-span-3" label="Approvers" value={roleCounts.approver} />
+        <KpiCard className="col-span-12 sm:col-span-6 xl:col-span-3" label="Analysts & viewers" value={roleCounts.analyst + roleCounts.viewer} />
+      </Stagger>
 
       {!isAdmin && (
         <div className="mb-6">
@@ -197,7 +200,7 @@ export function UsersPage() {
         </div>
       )}
 
-      <div className="card overflow-hidden">
+      <StaggerItem className="card overflow-hidden">
         <TableToolbar
           tabs={[
             { id: "active", label: `Active (${activeUsers.length})` },
@@ -232,9 +235,9 @@ export function UsersPage() {
                 {isAdmin && <th className="text-right">Actions</th>}
               </tr>
             </thead>
-            <tbody>
-              {filtered.map((u) => (
-                <tr key={u.id}>
+            <AnimatedTBody>
+              {filtered.map((u, rowIndex) => (
+                <AnimatedRow key={u.id} index={rowIndex}>
                   <td>
                     <div className="flex items-center gap-3">
                       <div
@@ -291,14 +294,15 @@ export function UsersPage() {
                       </div>
                     </td>
                   )}
-                </tr>
+                </AnimatedRow>
               ))}
-            </tbody>
+            </AnimatedTBody>
           </table>
         )}
-      </div>
+      </StaggerItem>
 
       {/* Add modal */}
+      <AnimatePresence>
       {showAdd && isAdmin && (
         <Modal title="Add team member" onClose={() => setShowAdd(false)}>
           <form onSubmit={onAdd} className="space-y-4">
@@ -320,8 +324,10 @@ export function UsersPage() {
           </form>
         </Modal>
       )}
+      </AnimatePresence>
 
       {/* Edit modal */}
+      <AnimatePresence>
       {editing && isAdmin && (
         <Modal title="Edit team member" onClose={() => setEditing(null)}>
           <form onSubmit={onEdit} className="space-y-4">
@@ -364,8 +370,10 @@ export function UsersPage() {
           </form>
         </Modal>
       )}
+      </AnimatePresence>
 
       {/* Remove confirm */}
+      <AnimatePresence>
       {removing && isAdmin && (
         <Modal title="Remove team member" onClose={() => setRemoving(null)}>
           <div className="flex items-start gap-4">
@@ -388,24 +396,26 @@ export function UsersPage() {
           </div>
         </Modal>
       )}
+      </AnimatePresence>
     </div>
   );
 }
 
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <button type="button" className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} aria-label="Close" />
-      <div className="relative w-full max-w-md rounded-xl border border-border bg-surface-raised p-6 shadow-lg">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-content">{title}</h2>
-          <button type="button" className="btn-ghost rounded-lg p-1" onClick={onClose}>
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-        {children}
+    <ModalShell
+      onClose={onClose}
+      overlayClassName="absolute inset-0 bg-slate-900/40"
+      panelClassName="max-w-md rounded-xl border border-border bg-surface-raised p-6 shadow-lg"
+    >
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-content">{title}</h2>
+        <button type="button" className="btn-ghost rounded-lg p-1" onClick={onClose} aria-label="Close">
+          <X className="h-5 w-5" />
+        </button>
       </div>
-    </div>
+      {children}
+    </ModalShell>
   );
 }
 

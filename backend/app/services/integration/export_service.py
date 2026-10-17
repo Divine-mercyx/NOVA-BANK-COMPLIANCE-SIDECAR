@@ -123,6 +123,7 @@ class ExportService:
             period_end=period_end,
             report_type="CTR" if scope == "ctr" else (report_type.value if report_type else None),
             scope=scope,
+            channel=channel.value if channel else None,
             ctr_threshold_ngn=settings.ctr_threshold_ngn if scope == "ctr" else None,
             total_matching=total,
             returned=len(rows),

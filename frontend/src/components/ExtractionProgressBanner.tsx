@@ -1,6 +1,8 @@
+import { motion } from "motion/react";
 import type { ExtractionLog, ExtractionRun } from "../lib/api";
 import { latestHtdProgress, progressLabel } from "../lib/extractionProgress";
 import { formatNumber } from "../lib/format";
+import { spring } from "../lib/motion";
 
 function CircularProgress({ percent }: { percent: number | null }) {
   const size = 72;
@@ -63,11 +65,20 @@ export function ExtractionProgressBanner({
 
   const progress = latestHtdProgress(logs ?? []);
   const message = progressLabel(logs ?? [], fallbackMessage);
-  const hasTotal = progress?.legs_total != null && progress.legs_total > 0;
-  const percent = hasTotal ? Math.min(100, Math.round((progress.legs_fetched / progress.legs_total) * 100)) : null;
+  const legsTotal = progress?.legs_total ?? 0;
+  const hasTotal = legsTotal > 0;
+  const percent = progress && hasTotal ? Math.min(100, Math.round((progress.legs_fetched / legsTotal) * 100)) : null;
 
   return (
-    <div className="mb-4 border border-border bg-surface-raised px-5 py-4">
+    <motion.div
+      className="card mb-6 px-6 py-4"
+      role="status"
+      aria-live="polite"
+      initial={{ opacity: 0, y: -10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -8, transition: { duration: 0.15 } }}
+      transition={spring}
+    >
       <div className="flex items-center gap-5">
         <CircularProgress percent={percent} />
         <div className="min-w-0 flex-1">
@@ -98,6 +109,6 @@ export function ExtractionProgressBanner({
           </dl>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }

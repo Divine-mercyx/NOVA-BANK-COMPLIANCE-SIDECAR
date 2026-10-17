@@ -1,4 +1,6 @@
 import { AlertCircle, CheckCircle2, Clock } from "lucide-react";
+import { motion } from "motion/react";
+import { spring } from "../../lib/motion";
 import type { PartnerRequestResult } from "../../lib/partnerApi";
 import { ApiCopyButton } from "./ApiCopyButton";
 
@@ -16,7 +18,14 @@ export function ApiResponsePanel({ result }: { result: PartnerRequestResult | nu
   const curl = `curl -s "${result.url}" -H "X-API-Key: YOUR_API_KEY"`;
 
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-[#0d1117] shadow-lg">
+    <motion.div
+      // Re-keyed per request so each new response eases in rather than swapping silently.
+      key={`${result.url}-${result.durationMs}`}
+      className="overflow-hidden rounded-xl border border-border bg-[#0d1117] shadow-lg"
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={spring}
+    >
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 bg-white/5 px-4 py-3">
         <div className="flex flex-wrap items-center gap-2">
           {result.ok ? (
@@ -41,6 +50,6 @@ export function ApiResponsePanel({ result }: { result: PartnerRequestResult | nu
         </div>
       </div>
       <pre className="max-h-[420px] overflow-auto p-4 font-mono text-xs leading-relaxed text-slate-300">{body}</pre>
-    </div>
+    </motion.div>
   );
 }

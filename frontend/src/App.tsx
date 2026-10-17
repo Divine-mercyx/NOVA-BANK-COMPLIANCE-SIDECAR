@@ -2,9 +2,9 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AuthProvider } from "./lib/auth";
-import { SidebarProvider } from "./lib/sidebar";
+import { AppMotionConfig } from "./lib/motion";
 import { ThemeProvider } from "./lib/theme";
-import { LoginPage, OtpPage } from "./pages/AuthPages";
+import { AuthLayout, ForgotPasswordPage, LoginPage, OtpPage, RequestAccessPage } from "./pages/AuthPages";
 import { AuditPage } from "./pages/AuditPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { ExtractionPage } from "./pages/ExtractionPage";
@@ -17,13 +17,18 @@ import { IntegrationApiDocsPage } from "./pages/integration/IntegrationApiDocsPa
 
 export default function App() {
   return (
+    <AppMotionConfig>
     <ThemeProvider>
       <AuthProvider>
-        <SidebarProvider>
           <BrowserRouter>
             <Routes>
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/verify-otp" element={<OtpPage />} />
+              {/* One persistent shell for every auth step; only the form view swaps. */}
+              <Route element={<AuthLayout />}>
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                <Route path="/request-access" element={<RequestAccessPage />} />
+                <Route path="/verify-otp" element={<OtpPage />} />
+              </Route>
               <Route element={<ProtectedRoute />}>
                 <Route element={<Layout />}>
                   <Route index element={<DashboardPage />} />
@@ -41,8 +46,8 @@ export default function App() {
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </BrowserRouter>
-        </SidebarProvider>
       </AuthProvider>
     </ThemeProvider>
+    </AppMotionConfig>
   );
 }
