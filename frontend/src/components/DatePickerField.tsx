@@ -35,12 +35,12 @@ export function DatePickerField({ label, value, onChange, min, max, disabled }: 
   };
 
   const selectClass =
-    "appearance-none rounded-lg border border-border bg-surface-raised py-2.5 pl-3 pr-9 text-sm font-medium text-content shadow-soft transition focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20 disabled:cursor-not-allowed disabled:opacity-50";
+    "appearance-none rounded-lg border border-border bg-surface-raised py-2.5 pl-3 pr-9 text-sm font-medium text-content shadow-soft transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 disabled:cursor-not-allowed disabled:opacity-50";
 
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2">
-        <CalendarDays className="h-4 w-4 text-brand" aria-hidden />
+        <CalendarDays className="h-4 w-4 text-accent" aria-hidden />
         <span className="text-sm font-semibold text-content">{label}</span>
       </div>
       <p className="text-xs text-content-muted">{formatCalendarDateLabel(value)} · WAT (Africa/Lagos)</p>

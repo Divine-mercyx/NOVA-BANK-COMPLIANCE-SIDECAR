@@ -5,7 +5,7 @@ import { ApiCopyButton } from "./ApiCopyButton";
 export function ApiResponsePanel({ result }: { result: PartnerRequestResult | null }) {
   if (!result) {
     return (
-      <div className="flex h-full min-h-[200px] flex-col items-center justify-center rounded-xl border border-dashed border-border bg-surface-overlay/30 p-6 text-center">
+      <div className="flex h-full min-h-[200px] flex-col items-center justify-center rounded-xl border border-dashed border-border bg-accent-muted/15 p-6 text-center">
         <p className="text-sm font-medium text-content-muted">No response yet</p>
         <p className="mt-1 max-w-xs text-xs text-content-subtle">Run an endpoint to see the live JSON response here.</p>
       </div>
@@ -16,21 +16,21 @@ export function ApiResponsePanel({ result }: { result: PartnerRequestResult | nu
   const curl = `curl -s "${result.url}" -H "X-API-Key: YOUR_API_KEY"`;
 
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-[#0d1117] shadow-lg">
+    <div className="code-panel">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 bg-white/5 px-4 py-3">
         <div className="flex flex-wrap items-center gap-2">
           {result.ok ? (
-            <span className="inline-flex items-center gap-1.5 border border-white/20 px-2 py-0.5 text-xs font-medium text-slate-200">
+            <span className="inline-flex items-center gap-1.5 rounded-md border border-success/30 bg-success-muted/20 px-2 py-0.5 text-xs font-medium text-success">
               <CheckCircle2 className="h-3.5 w-3.5" />
               {result.status}
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1.5 border border-white/20 px-2 py-0.5 text-xs font-medium text-slate-200">
+            <span className="inline-flex items-center gap-1.5 rounded-md border border-danger/30 bg-danger-muted/20 px-2 py-0.5 text-xs font-medium text-danger">
               <AlertCircle className="h-3.5 w-3.5" />
               {result.status || "Error"}
             </span>
           )}
-          <span className="inline-flex items-center gap-1 text-xs text-slate-400">
+          <span className="inline-flex items-center gap-1 text-xs text-code-fg/70">
             <Clock className="h-3 w-3" />
             {result.durationMs}ms
           </span>
@@ -40,7 +40,7 @@ export function ApiResponsePanel({ result }: { result: PartnerRequestResult | nu
           <ApiCopyButton text={curl} label="Copy cURL" />
         </div>
       </div>
-      <pre className="max-h-[420px] overflow-auto p-4 font-mono text-xs leading-relaxed text-slate-300">{body}</pre>
+      <pre className="max-h-[420px] overflow-auto p-4 font-mono text-xs leading-relaxed text-code-fg">{body}</pre>
     </div>
   );
 }

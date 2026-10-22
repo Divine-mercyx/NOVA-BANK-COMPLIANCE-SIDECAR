@@ -239,7 +239,7 @@ export function UsersPage() {
                     <div className="flex items-center gap-3">
                       <div
                         className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-                          u.id === currentUser?.id ? "bg-brand text-brand-foreground" : "bg-brand-muted text-brand"
+                          u.id === currentUser?.id ? "bg-accent text-accent-foreground" : "bg-accent-muted text-accent"
                         }`}
                       >
                         {initials(u.full_name)}
@@ -248,7 +248,7 @@ export function UsersPage() {
                         <p className="font-medium text-content">
                           {u.full_name}
                           {u.id === currentUser?.id && (
-                            <span className="ml-2 text-xs font-normal text-brand">(you)</span>
+                            <span className="ml-2 text-xs font-normal text-accent">(you)</span>
                           )}
                         </p>
                         <p className="flex items-center gap-1 text-xs text-content-muted">

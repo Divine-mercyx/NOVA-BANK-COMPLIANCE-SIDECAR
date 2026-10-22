@@ -25,10 +25,34 @@ export default {
           muted: "rgb(var(--brand-muted) / <alpha-value>)",
           foreground: "rgb(var(--brand-foreground) / <alpha-value>)",
         },
-        success: "rgb(var(--success) / <alpha-value>)",
-        warning: "rgb(var(--warning) / <alpha-value>)",
-        danger: "rgb(var(--danger) / <alpha-value>)",
+        accent: {
+          DEFAULT: "rgb(var(--accent) / <alpha-value>)",
+          hover: "rgb(var(--accent-hover) / <alpha-value>)",
+          muted: "rgb(var(--accent-muted) / <alpha-value>)",
+          foreground: "rgb(var(--accent-foreground) / <alpha-value>)",
+        },
+        sidebar: {
+          DEFAULT: "rgb(var(--sidebar) / <alpha-value>)",
+          foreground: "rgb(var(--sidebar-foreground) / <alpha-value>)",
+          muted: "rgb(var(--sidebar-muted) / <alpha-value>)",
+        },
+        success: {
+          DEFAULT: "rgb(var(--success) / <alpha-value>)",
+          muted: "rgb(var(--success-muted) / <alpha-value>)",
+        },
+        warning: {
+          DEFAULT: "rgb(var(--warning) / <alpha-value>)",
+          muted: "rgb(var(--warning-muted) / <alpha-value>)",
+        },
+        danger: {
+          DEFAULT: "rgb(var(--danger) / <alpha-value>)",
+          muted: "rgb(var(--danger-muted) / <alpha-value>)",
+        },
         info: "rgb(var(--info) / <alpha-value>)",
+        code: {
+          bg: "rgb(var(--code-bg) / <alpha-value>)",
+          fg: "rgb(var(--code-fg) / <alpha-value>)",
+        },
       },
       fontFamily: {
         sans: ["Inter", "system-ui", "sans-serif"],

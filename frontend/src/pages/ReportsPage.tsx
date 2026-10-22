@@ -110,7 +110,7 @@ export function ReportsPage() {
                     <tr
                       key={tx.id}
                       onClick={() => setSelected(tx)}
-                      className={`cursor-pointer ${selected?.id === tx.id ? "bg-brand-muted/40" : ""}`}
+                      className={`cursor-pointer ${selected?.id === tx.id ? "theme-selected-row" : ""}`}
                     >
                       <td>
                         <p className="font-mono text-xs">{tx.finacle_ref}</p>
@@ -139,7 +139,7 @@ export function ReportsPage() {
                   <h2 className="mt-1 text-lg font-semibold text-content">
                     {selected.sender_name} → {selected.receiver_name}
                   </h2>
-                  <p className="mt-1 text-2xl font-semibold text-brand">
+                  <p className="mt-1 text-2xl font-semibold text-accent">
                     {formatCurrency(selected.amount, selected.currency)}
                   </p>
                 </div>

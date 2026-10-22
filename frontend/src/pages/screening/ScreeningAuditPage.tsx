@@ -47,7 +47,7 @@ export function ScreeningAuditPage() {
                   <td className="text-content-muted">{formatDate(e.created_at)}</td>
                   <td className="font-medium">{e.actor_name}</td>
                   <td>
-                    <span className="rounded-md bg-brand-muted px-2 py-1 text-xs font-medium text-brand">
+                    <span className="theme-chip rounded-md px-2 py-1">
                       {actionLabel(e.action)}
                     </span>
                   </td>

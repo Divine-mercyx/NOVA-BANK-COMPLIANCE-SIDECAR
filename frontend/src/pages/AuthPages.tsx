@@ -5,7 +5,7 @@ import { useAuth } from "../lib/auth";
 
 function AuthMark() {
   return (
-    <span className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#0B1F3A]/15 text-[#0B1F3A]">
+    <span className="auth-mark">
       <svg viewBox="0 0 32 32" className="h-5 w-5" fill="currentColor" aria-hidden>
         <circle cx="16" cy="16" r="3" />
         {Array.from({ length: 12 }).map((_, i) => {
@@ -59,7 +59,7 @@ export function LoginPage() {
     setLoading(true);
     try {
       const result = await login(email, password);
-      navigate("/verify-otp", { state: { otpSessionId: result.otp_session_id, email } });
+      navigate("/verify-otp", { state: { otp_session_id: result.otp_session_id, email } });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {
@@ -70,14 +70,12 @@ export function LoginPage() {
   return (
     <AuthShell>
       <AuthMark />
-      <h2 className="mt-6 text-[1.75rem] font-semibold tracking-tight text-neutral-900">Sign in</h2>
-      <p className="mt-1.5 text-sm text-neutral-500">Welcome to Nova Bank compliance — authorised staff only.</p>
+      <h2 className="auth-title">Sign in</h2>
+      <p className="auth-subtitle">Welcome to Nova Bank compliance — authorised staff only.</p>
 
       <form onSubmit={onSubmit} className="mt-8 space-y-5">
         <div>
-          <label htmlFor="email" className="mb-1.5 block text-sm text-neutral-600">
-            Work email
-          </label>
+          <label htmlFor="email" className="auth-label">Work email</label>
           <input
             id="email"
             type="email"
@@ -91,12 +89,10 @@ export function LoginPage() {
         </div>
         <div>
           <div className="mb-1.5 flex items-center justify-between">
-            <label htmlFor="password" className="text-sm text-neutral-600">
-              Password
-            </label>
+            <label htmlFor="password" className="auth-label mb-0">Password</label>
             <button
               type="button"
-              className="text-xs text-neutral-400 hover:text-neutral-700"
+              className="text-xs text-content-subtle hover:text-accent"
               onClick={() => setError("Contact your administrator to reset your password.")}
             >
               Forgot password
@@ -114,7 +110,7 @@ export function LoginPage() {
             />
             <button
               type="button"
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-700"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-content-subtle hover:text-content"
               onClick={() => setShowPassword((v) => !v)}
               aria-label={showPassword ? "Hide password" : "Show password"}
             >
@@ -123,16 +119,14 @@ export function LoginPage() {
           </div>
         </div>
 
-        {error && <p className="rounded-xl bg-neutral-50 px-3 py-2 text-sm text-neutral-800">{error}</p>}
+        {error && <p className="auth-error">{error}</p>}
 
         <button type="submit" className="auth-submit-btn" disabled={loading}>
           {loading ? "Signing in…" : "Sign in"}
         </button>
       </form>
 
-      <p className="mt-8 text-center text-sm text-neutral-400">
-        Need access? Speak to your compliance administrator.
-      </p>
+      <p className="auth-footnote mt-8">Need access? Speak to your compliance administrator.</p>
     </AuthShell>
   );
 }
@@ -167,16 +161,14 @@ export function OtpPage() {
   return (
     <AuthShell>
       <AuthMark />
-      <h2 className="mt-6 text-[1.75rem] font-semibold tracking-tight text-neutral-900">Verify access</h2>
-      <p className="mt-1.5 text-sm text-neutral-500">
-        Enter the 6-digit code sent for <span className="font-medium text-neutral-800">{email}</span>.
+      <h2 className="auth-title">Verify access</h2>
+      <p className="auth-subtitle">
+        Enter the 6-digit code sent for <span className="font-medium text-content">{email}</span>.
       </p>
 
       <form onSubmit={onSubmit} className="mt-8 space-y-5">
         <div>
-          <label htmlFor="otp" className="mb-1.5 block text-sm text-neutral-600">
-            One-time password
-          </label>
+          <label htmlFor="otp" className="auth-label">One-time password</label>
           <input
             id="otp"
             type="text"
@@ -189,13 +181,13 @@ export function OtpPage() {
             required
           />
         </div>
-        {error && <p className="rounded-xl bg-neutral-50 px-3 py-2 text-sm text-neutral-800">{error}</p>}
+        {error && <p className="auth-error">{error}</p>}
         <button type="submit" className="auth-submit-btn" disabled={loading || code.length !== 6}>
           {loading ? "Verifying…" : "Continue"}
         </button>
       </form>
 
-      <Link to="/login" className="mt-8 block text-center text-sm text-neutral-400 hover:text-neutral-700">
+      <Link to="/login" className="auth-footnote mt-8 block hover:text-accent">
         Back to sign in
       </Link>
     </AuthShell>

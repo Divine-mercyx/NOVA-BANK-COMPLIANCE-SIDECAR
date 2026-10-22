@@ -128,8 +128,8 @@ export function ExtractionRunModal({ open, onClose, onRun, finacleMode, running,
                   onClick={() => setPreset(item.id)}
                   className={`rounded-xl border px-4 py-3 text-left transition ${
                     preset === item.id
-                      ? "border-brand bg-brand-muted/60 ring-2 ring-brand/20"
-                      : "border-border bg-surface-overlay/30 hover:border-brand/40 hover:bg-surface-overlay/60"
+                      ? "theme-selected"
+                      : "border-border bg-surface-overlay/30 hover:border-accent/40 hover:bg-accent-muted/30"
                   }`}
                 >
                   <p className="text-sm font-semibold text-content">{item.label}</p>
@@ -142,7 +142,7 @@ export function ExtractionRunModal({ open, onClose, onRun, finacleMode, running,
           <div className="rounded-xl border border-border bg-surface-overlay/20 p-4">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
               <p className="text-sm font-semibold text-content">Transaction date range</p>
-              <span className="rounded-full bg-brand-muted px-3 py-1 text-xs font-semibold text-brand">
+              <span className="theme-chip px-3 py-1">
                 {dayCount} day{dayCount === 1 ? "" : "s"}
               </span>
             </div>
@@ -197,7 +197,7 @@ export function ExtractionRunModal({ open, onClose, onRun, finacleMode, running,
           {error && <p className="text-sm font-medium text-danger">{error}</p>}
 
           {running && progressMessage && (
-            <div className="rounded-lg border border-brand/30 bg-brand-muted/30 px-3 py-2 text-sm text-content-muted">
+            <div className="rounded-lg border border-accent/30 bg-accent-muted/30 px-3 py-2 text-sm text-content-muted">
               {progressMessage}
             </div>
           )}

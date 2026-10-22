@@ -17,9 +17,9 @@ export function PageHeader({
     <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div>
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-semibold tracking-tight text-content">{title}</h1>
+          <h2 className="text-lg font-semibold tracking-tight text-content">{title}</h2>
           {count && (
-            <span className="rounded-full bg-brand-muted px-2.5 py-0.5 text-xs font-semibold text-brand">
+            <span className="theme-chip">
               {count}
             </span>
           )}
@@ -67,7 +67,7 @@ export function KpiCard({
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie data={ringData} dataKey="value" innerRadius={18} outerRadius={26} startAngle={90} endAngle={-270} stroke="none">
-                  <Cell fill="rgb(var(--brand))" />
+                  <Cell fill="rgb(var(--accent))" />
                   <Cell fill="rgb(var(--surface-overlay))" />
                 </Pie>
               </PieChart>
@@ -101,9 +101,10 @@ export function ScoreRing({ value, size = 44 }: { value: number; size?: number }
   );
 }
 
-export function ProgressBar({ value, color = "brand" }: { value: number; color?: "brand" | "success" | "info" | "warning" | "danger" }) {
+export function ProgressBar({ value, color = "accent" }: { value: number; color?: "accent" | "brand" | "success" | "info" | "warning" | "danger" }) {
   const colors = {
-    brand: "bg-brand",
+    accent: "bg-accent",
+    brand: "bg-accent",
     success: "bg-success",
     info: "bg-info",
     warning: "bg-warning",
@@ -121,29 +122,38 @@ export function ProgressBar({ value, color = "brand" }: { value: number; color?:
 
 export function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
-    success: "bg-surface-overlay text-content ring-border",
-    running: "bg-surface-overlay text-content ring-border",
-    partial: "bg-surface-overlay text-content-muted ring-border",
-    failed: "bg-surface-overlay text-content ring-border",
+    success: "bg-success-muted text-success ring-success/20",
+    running: "bg-accent-muted text-accent ring-accent/25",
+    partial: "bg-warning-muted text-warning ring-warning/20",
+    failed: "bg-danger-muted text-danger ring-danger/20",
     draft: "bg-surface-overlay text-content-muted ring-border",
-    approved: "bg-surface-overlay text-content ring-border",
-    submitted: "bg-surface-overlay text-content ring-border",
-    rejected: "bg-surface-overlay text-content-muted ring-border",
+    approved: "bg-success-muted text-success ring-success/20",
+    submitted: "bg-accent-muted text-accent ring-accent/25",
+    rejected: "bg-danger-muted text-danger ring-danger/20",
     idle: "bg-surface-overlay text-content-muted ring-border",
-    active: "bg-surface-overlay text-content ring-border",
+    active: "bg-accent-muted text-accent ring-accent/25",
+    pending: "bg-warning-muted text-warning ring-warning/20",
+    completed: "bg-success-muted text-success ring-success/20",
+    canceled: "bg-surface-overlay text-content-muted ring-border",
   };
   const cls = styles[status] ?? styles.draft;
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset ${cls}`}>
-      <span className="h-1.5 w-1.5 rounded-full bg-current" />
+    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium capitalize ring-1 ring-inset ${cls}`}>
+      <span className="h-1.5 w-1.5 rounded-full bg-current opacity-80" />
       {status.replace(/_/g, " ")}
     </span>
   );
 }
 
 export function Tag({ children, color = "gray" }: { children: ReactNode; color?: "blue" | "purple" | "pink" | "gray" }) {
+  const tones = {
+    gray: "bg-surface-overlay text-content-muted",
+    purple: "bg-accent-muted text-accent",
+    blue: "bg-accent-muted text-accent",
+    pink: "bg-danger-muted text-danger",
+  };
   return (
-    <span className="inline-flex rounded bg-surface-overlay px-2 py-0.5 text-xs font-medium text-content-muted">
+    <span className={`inline-flex rounded-md px-2 py-0.5 text-xs font-medium ${tones[color]}`}>
       {children}
     </span>
   );
@@ -207,7 +217,7 @@ export function EmptyState({
 }) {
   return (
     <div className="flex flex-col items-center px-6 py-16 text-center">
-      <div className="mb-4 rounded-xl bg-brand-muted p-3 text-brand">
+      <div className="mb-4 rounded-xl bg-accent-muted p-3 text-accent">
         <Icon className="h-6 w-6" />
       </div>
       <h3 className="font-semibold text-content">{title}</h3>
@@ -219,7 +229,7 @@ export function EmptyState({
 
 export function InfoCallout({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="rounded-lg border border-brand/20 bg-brand-muted/50 p-4">
+    <div className="rounded-xl border border-accent/25 bg-accent-muted/40 p-4">
       <p className="text-sm font-semibold text-content">{title}</p>
       <div className="mt-1 text-sm text-content-muted">{children}</div>
     </div>

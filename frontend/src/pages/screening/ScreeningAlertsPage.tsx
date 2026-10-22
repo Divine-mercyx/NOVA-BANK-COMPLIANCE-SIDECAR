@@ -145,7 +145,7 @@ export function ScreeningAlertsPage() {
                   key={alert.id}
                   onClick={() => setSelected(alert)}
                   className={`w-full px-4 py-4 text-left transition hover:bg-surface-overlay/40 ${
-                    selected?.id === alert.id ? "bg-brand-muted/40" : ""
+                    selected?.id === alert.id ? "theme-selected-row" : ""
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2">
@@ -155,7 +155,7 @@ export function ScreeningAlertsPage() {
                     </div>
                     <StatusBadge status={alert.status} />
                   </div>
-                  <p className="mt-2 text-sm font-semibold text-brand">
+                  <p className="mt-2 text-sm font-semibold text-accent">
                     {formatCurrency(alert.amount, alert.currency)}
                   </p>
                   <div className="mt-2 flex items-center justify-between text-xs text-content-subtle">

@@ -21,6 +21,7 @@ import { useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { roleLabel } from "../lib/format";
+import { pageTitle } from "../lib/pageTitles";
 import { useSidebar } from "../lib/sidebar";
 import { ThemeToggle } from "./ThemeToggle";
 
@@ -42,12 +43,16 @@ const integrationChildren = [
 
 function navClass(isActive: boolean, expanded: boolean) {
   if (expanded) {
-    return `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm ${
-      isActive ? "bg-white font-medium text-content shadow-soft" : "text-content-muted hover:bg-white/70 hover:text-content"
+    return `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${
+      isActive
+        ? "bg-white/12 font-medium text-sidebar-foreground shadow-sm ring-1 ring-white/10"
+        : "text-sidebar-muted hover:bg-white/8 hover:text-sidebar-foreground"
     }`;
   }
-  return `flex h-10 w-10 items-center justify-center rounded-xl ${
-    isActive ? "bg-white text-content shadow-soft" : "text-content-muted hover:bg-white/70 hover:text-content"
+  return `flex h-10 w-10 items-center justify-center rounded-xl transition ${
+    isActive
+      ? "bg-accent text-accent-foreground shadow-md"
+      : "text-sidebar-muted hover:bg-white/10 hover:text-sidebar-foreground"
   }`;
 }
 
@@ -61,9 +66,9 @@ function NavSection({
   expanded: boolean;
 }) {
   return (
-    <div className="mb-6">
+    <div className="mb-5">
       {expanded && (
-        <p className="mb-2 px-3 text-[11px] font-medium text-content-subtle">{title}</p>
+        <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-muted">{title}</p>
       )}
       <div className={`flex flex-col gap-0.5 ${expanded ? "px-2" : "items-center px-0"}`}>
         {items.map(({ to, label, icon: Icon, end }) => (
@@ -91,7 +96,7 @@ function IntegrationNav({ expanded }: { expanded: boolean }) {
 
   if (!expanded) {
     return (
-      <div className="mb-6 flex flex-col items-center gap-0.5">
+      <div className="mb-5 flex flex-col items-center gap-0.5">
         {integrationChildren.map(({ to, label, icon: Icon }) => (
           <NavLink key={to} to={to} title={label} className={({ isActive }) => navClass(isActive, false)}>
             <Icon className="h-4 w-4" strokeWidth={1.75} />
@@ -102,28 +107,28 @@ function IntegrationNav({ expanded }: { expanded: boolean }) {
   }
 
   return (
-    <div className="mb-6 px-2">
-      <p className="mb-2 px-3 text-[11px] font-medium text-content-subtle">Integration</p>
+    <div className="mb-5 px-2">
+      <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-muted">Integration</p>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm ${
-          onIntegration ? "text-content" : "text-content-muted hover:bg-white/70 hover:text-content"
+        className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${
+          onIntegration ? "text-sidebar-foreground" : "text-sidebar-muted hover:bg-white/8 hover:text-sidebar-foreground"
         }`}
       >
         <Plug className="h-4 w-4 shrink-0" strokeWidth={1.75} />
         <span className="flex-1 text-left">Integration</span>
-        <ChevronDown className={`h-3.5 w-3.5 text-content-subtle transition ${showChildren ? "rotate-180" : ""}`} />
+        <ChevronDown className={`h-3.5 w-3.5 text-sidebar-muted transition ${showChildren ? "rotate-180" : ""}`} />
       </button>
       {showChildren && (
-        <div className="mt-0.5 ml-4 border-l border-border pl-2">
+        <div className="mt-0.5 ml-4 border-l border-white/10 pl-2">
           {integrationChildren.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
               to={to}
               className={({ isActive }) =>
-                `flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-sm ${
-                  isActive ? "bg-white font-medium text-content shadow-soft" : "text-content-muted hover:bg-white/70 hover:text-content"
+                `flex items-center gap-2 rounded-lg px-2 py-2 text-sm transition ${
+                  isActive ? "font-medium text-sidebar-foreground" : "text-sidebar-muted hover:text-sidebar-foreground"
                 }`
               }
             >
@@ -142,6 +147,7 @@ export function Layout() {
   const { expanded, toggle, width } = useSidebar();
   const { pathname } = useLocation();
   const isDaily = pathname.startsWith("/daily");
+  const title = pageTitle(pathname);
 
   const initials = user?.full_name
     ?.split(" ")
@@ -155,45 +161,38 @@ export function Layout() {
   return (
     <div className="flex min-h-screen bg-surface">
       <aside
-        className="fixed inset-y-0 left-0 z-30 flex flex-col bg-surface transition-[width] duration-200 ease-in-out"
+        className="fixed inset-y-0 left-0 z-30 flex flex-col bg-sidebar text-sidebar-foreground shadow-lg transition-[width] duration-200 ease-in-out"
         style={{ width }}
       >
         <div className={`flex items-center py-5 ${expanded ? "justify-between px-5" : "justify-center px-2"}`}>
           <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand text-brand-foreground">
-              <Shield className="h-4 w-4" />
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent text-accent-foreground shadow-md">
+              <Shield className="h-5 w-5" />
             </div>
             {expanded && (
               <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-content">Nova Bank</p>
-                <p className="truncate text-[11px] text-content-muted">Compliance</p>
+                <p className="truncate text-sm font-semibold">Nova Bank</p>
+                <p className="truncate text-[11px] text-sidebar-muted">Compliance sidecar</p>
               </div>
             )}
           </div>
           {expanded && (
-            <button type="button" onClick={toggle} className="btn-ghost rounded-xl p-1.5" title="Collapse sidebar">
+            <button
+              type="button"
+              onClick={toggle}
+              className="rounded-xl p-1.5 text-sidebar-muted transition hover:bg-white/10 hover:text-sidebar-foreground"
+              title="Collapse sidebar"
+            >
               <ChevronLeft className="h-4 w-4" />
             </button>
           )}
         </div>
 
-        {expanded && user && (
-          <div className="mx-4 mb-4 flex items-center gap-3 rounded-2xl bg-white px-3 py-3 shadow-soft">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-muted text-xs font-semibold text-brand">
-              {initials ?? "?"}
-            </div>
-            <div className="min-w-0">
-              <p className="truncate text-sm font-medium text-content">{user.full_name}</p>
-              <p className="truncate text-xs text-content-muted">{roleLabel(user.role)}</p>
-            </div>
-          </div>
-        )}
-
         {!expanded && (
           <button
             type="button"
             onClick={toggle}
-            className="mx-auto mb-3 flex h-8 w-8 items-center justify-center rounded-xl text-content-muted hover:bg-white"
+            className="mx-auto mb-3 flex h-8 w-8 items-center justify-center rounded-xl text-sidebar-muted hover:bg-white/10"
             title="Expand sidebar"
           >
             <ChevronRight className="h-4 w-4" />
@@ -206,40 +205,72 @@ export function Layout() {
           <IntegrationNav expanded={expanded} />
         </nav>
 
-        <div className={`p-4 ${expanded ? "" : "flex justify-center"}`}>
-          <button
-            type="button"
-            onClick={logout}
-            title="Sign out"
-            className={
-              expanded
-                ? "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-content-muted hover:bg-white hover:text-content"
-                : "flex h-10 w-10 items-center justify-center rounded-xl text-content-muted hover:bg-white"
-            }
-          >
-            <LogOut className="h-4 w-4 shrink-0" />
-            {expanded && <span>Sign out</span>}
-          </button>
+        <div className={`border-t border-white/10 p-4 ${expanded ? "" : "flex flex-col items-center gap-2"}`}>
+          {expanded && user && (
+            <div className="mb-3 flex items-center gap-3 rounded-2xl bg-white/8 px-3 py-3 ring-1 ring-white/10">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent/90 text-xs font-semibold text-white">
+                {initials ?? "?"}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium">{user.full_name}</p>
+                <p className="truncate text-xs text-sidebar-muted">{user.email}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => void logout()}
+                className="rounded-lg p-1.5 text-sidebar-muted hover:bg-white/10 hover:text-sidebar-foreground"
+                title="Sign out"
+              >
+                <LogOut className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+          {!expanded && (
+            <button
+              type="button"
+              onClick={() => void logout()}
+              title="Sign out"
+              className="flex h-10 w-10 items-center justify-center rounded-xl text-sidebar-muted hover:bg-white/10"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
+          )}
+          {expanded && (
+            <p className="px-1 text-[10px] text-sidebar-muted">{user ? roleLabel(user.role) : ""}</p>
+          )}
         </div>
       </aside>
 
       <div className="flex min-h-screen flex-1 flex-col p-3 sm:p-4" style={{ marginLeft: width }}>
-        <div className="flex min-h-[calc(100vh-1.5rem)] flex-1 flex-col rounded-[28px] bg-surface-raised shadow-card">
-          <header className="flex h-16 items-center justify-end gap-2 px-5 sm:px-7">
-            <div className="relative mr-auto hidden max-w-sm flex-1 md:block">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-content-subtle" />
-              <input type="search" placeholder={searchPlaceholder} className="input w-full rounded-full pl-10" />
+        <div className="flex min-h-[calc(100vh-1.5rem)] flex-1 flex-col overflow-hidden rounded-[28px] border border-border/60 bg-surface-raised shadow-card">
+          <header className="flex h-[4.25rem] shrink-0 items-center gap-4 border-b border-border/80 px-5 sm:px-7">
+            <div className="min-w-0">
+              <h1 className="truncate text-lg font-semibold tracking-tight text-content sm:text-xl">{title}</h1>
+              <p className="hidden text-xs text-content-muted sm:block">Nova compliance · Finacle staging</p>
             </div>
-            <ThemeToggle />
-            <button type="button" className="btn-ghost rounded-full p-2">
-              <Bell className="h-4 w-4" />
-            </button>
-            <button type="button" className="btn-ghost rounded-full p-2">
-              <Settings className="h-4 w-4" />
-            </button>
+            <div className="relative ml-auto hidden max-w-md flex-1 md:block">
+              <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-content-subtle" />
+              <input
+                type="search"
+                placeholder={searchPlaceholder}
+                className="input w-full rounded-full border-transparent bg-surface py-2.5 pl-10 shadow-inner"
+              />
+            </div>
+            <div className="flex items-center gap-1">
+              <ThemeToggle />
+              <button type="button" className="btn-ghost rounded-full p-2.5">
+                <Bell className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                className="btn-ghost rounded-xl bg-accent p-2.5 text-accent-foreground hover:bg-accent-hover"
+              >
+                <Settings className="h-4 w-4" />
+              </button>
+            </div>
           </header>
 
-          <main className="flex-1 px-5 pb-8 sm:px-7">
+          <main className="flex-1 overflow-y-auto px-5 py-6 sm:px-7">
             <Outlet />
           </main>
         </div>

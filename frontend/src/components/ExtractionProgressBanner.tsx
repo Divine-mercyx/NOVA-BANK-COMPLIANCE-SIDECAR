@@ -63,11 +63,14 @@ export function ExtractionProgressBanner({
 
   const progress = latestHtdProgress(logs ?? []);
   const message = progressLabel(logs ?? [], fallbackMessage);
-  const hasTotal = progress?.legs_total != null && progress.legs_total > 0;
-  const percent = hasTotal ? Math.min(100, Math.round((progress.legs_fetched / progress.legs_total) * 100)) : null;
+  const legsTotal = progress?.legs_total ?? 0;
+  const hasTotal = legsTotal > 0;
+  const percent = hasTotal && progress
+    ? Math.min(100, Math.round((progress.legs_fetched / legsTotal) * 100))
+    : null;
 
   return (
-    <div className="mb-4 border border-border bg-surface-raised px-5 py-4">
+    <div className="mb-4 rounded-2xl border border-accent/20 bg-accent-muted/40 px-5 py-4">
       <div className="flex items-center gap-5">
         <CircularProgress percent={percent} />
         <div className="min-w-0 flex-1">

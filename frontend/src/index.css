@@ -4,47 +4,71 @@
 
 @layer base {
   :root {
-    --surface: 242 244 247;
+    --surface: 237 240 245;
     --surface-raised: 255 255 255;
-    --surface-overlay: 236 239 243;
+    --surface-overlay: 245 247 250;
     --border: 226 230 236;
     --border-strong: 203 210 219;
-    --content: 11 31 58;
+    --content: 17 24 39;
     --content-muted: 90 102 120;
     --content-subtle: 148 157 172;
-    --brand: 11 31 58;
-    --brand-hover: 18 48 86;
-    --brand-muted: 232 237 244;
+    --brand: 109 76 217;
+    --brand-hover: 91 62 194;
+    --brand-muted: 237 231 255;
     --brand-foreground: 255 255 255;
-    --success: 30 64 52;
-    --warning: 120 80 30;
-    --danger: 127 29 29;
-    --info: 11 31 58;
-    --shadow-soft: 0 1px 2px rgba(11, 31, 58, 0.06);
-    --shadow-card: 0 8px 24px rgba(11, 31, 58, 0.06);
-    --shadow-lg: 0 20px 40px rgba(11, 31, 58, 0.1);
+    --accent: 109 76 217;
+    --accent-hover: 91 62 194;
+    --accent-muted: 237 231 255;
+    --accent-foreground: 255 255 255;
+    --sidebar: 36 22 62;
+    --sidebar-foreground: 248 246 255;
+    --sidebar-muted: 168 155 196;
+    --success: 22 101 52;
+    --success-muted: 220 252 231;
+    --warning: 180 83 9;
+    --warning-muted: 254 243 199;
+    --danger: 185 28 28;
+    --danger-muted: 254 226 226;
+    --info: 109 76 217;
+    --code-bg: 30 27 46;
+    --code-fg: 226 232 240;
+    --shadow-soft: 0 1px 2px rgba(36, 22, 62, 0.06);
+    --shadow-card: 0 8px 30px rgba(36, 22, 62, 0.08);
+    --shadow-lg: 0 24px 48px rgba(36, 22, 62, 0.12);
   }
 
   .dark {
-    --surface: 17 24 39;
-    --surface-raised: 31 41 55;
-    --surface-overlay: 55 65 81;
-    --border: 55 65 81;
-    --border-strong: 75 85 99;
-    --content: 249 250 251;
+    --sidebar: 20 14 36;
+    --sidebar-foreground: 248 246 255;
+    --sidebar-muted: 148 140 170;
+    --surface: 15 17 26;
+    --surface-raised: 24 27 38;
+    --surface-overlay: 35 39 54;
+    --border: 48 52 68;
+    --border-strong: 68 72 88;
+    --content: 248 250 252;
     --content-muted: 156 163 175;
     --content-subtle: 107 114 128;
-    --brand: 226 232 240;
-    --brand-hover: 248 250 252;
-    --brand-muted: 51 65 85;
-    --brand-foreground: 15 23 42;
-    --success: 203 213 225;
-    --warning: 168 162 158;
+    --brand: 147 120 255;
+    --brand-hover: 167 139 250;
+    --brand-muted: 55 48 85;
+    --brand-foreground: 255 255 255;
+    --accent: 147 120 255;
+    --accent-hover: 167 139 250;
+    --accent-muted: 55 48 85;
+    --accent-foreground: 255 255 255;
+    --success: 134 239 172;
+    --success-muted: 20 83 45;
+    --warning: 253 224 71;
+    --warning-muted: 120 53 15;
     --danger: 252 165 165;
-    --info: 148 163 184;
-    --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.3);
-    --shadow-card: 0 4px 6px rgba(0, 0, 0, 0.25);
-    --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.35);
+    --danger-muted: 127 29 29;
+    --info: 167 139 250;
+    --code-bg: 12 10 22;
+    --code-fg: 203 213 225;
+    --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.35);
+    --shadow-card: 0 8px 24px rgba(0, 0, 0, 0.35);
+    --shadow-lg: 0 20px 40px rgba(0, 0, 0, 0.45);
   }
 
   html {
@@ -62,15 +86,15 @@
   }
 
   .card-muted {
-    @apply rounded-xl border border-border bg-surface-overlay/50;
+    @apply rounded-xl border border-border bg-surface-overlay/80;
   }
 
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-brand-foreground transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-accent-foreground shadow-soft transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50;
   }
 
   .btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-surface-raised px-4 py-2.5 text-sm font-medium text-content transition hover:bg-surface-overlay disabled:opacity-50;
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-surface-raised px-4 py-2.5 text-sm font-medium text-content transition hover:border-accent/30 hover:bg-accent-muted/40 disabled:opacity-50;
   }
 
   .btn-ghost {
@@ -78,7 +102,7 @@
   }
 
   .input {
-    @apply w-full rounded-xl border border-border bg-surface-raised px-3.5 py-2.5 text-sm text-content outline-none transition placeholder:text-content-subtle focus:border-brand focus:ring-1 focus:ring-brand/20;
+    @apply w-full rounded-xl border border-border bg-surface-raised px-3.5 py-2.5 text-sm text-content outline-none transition placeholder:text-content-subtle focus:border-accent focus:ring-2 focus:ring-accent/20;
   }
 
   .label {
@@ -90,7 +114,7 @@
   }
 
   .data-table thead {
-    @apply border-b border-border bg-surface text-xs font-medium text-content-muted;
+    @apply border-b border-border bg-surface-overlay/80 text-xs font-medium text-content-muted;
   }
 
   .data-table th {
@@ -102,29 +126,50 @@
   }
 
   .data-table tbody tr {
-    @apply border-b border-border/70 transition hover:bg-surface-overlay/40;
+    @apply border-b border-border/70 transition hover:bg-accent-muted/20;
   }
 
   .tab-active {
-    @apply border-b-2 border-content text-content;
+    @apply border-b-2 border-accent text-accent;
   }
 
   .tab-inactive {
     @apply border-b-2 border-transparent text-content-muted hover:text-content;
   }
 
+  .theme-selected {
+    @apply border-accent bg-accent-muted/50 ring-2 ring-accent/25;
+  }
+
+  .theme-selected-row {
+    @apply bg-accent-muted/35;
+  }
+
+  .theme-chip {
+    @apply inline-flex rounded-full bg-accent-muted px-2.5 py-0.5 text-xs font-semibold text-accent;
+  }
+
+  .hero-panel {
+    @apply overflow-hidden rounded-3xl bg-gradient-to-br from-sidebar via-[rgb(45,27,78)] to-[rgb(26,16,48)] px-6 py-6 text-white shadow-lg sm:px-8;
+  }
+
+  .code-panel {
+    @apply overflow-hidden rounded-xl border border-border shadow-lg;
+    background: rgb(var(--code-bg));
+    color: rgb(var(--code-fg));
+  }
+
   .auth-shell {
     @apply flex min-h-screen items-center justify-center p-4 sm:p-8;
-    background: #081628;
+    background: linear-gradient(145deg, rgb(36 22 62) 0%, rgb(20 12 36) 55%, rgb(109 76 217 / 0.4) 100%);
   }
 
   .auth-frame {
-    @apply flex w-full max-w-5xl overflow-hidden rounded-[28px] bg-white shadow-lg;
+    @apply flex w-full max-w-5xl overflow-hidden rounded-[28px] border border-white/10 bg-surface-raised shadow-lg;
   }
 
   .auth-hero {
-    background:
-      linear-gradient(180deg, #0b1f3a 0%, #081628 100%);
+    background: linear-gradient(165deg, rgb(45 27 78) 0%, rgb(36 22 62) 45%, rgb(109 76 217 / 0.45) 100%);
     position: relative;
     overflow: hidden;
   }
@@ -133,20 +178,39 @@
     content: "";
     position: absolute;
     inset: 0;
-    background:
-      linear-gradient(90deg, transparent 8%, rgba(196, 165, 116, 0.08) 8.4%, transparent 9%),
-      linear-gradient(90deg, transparent 22%, rgba(196, 165, 116, 0.14) 22.5%, transparent 28%),
-      linear-gradient(90deg, transparent 40%, rgba(196, 165, 116, 0.22) 41%, transparent 48%),
-      linear-gradient(90deg, transparent 58%, rgba(196, 165, 116, 0.1) 59%, transparent 64%),
-      linear-gradient(180deg, transparent 35%, rgba(8, 22, 40, 0.55) 100%);
+    background: radial-gradient(ellipse 80% 60% at 20% 80%, rgba(255, 255, 255, 0.08), transparent 60%);
     pointer-events: none;
   }
 
+  .auth-mark {
+    @apply inline-flex h-10 w-10 items-center justify-center rounded-full border border-accent/25 bg-accent-muted text-accent;
+  }
+
+  .auth-title {
+    @apply mt-6 text-[1.75rem] font-semibold tracking-tight text-content;
+  }
+
+  .auth-subtitle {
+    @apply mt-1.5 text-sm text-content-muted;
+  }
+
+  .auth-label {
+    @apply mb-1.5 block text-sm text-content-muted;
+  }
+
   .auth-input {
-    @apply w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm text-neutral-900 outline-none transition placeholder:text-neutral-400 focus:border-[#0B1F3A] focus:ring-1 focus:ring-[#0B1F3A]/15;
+    @apply w-full rounded-xl border border-border bg-surface-raised px-4 py-3 text-sm text-content outline-none transition placeholder:text-content-subtle focus:border-accent focus:ring-2 focus:ring-accent/20;
   }
 
   .auth-submit-btn {
-    @apply w-full rounded-xl bg-[#0B1F3A] py-3.5 text-sm font-semibold text-white transition hover:bg-[#123056] disabled:cursor-not-allowed disabled:opacity-50;
+    @apply w-full rounded-xl bg-accent py-3.5 text-sm font-semibold text-accent-foreground shadow-md transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .auth-error {
+    @apply rounded-xl border border-danger/20 bg-danger-muted px-3 py-2 text-sm text-danger;
+  }
+
+  .auth-footnote {
+    @apply text-center text-sm text-content-subtle;
   }
 }

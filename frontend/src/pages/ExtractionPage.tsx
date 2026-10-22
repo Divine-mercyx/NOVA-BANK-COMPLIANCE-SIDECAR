@@ -179,7 +179,7 @@ export function ExtractionPage() {
                   key={run.id}
                   onClick={() => setSelected(run.id)}
                   className={`w-full border-b border-border/60 px-4 py-4 text-left transition hover:bg-surface-overlay/40 ${
-                    selected === run.id ? "bg-brand-muted/40" : ""
+                    selected === run.id ? "theme-selected-row" : ""
                   }`}
                 >
                   <div className="flex items-center justify-between">
@@ -217,7 +217,7 @@ export function ExtractionPage() {
                   <span className={log.level === "ERROR" ? "text-danger" : log.level === "WARN" ? "text-warning" : "text-success"}>
                     [{log.level}]
                   </span>
-                  {log.channel && <span className="text-brand">[{channelLabel(log.channel)}]</span>}
+                  {log.channel && <span className="text-accent">[{channelLabel(log.channel)}]</span>}
                   <span className="text-content-muted">{displayLogMessage(log.message)}</span>
                 </div>
               ))}

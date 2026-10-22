@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ExtractionProgressBanner } from "../components/ExtractionProgressBanner";
 import { ExtractionRunModal } from "../components/ExtractionRunModal";
-import { EmptyState, LoadingGrid } from "../components/ui";
+import { EmptyState, KpiCard, LoadingGrid } from "../components/ui";
 import { api, DashboardStats, ExtractionLog } from "../lib/api";
 import type { ExtractionRunParams } from "../lib/dates";
 import { progressLabel } from "../lib/extractionProgress";
@@ -104,9 +104,10 @@ export function DashboardPage() {
 
   return (
     <div>
-      <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-[1.75rem] font-semibold tracking-tight text-content">Hello {firstName}</h1>
+          <p className="text-xs font-medium uppercase tracking-[0.14em] text-content-subtle">Welcome back</p>
+          <h2 className="mt-1 text-2xl font-semibold tracking-tight text-content">Hello, {firstName}</h2>
           <p className="mt-1 text-sm text-content-muted">
             {data ? `Finacle ${extractModeLabel(data.finacle_mode).toLowerCase()} · compliance overview` : "Finacle extraction and staging"}
           </p>
@@ -147,7 +148,7 @@ export function DashboardPage() {
         <LoadingGrid />
       ) : data ? (
         <>
-          <div className="mb-6 overflow-hidden rounded-3xl bg-[#0B1F3A] px-6 py-6 text-white sm:px-8">
+          <div className="hero-panel mb-6">
             <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
               <div>
                 <p className="text-xs font-medium uppercase tracking-[0.14em] text-white/50">Staged warehouse</p>
@@ -165,7 +166,7 @@ export function DashboardPage() {
                   {data.pipeline_status.replace(/_/g, " ")}
                 </span>
                 <span className="text-sm text-white/55">{data.data_quality.validation_rate}% valid</span>
-                <Link to="/reports" className="rounded-xl bg-white px-4 py-2 text-sm font-medium text-[#0B1F3A]">
+                <Link to="/reports" className="rounded-xl bg-accent px-4 py-2 text-sm font-medium text-white shadow-md hover:bg-accent-hover">
                   View transactions
                 </Link>
               </div>
@@ -173,23 +174,16 @@ export function DashboardPage() {
           </div>
 
           <div className="mb-6 grid gap-4 sm:grid-cols-3">
-            <div className="rounded-2xl bg-[#F3F6F4] p-5">
-              <p className="text-sm text-content-muted">CTR flagged</p>
-              <p className="mt-3 text-2xl font-semibold tabular-nums text-content">{formatNumber(data.data_quality.ctr_eligible)}</p>
-              <p className="mt-2 text-xs text-content-subtle">Cash transaction reports on staged rows</p>
-            </div>
-            <div className="rounded-2xl bg-[#F6F4F0] p-5">
-              <p className="text-sm text-content-muted">FTR flagged</p>
-              <p className="mt-3 text-2xl font-semibold tabular-nums text-content">{formatNumber(data.data_quality.ftr_eligible)}</p>
-              <p className="mt-2 text-xs text-content-subtle">Foreign transaction reports</p>
-            </div>
-            <div className="rounded-2xl bg-[#F0F2F6] p-5">
-              <p className="text-sm text-content-muted">PEP / STR</p>
-              <p className="mt-3 text-2xl font-semibold tabular-nums text-content">
-                {formatNumber(data.data_quality.pep_eligible)} / {formatNumber(data.data_quality.str_eligible)}
-              </p>
-              <p className="mt-2 text-xs text-content-subtle">Watchlist and suspicion flags</p>
-            </div>
+            <KpiCard
+              label="CTR flagged"
+              value={formatNumber(data.data_quality.ctr_eligible)}
+              ringPercent={data.data_quality.validation_rate}
+            />
+            <KpiCard label="FTR flagged" value={formatNumber(data.data_quality.ftr_eligible)} />
+            <KpiCard
+              label="PEP / STR"
+              value={`${formatNumber(data.data_quality.pep_eligible)} / ${formatNumber(data.data_quality.str_eligible)}`}
+            />
           </div>
 
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(280px,0.8fr)]">
@@ -217,8 +211,8 @@ export function DashboardPage() {
                       <Area
                         type="monotone"
                         dataKey="count"
-                        stroke="rgb(var(--brand))"
-                        fill="rgba(11,31,58,0.08)"
+                        stroke="rgb(var(--accent))"
+                        fill="rgba(109,76,217,0.12)"
                         strokeWidth={2}
                       />
                     </AreaChart>

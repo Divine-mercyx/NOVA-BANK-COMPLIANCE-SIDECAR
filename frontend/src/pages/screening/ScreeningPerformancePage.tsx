@@ -51,7 +51,7 @@ export function ScreeningPerformancePage() {
                   <XAxis dataKey="name" tick={{ fontSize: 11 }} />
                   <YAxis tick={{ fontSize: 11 }} />
                   <Tooltip />
-                  <Bar dataKey="count" fill="rgb(var(--brand))" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="count" fill="rgb(var(--accent))" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>

@@ -32,7 +32,7 @@ export function PipelineStory({ activeStep = 0 }: { activeStep?: number }) {
   return (
     <div className="card overflow-hidden">
       <div className="border-b border-border px-6 py-4">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand">How it works</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-accent">How it works</p>
         <h3 className="mt-1 font-display text-xl text-content">From Finacle to NFIU submission</h3>
         <p className="mt-1 text-sm text-content-muted">
           Every transaction follows a controlled path — extract, validate, stage, then report.
@@ -48,7 +48,7 @@ export function PipelineStory({ activeStep = 0 }: { activeStep?: number }) {
               key={step.title}
               to={step.href}
               className={`group border-b border-border p-5 transition md:border-b-0 md:border-r last:md:border-r-0 ${
-                active ? "bg-brand-muted/40" : "hover:bg-surface-overlay/50"
+                active ? "theme-selected-row" : "hover:bg-surface-overlay/50"
               }`}
             >
               <div className="mb-3 flex items-center gap-2">
@@ -57,7 +57,7 @@ export function PipelineStory({ activeStep = 0 }: { activeStep?: number }) {
                     done
                       ? "bg-success/10 text-success"
                       : active
-                        ? "bg-brand/15 text-brand"
+                        ? "bg-accent/15 text-accent"
                         : "bg-surface-overlay text-content-muted"
                   }`}
                 >
@@ -69,7 +69,7 @@ export function PipelineStory({ activeStep = 0 }: { activeStep?: number }) {
               </div>
               <h4 className="font-semibold text-content">{step.title}</h4>
               <p className="mt-2 text-xs leading-relaxed text-content-muted">{step.description}</p>
-              <span className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-brand opacity-0 transition group-hover:opacity-100">
+              <span className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-accent opacity-0 transition group-hover:opacity-100">
                 View <ArrowRight className="h-3 w-3" />
               </span>
             </Link>
