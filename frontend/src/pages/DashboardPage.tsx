@@ -6,7 +6,14 @@ import { ExtractionProgressBanner } from "../components/ExtractionProgressBanner
 import { ExtractionRunModal } from "../components/ExtractionRunModal";
 import { EmptyState, FeaturedKpiCard, LoadingGrid } from "../components/ui";
 import { api, DashboardStats, ExtractionLog, ExtractionRun } from "../lib/api";
-import { compareLastTwo, recentRunSeries, shareOfTotal } from "../lib/dashboardMetrics";
+import {
+  compareLastTwo,
+  recentRunSeries,
+  regulatoryFlagSeries,
+  reportPipelineSeries,
+  shareOfTotal,
+  validationRateSeries,
+} from "../lib/dashboardMetrics";
 import type { ExtractionRunParams } from "../lib/dates";
 import { progressLabel } from "../lib/extractionProgress";
 import { actionLabel, formatDateRange, formatNumber, formatRelative } from "../lib/format";
@@ -105,9 +112,21 @@ export function DashboardPage() {
   const dq = data?.data_quality;
   const totalStaged = data?.total_staged_transactions ?? 0;
   const extractSeries = useMemo(() => recentRunSeries(runs, "records_extracted"), [runs]);
-  const validSeries = useMemo(() => recentRunSeries(runs, "records_valid"), [runs]);
+  const qualitySeries = useMemo(() => validationRateSeries(runs), [runs]);
+  const flagSeries = useMemo(
+    () =>
+      dq
+        ? regulatoryFlagSeries(dq.ctr_eligible, dq.ftr_eligible, dq.pep_eligible, dq.str_eligible)
+        : [0, 0, 0, 0],
+    [dq],
+  );
+  const reportSeries = useMemo(
+    () => (data ? reportPipelineSeries(data.pending_reports, data.submitted_reports) : [0, 0, 0, 0, 0]),
+    [data],
+  );
   const extractTrend = useMemo(() => compareLastTwo(extractSeries), [extractSeries]);
-  const validTrend = useMemo(() => compareLastTwo(validSeries), [validSeries]);
+  const qualityTrend = useMemo(() => compareLastTwo(qualitySeries), [qualitySeries]);
+  const flagTrend = useMemo(() => compareLastTwo(flagSeries), [flagSeries]);
 
   const channelChart = useMemo(() => {
     const entries = Object.entries(dq?.by_channel ?? {}).map(([channel, count]) => ({
@@ -202,10 +221,9 @@ export function DashboardPage() {
               icon={CheckCircle2}
               label="Data quality"
               value={`${data.data_quality.validation_rate}%`}
-              ringPercent={data.data_quality.validation_rate}
-              sparkline={validSeries}
-              change={validTrend?.label}
-              changeUp={validTrend?.up ?? data.data_quality.validation_rate >= 95}
+              sparkline={qualitySeries}
+              change={qualityTrend?.label ?? `${data.data_quality.validation_rate}% valid`}
+              changeUp={qualityTrend?.up ?? data.data_quality.validation_rate >= 95}
               hint={`${formatNumber(data.data_quality.valid_records)} valid · ${formatNumber(data.data_quality.invalid_records)} need review`}
             />
             <FeaturedKpiCard
@@ -213,8 +231,9 @@ export function DashboardPage() {
               icon={Shield}
               label="CTR reportable"
               value={formatNumber(data.data_quality.ctr_eligible)}
-              change={`${shareOfTotal(data.data_quality.ctr_eligible, totalStaged)}% of staged`}
-              changeUp={data.data_quality.ctr_eligible > 0}
+              sparkline={flagSeries}
+              change={flagTrend?.label ?? `${shareOfTotal(data.data_quality.ctr_eligible, totalStaged)}% of staged`}
+              changeUp={flagTrend?.up ?? data.data_quality.ctr_eligible > 0}
               hint={`FTR ${formatNumber(data.data_quality.ftr_eligible)} · PEP ${formatNumber(data.data_quality.pep_eligible)}`}
             />
             <FeaturedKpiCard
@@ -222,6 +241,7 @@ export function DashboardPage() {
               icon={AlertTriangle}
               label="Reports pipeline"
               value={formatNumber(data.pending_reports)}
+              sparkline={reportSeries}
               hint={`${formatNumber(data.submitted_reports)} submitted to regulators`}
               change={data.pipeline_status.replace(/_/g, " ")}
               changeUp={data.pipeline_status === "success"}

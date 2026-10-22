@@ -42,18 +42,13 @@ const integrationChildren = [
 ];
 
 function navClass(isActive: boolean, expanded: boolean) {
-  if (expanded) {
-    return `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${
-      isActive
-        ? "bg-white/12 font-medium text-sidebar-foreground shadow-sm ring-1 ring-white/10"
-        : "text-sidebar-muted hover:bg-white/8 hover:text-sidebar-foreground"
-    }`;
+  const base = `group sidebar-nav-link ${expanded ? "sidebar-nav-link-expanded" : "sidebar-nav-link-collapsed"}`;
+  if (isActive) {
+    return expanded
+      ? `${base} sidebar-nav-link-active-expanded`
+      : `${base} sidebar-nav-link-active-collapsed`;
   }
-  return `flex h-10 w-10 items-center justify-center rounded-xl transition ${
-    isActive
-      ? "bg-accent text-accent-foreground shadow-md"
-      : "text-sidebar-muted hover:bg-white/10 hover:text-sidebar-foreground"
-  }`;
+  return `${base} sidebar-nav-link-idle`;
 }
 
 function NavSection({
@@ -79,7 +74,7 @@ function NavSection({
             title={!expanded ? label : undefined}
             className={({ isActive }) => navClass(isActive, expanded)}
           >
-            <Icon className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+            <Icon className="sidebar-nav-icon" strokeWidth={1.75} />
             {expanded && <span>{label}</span>}
           </NavLink>
         ))}
@@ -99,7 +94,7 @@ function IntegrationNav({ expanded }: { expanded: boolean }) {
       <div className="mb-5 flex flex-col items-center gap-0.5">
         {integrationChildren.map(({ to, label, icon: Icon }) => (
           <NavLink key={to} to={to} title={label} className={({ isActive }) => navClass(isActive, false)}>
-            <Icon className="h-4 w-4" strokeWidth={1.75} />
+            <Icon className="sidebar-nav-icon" strokeWidth={1.75} />
           </NavLink>
         ))}
       </div>
@@ -112,11 +107,11 @@ function IntegrationNav({ expanded }: { expanded: boolean }) {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${
-          onIntegration ? "text-sidebar-foreground" : "text-sidebar-muted hover:bg-white/8 hover:text-sidebar-foreground"
+        className={`group sidebar-nav-link sidebar-nav-link-expanded w-full ${
+          onIntegration ? "sidebar-nav-link-active-expanded" : "sidebar-nav-link-idle"
         }`}
       >
-        <Plug className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+        <Plug className="sidebar-nav-icon" strokeWidth={1.75} />
         <span className="flex-1 text-left">Integration</span>
         <ChevronDown className={`h-3.5 w-3.5 text-sidebar-muted transition ${showChildren ? "rotate-180" : ""}`} />
       </button>
@@ -127,12 +122,12 @@ function IntegrationNav({ expanded }: { expanded: boolean }) {
               key={to}
               to={to}
               className={({ isActive }) =>
-                `flex items-center gap-2 rounded-lg px-2 py-2 text-sm transition ${
-                  isActive ? "font-medium text-sidebar-foreground" : "text-sidebar-muted hover:text-sidebar-foreground"
-                }`
+                isActive
+                  ? "group sidebar-nav-child sidebar-nav-child-active"
+                  : "group sidebar-nav-child sidebar-nav-child-idle"
               }
             >
-              <Icon className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
+              <Icon className="sidebar-nav-icon h-3.5 w-3.5" strokeWidth={1.75} />
               {label}
             </NavLink>
           ))}

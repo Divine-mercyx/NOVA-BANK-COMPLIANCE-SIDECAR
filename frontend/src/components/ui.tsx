@@ -136,11 +136,11 @@ export function FeaturedKpiCard({
             </div>
           )}
         </div>
-        <div className="flex flex-col items-end gap-2">
-          {sparkline && sparkline.length > 0 && <MiniSparkline values={sparkline} stroke={stroke} />}
+        <div className="flex shrink-0 flex-col items-end justify-start pt-0.5">
+          <MiniSparkline values={sparkline ?? []} stroke={stroke} />
           {ringPercent !== undefined && (
-            <span className="rounded-lg bg-surface-raised/80 px-2 py-1 text-xs font-semibold tabular-nums text-content ring-1 ring-border/80">
-              {ringPercent}%
+            <span className="mt-1.5 rounded-lg bg-surface-raised/80 px-2 py-0.5 text-[10px] font-semibold tabular-nums text-content-muted ring-1 ring-border/80">
+              target {ringPercent}%
             </span>
           )}
         </div>
