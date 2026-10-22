@@ -47,12 +47,12 @@ EXPORT_DOCS = [
     IntegrationEndpointDoc(
         method="GET",
         path="/api/v1/export/transactions",
-        summary="Pull all staged transactions in the NFIU sample-data column layout",
+        summary="Pull staged NIP transactions in the NFIU sample-data column layout",
     ),
     IntegrationEndpointDoc(
         method="GET",
         path="/api/v1/export/transactions/ctr",
-        summary="Pull NFIU CTR rows (₦5m+ NGN) in the goAML sample-data column layout",
+        summary="Pull NIP CTR rows (₦5m+ NGN) in the NFIU sample-data column layout",
     ),
     IntegrationEndpointDoc(
         method="GET",
@@ -62,7 +62,7 @@ EXPORT_DOCS = [
     IntegrationEndpointDoc(
         method="GET",
         path="/api/v1/export/dtd",
-        summary="Pull staged same-day TBAADM.DTD transactions for one Lagos calendar day",
+        summary="Pull staged same-day NIP transactions from TBAADM.DTD for one Lagos calendar day",
     ),
     IntegrationEndpointDoc(
         method="GET",
@@ -109,7 +109,7 @@ async def export_dtd_transactions(
     client: ApiKey = Depends(get_api_client),
     db: AsyncSession = Depends(get_db),
 ):
-    """Staged DTD pairs for one calendar day. Omit date for today (Africa/Lagos)."""
+    """Staged NIP pairs from DTD for one calendar day. Omit date for today (Africa/Lagos)."""
     return await ExportService(db).list_dtd(day, limit=limit, offset=offset)
 
 
@@ -117,7 +117,6 @@ async def export_dtd_transactions(
 async def export_transactions(
     period: tuple[datetime, datetime] = Depends(export_period_params),
     valid_only: bool = Query(False, description="If true, skip invalid staged rows"),
-    channel: str | None = Query(None, description="Optional channel filter, e.g. NIP or RTGS"),
     limit: int | None = Query(
         None,
         ge=1,
@@ -128,13 +127,13 @@ async def export_transactions(
     client: ApiKey = Depends(get_api_client),
     db: AsyncSession = Depends(get_db),
 ):
+    """Staged NIP transactions only (institution codes from NIP flow tables)."""
     period_start, period_end = period
-    channel_filter = _parse_channel(channel)
     return await ExportService(db).list_transactions(
         period_start,
         period_end,
         valid_only=valid_only,
-        channel=channel_filter,
+        channel=TransactionChannel.NIP,
         limit=limit,
         offset=offset,
         scope="all",
@@ -145,7 +144,6 @@ async def export_transactions(
 async def export_ctr_transactions(
     period: tuple[datetime, datetime] = Depends(export_period_params),
     valid_only: bool = Query(False),
-    channel: str | None = Query(None),
     limit: int | None = Query(
         None,
         ge=1,
@@ -156,27 +154,17 @@ async def export_ctr_transactions(
     client: ApiKey = Depends(get_api_client),
     db: AsyncSession = Depends(get_db),
 ):
-    """NGN staged transactions at or above the CTR amount cap (default ₦5,000,000)."""
+    """NIP only: NGN staged rows at or above the CTR cap (default ₦5,000,000)."""
     period_start, period_end = period
-    channel_filter = _parse_channel(channel)
     return await ExportService(db).list_transactions(
         period_start,
         period_end,
         valid_only=valid_only,
-        channel=channel_filter,
+        channel=TransactionChannel.NIP,
         limit=limit,
         offset=offset,
         scope="ctr",
     )
-
-
-def _parse_channel(channel: str | None) -> TransactionChannel | None:
-    if not channel:
-        return None
-    try:
-        return TransactionChannel(channel.upper())
-    except ValueError as exc:
-        raise HTTPException(400, f"Unknown channel: {channel}") from exc
 
 
 @partner_router.get("/transactions/{finacle_ref}", response_model=NfiuTransactionRow)
@@ -239,8 +227,8 @@ async def integration_info(_: User = Depends(get_current_user)):
         finacle_mode=settings.finacle_mode,
         purpose=(
             "Nova Bank IT pulls staged Finacle transactions with X-API-Key. "
-            "GET /export/transactions for the full date range in NFIU sample-data columns; "
-            "GET /export/dtd for same-day TBAADM.DTD (plain transaction JSON, one Lagos day)."
+            "GET /export/transactions and /export/transactions/ctr for NIP-only NFIU columns; "
+            "GET /export/dtd for same-day NIP staged from TBAADM.DTD (one Lagos day)."
         ),
         auth_header="X-API-Key",
         endpoints=EXPORT_DOCS,

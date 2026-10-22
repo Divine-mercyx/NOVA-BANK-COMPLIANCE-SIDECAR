@@ -5,6 +5,7 @@ import { api, DtdFeedStatus } from "../lib/api";
 import { channelLabel, formatCurrency, formatDate, formatNumber, formatRelative } from "../lib/format";
 import { canRunEtl } from "../lib/roles";
 import { useAuth } from "../lib/auth";
+import { useLiveRefresh } from "../lib/live";
 
 export function DailyTransactionsPage() {
   const { user } = useAuth();
@@ -28,11 +29,7 @@ export function DailyTransactionsPage() {
     load();
   }, []);
 
-  useEffect(() => {
-    if (!data?.enabled) return;
-    const id = window.setInterval(load, 15_000);
-    return () => window.clearInterval(id);
-  }, [data?.enabled]);
+  useLiveRefresh(["dtd.run", "dtd.state"], load, { fallbackMs: data?.enabled ? 15_000 : undefined });
 
   const toggle = async () => {
     if (!data) return;

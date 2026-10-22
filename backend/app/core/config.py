@@ -49,12 +49,22 @@ class Settings(BaseSettings):
 
     dtd_schedule_interval_minutes: int = 30
 
+    # Browser sessions: JWT in httpOnly cookie; readable CSRF cookie echoed on mutating requests.
+    session_cookie_name: str = "nova_session"
+    csrf_cookie_name: str = "nova_csrf"
+    cookie_secure: bool | None = None
+    cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
+
     jwt_secret: str = "nova-dev-secret-change-in-production"
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 480
     otp_expire_minutes: int = 10
     admin_email: str = "admin@novabank.ng"
     admin_password: str = "Admin@Nova2026"
+
+    @property
+    def cookies_secure(self) -> bool:
+        return (not self.debug) if self.cookie_secure is None else self.cookie_secure
 
 
 settings = Settings()

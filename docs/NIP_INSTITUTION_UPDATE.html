@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Nova Bank — NIP Institution Code Update</title>
+  <style>
+    @page { size: A4; margin: 16mm 0 14mm; }
+    @page :first { margin: 0; }
+    * { box-sizing: border-box; }
+    body {
+      font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif;
+      font-size: 10pt;
+      line-height: 1.55;
+      color: #1f2937;
+      margin: 0;
+    }
+    .cover {
+      page-break-after: always;
+      height: 297mm;
+      padding: 28mm 22mm;
+      background: #0b1f3a;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .cover .rule { width: 56px; height: 3px; background: #c4a574; margin: 18px 0 22px; }
+    .cover .label { font-size: 9pt; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(255,255,255,0.6); }
+    .cover h1 { font-size: 30pt; font-weight: 600; line-height: 1.15; margin: 0; }
+    .cover .subtitle { font-size: 13pt; color: rgba(255,255,255,0.75); max-width: 85%; margin-top: 14px; }
+    .cover .meta { font-size: 10pt; color: rgba(255,255,255,0.75); line-height: 1.8; }
+    .cover .meta strong { color: #fff; font-weight: 600; }
+    .content { padding: 0 20mm; }
+    h2 {
+      font-size: 14pt;
+      color: #0b1f3a;
+      margin: 26px 0 10px;
+      padding-bottom: 6px;
+      border-bottom: 2px solid #c4a574;
+      page-break-after: avoid;
+    }
+    h2:first-child { margin-top: 0; }
+    h3 { font-size: 11pt; color: #0b1f3a; margin: 16px 0 6px; page-break-after: avoid; }
+    p { margin: 7px 0; }
+    ul, ol { margin: 7px 0; padding-left: 20px; }
+    li { margin: 4px 0; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0 14px;
+      font-size: 9pt;
+      page-break-inside: avoid;
+    }
+    th, td { border: 1px solid #d5dbe3; padding: 7px 9px; text-align: left; vertical-align: top; }
+    th { background: #0b1f3a; color: #fff; font-weight: 600; }
+    tr:nth-child(even) td { background: #f4f6f8; }
+    code { font-family: Consolas, Menlo, monospace; font-size: 8.5pt; background: #eef1f5; padding: 1px 4px; border-radius: 3px; }
+    .callout {
+      background: #f4f6f8;
+      border-left: 4px solid #0b1f3a;
+      padding: 10px 14px;
+      margin: 12px 0;
+      page-break-inside: avoid;
+    }
+    .callout.gold { border-left-color: #c4a574; background: #faf7f1; }
+    .steps { display: table; width: 100%; border-spacing: 8px 0; margin: 12px -8px; page-break-inside: avoid; }
+    .step {
+      display: table-cell;
+      width: 25%;
+      vertical-align: top;
+      border: 1px solid #d5dbe3;
+      border-radius: 8px;
+      padding: 10px 11px;
+      background: #fff;
+    }
+    .step .n {
+      display: inline-block;
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      background: #0b1f3a;
+      color: #fff;
+      text-align: center;
+      line-height: 22px;
+      font-size: 9pt;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .step h4 { margin: 0 0 4px; font-size: 9.5pt; color: #0b1f3a; }
+    .step p { margin: 0; font-size: 8.8pt; color: #4b5563; }
+    .limit {
+      border: 1px solid #d5dbe3;
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin: 10px 0;
+      page-break-inside: avoid;
+    }
+    .limit h3 { margin-top: 0; }
+    .tag { display: inline-block; font-size: 8pt; font-weight: 600; padding: 1px 8px; border-radius: 999px; background: #eef1f5; color: #0b1f3a; margin-left: 6px; }
+    .action { counter-increment: act; }
+    .footer {
+      margin-top: 26px;
+      padding-top: 10px;
+      border-top: 1px solid #d5dbe3;
+      font-size: 8.5pt;
+      color: #6b7280;
+      text-align: center;
+    }
+    .page-break { page-break-before: always; }
+  </style>
+</head>
+<body>
+
+<section class="cover">
+  <div>
+    <div class="label">Nova Bank · Compliance Sidecar</div>
+    <div class="rule"></div>
+    <h1>NIP Institution Codes<br/>Status Update</h1>
+    <p class="subtitle">How we fill in the sending and receiving bank on NIP transfers, what is still missing, and what we need from the bank.</p>
+  </div>
+  <div class="meta">
+    <p><strong>Prepared for:</strong> Nova Bank — Compliance, IT &amp; Core Banking (DBA)</p>
+    <p><strong>Report date:</strong> 14 October 2026</p>
+    <p><strong>Applies to:</strong> History extract (TBAADM.HTD) and same-day feed (TBAADM.DTD)</p>
+  </div>
+</section>
+
+<section class="content">
+
+<h2>1. Summary</h2>
+<p>Finacle transaction tables (HTD and DTD) do not say which other bank a transfer went to or came from. The <code>BANK_CODE</code> column is empty on every row we checked.</p>
+<p>With the tables shared by the bank team, we found a reliable link. Every NIP transfer now carries the <strong>institution code</strong> of the other bank, and the <strong>bank name</strong> where the bank list has it.</p>
+
+<div class="callout gold">
+  <strong>In one line:</strong> we take the institution code from <code>NIP_OUT_FLW</code> / <code>NIP_IN_FLW</code>, and look up the bank name in <code>NIP_INST_LIST</code>.
+</div>
+
+<table>
+  <tr><th style="width:38%">Item</th><th>Status</th></tr>
+  <tr><td>Institution <strong>code</strong> on NIP transfers</td><td>Working — tested on live data (2 Feb 2023 sample)</td></tr>
+  <tr><td>Bank <strong>name</strong> on NIP transfers</td><td>Partly working — the bank list has very few banks</td></tr>
+  <tr><td>History extract (HTD) and same-day feed (DTD)</td><td>Both use the same logic</td></tr>
+  <tr><td>Vendor export API</td><td>Sends the real codes; no more hard-coded Nova on both sides</td></tr>
+</table>
+
+<h2>2. How it works</h2>
+<p>Finacle stores each payment as two lines: one debit (money leaving an account) and one credit (money arriving). We pair them into one transaction. For NIP transfers we then add the institution details in four steps.</p>
+
+<div class="steps">
+  <div class="step">
+    <div class="n">1</div>
+    <h4>Read the transaction</h4>
+    <p>Pull the debit and credit lines from HTD (past days) or DTD (today). Account names come from GAM.</p>
+  </div>
+  <div class="step">
+    <div class="n">2</div>
+    <h4>Find the NIP record</h4>
+    <p>Look for the same transaction ID and amount in the NIP out-flow or in-flow table.</p>
+  </div>
+  <div class="step">
+    <div class="n">3</div>
+    <h4>Take the code</h4>
+    <p>Copy the sending and receiving institution codes from that NIP record.</p>
+  </div>
+  <div class="step">
+    <div class="n">4</div>
+    <h4>Add the name</h4>
+    <p>Look the code up in <code>NIP_INST_LIST</code> to get the bank name.</p>
+  </div>
+</div>
+
+<h3>Which table gives what</h3>
+<table>
+  <tr><th style="width:22%">Direction</th><th style="width:22%">Table</th><th style="width:28%">Linked to HTD/DTD by</th><th>Institution fields used</th></tr>
+  <tr>
+    <td><strong>Outgoing</strong><br/>Nova → other bank</td>
+    <td><code>APIUSER.NIP_OUT_FLW</code></td>
+    <td><code>CBS_TRAN_ID</code> = <code>TRAN_ID</code>, plus amount</td>
+    <td>Source: Nova (<code>060003</code>)<br/>Destination: <code>DESTINATIONINSTITUTIONCODE</code></td>
+  </tr>
+  <tr>
+    <td><strong>Incoming</strong><br/>Other bank → Nova</td>
+    <td><code>APIUSER.NIP_IN_FLW</code></td>
+    <td><code>POSTING_TRAN_ID</code> = <code>TRAN_ID</code>, plus amount</td>
+    <td>Source: <code>ORIGINATORINSTITUTIONCODE</code><br/>Destination: Nova (<code>060003</code>)</td>
+  </tr>
+  <tr>
+    <td><strong>Bank name</strong></td>
+    <td><code>APIUSER.NIP_INST_LIST</code></td>
+    <td><code>INSTITUTIONCODE</code></td>
+    <td><code>INSTITUTIONNAME</code></td>
+  </tr>
+</table>
+
+<div class="callout">
+  <strong>Why we match on amount as well:</strong> one Finacle transaction ID can hold several payments with different amounts (for example, <code>M00000045</code> had four). Matching on ID alone would attach the wrong bank.
+</div>
+
+<h3>Example from live data (2 February 2023)</h3>
+<table>
+  <tr><th>Transaction</th><th>Amount</th><th>Source</th><th>Destination</th></tr>
+  <tr><td><code>M00000045</code></td><td>USD 25,760.79</td><td>060003 — Nova Bank</td><td>999998 — Polaris Bank</td></tr>
+  <tr><td><code>M00000045</code></td><td>USD 19,140,264.20</td><td>060003 — Nova Bank</td><td>000014 — <em>(name missing)</em></td></tr>
+  <tr><td><code>M00000049</code></td><td>NGN 3,796,301.00</td><td>060003 — Nova Bank</td><td>000013 — <em>(name missing)</em></td></tr>
+</table>
+<p>The codes are correct. The names are blank because <code>000014</code> and <code>000013</code> are not in <code>NIP_INST_LIST</code>.</p>
+
+<h3>What the vendor receives</h3>
+<p>Each transaction in the export now has four institution fields: source code, source name, destination code, and destination name. If we cannot find a real value, the field is left blank. We do not guess.</p>
+
+<h2>3. The three limits</h2>
+<p>These are not bugs. They come from what is stored in the bank's tables today.</p>
+
+<div class="limit">
+  <h3>Limit 1 — Only NIP transfers are filled <span class="tag">By design</span></h3>
+  <p>Chequebook fees, internal transfers between Nova accounts, RTGS and SWIFT have no row in the NIP tables, so their institution fields stay blank.</p>
+  <p><strong>Example:</strong> the same-day feed on 9 October 2026 had 14 transactions. All were chequebook charges, so all institution fields were correctly blank.</p>
+</div>
+
+<div class="limit">
+  <h3>Limit 2 — Outgoing transfers with no sender code <span class="tag">Assumption</span></h3>
+  <p>On outgoing rows, <code>ORIGINATORINSTITUTIONCODE</code> is often empty. Because the money is leaving Nova, we fill the source with Nova's NIBSS code <code>060003</code>. This is the only value we set ourselves.</p>
+</div>
+
+<div class="limit">
+  <h3>Limit 3 — Incoming transfers with no posting ID <span class="tag">Data gap</span></h3>
+  <p>Many incoming rows have an empty <code>POSTING_TRAN_ID</code>. Without it we cannot link the row to the Finacle transaction, so the sending bank stays blank for those payments.</p>
+</div>
+
+<h2>4. What we need from the bank</h2>
+<table>
+  <tr><th style="width:5%">#</th><th style="width:40%">Request</th><th>Why it matters</th></tr>
+  <tr>
+    <td>1</td>
+    <td><strong>Load all banks into <code>NIP_INST_LIST</code></strong>, with their institution codes and names, and keep it updated.</td>
+    <td>Only 7 banks were loaded when we tested. Every code missing from this list shows with a blank bank name.</td>
+  </tr>
+  <tr>
+    <td>2</td>
+    <td><strong>Fill <code>POSTING_TRAN_ID</code> on incoming NIP</strong>, or tell us which field links an incoming payment to its Finacle transaction (for example <code>SESSIONID</code>).</td>
+    <td>Removes Limit 3, so the sending bank appears on incoming transfers.</td>
+  </tr>
+  <tr>
+    <td>3</td>
+    <td><strong>Confirm Nova's code for reporting</strong>: <code>060003</code> (NIP tables), <code>60003</code> (vendor sample) or <code>561</code> (CBN bank code table).</td>
+    <td>Three different Nova codes appear in different places. The vendor and NFIU need one agreed value.</td>
+  </tr>
+  <tr>
+    <td>4</td>
+    <td><strong>Keep read access</strong> for our Oracle user on <code>APIUSER.NIP_OUT_FLW</code>, <code>NIP_IN_FLW</code> and <code>NIP_INST_LIST</code> in production.</td>
+    <td>If access is removed, extracts still run, but all institution fields come back blank.</td>
+  </tr>
+  <tr>
+    <td>5</td>
+    <td><em>Optional:</em> tell us where RTGS and SWIFT store the other bank, if you want those filled too.</td>
+    <td>Removes Limit 1 for RTGS and SWIFT. Internal transfers and fees will always be blank.</td>
+  </tr>
+</table>
+
+<h2>5. Next steps</h2>
+<ol>
+  <li>Bank team completes <code>NIP_INST_LIST</code> (request 1). No code change is needed on our side; names appear on the next extract.</li>
+  <li>Bank team confirms the incoming link and Nova's reporting code (requests 2 and 3).</li>
+  <li>We re-run the history extract for the agreed date range so stored transactions pick up the new names.</li>
+  <li>We share a sample export with the vendor for sign-off.</li>
+</ol>
+
+<div class="footer">Nova Bank Compliance Sidecar · NIP Institution Codes Update · 14 October 2026 · Internal</div>
+
+</section>
+</body>
+</html>

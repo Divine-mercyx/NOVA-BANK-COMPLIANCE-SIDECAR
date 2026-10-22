@@ -20,6 +20,7 @@ from app.models.entities import (
 from app.services.etl.customer_registry import CustomerRegistry
 from app.services.etl.htd_mapper import map_htd_rows
 from app.services.etl.nip_flow import collect_tran_ids_from_legs
+from app.services.etl.vendor_scope import nip_staged_transactions
 from app.services.etl.oracle_client import get_oracledb
 from app.services.etl.oracle_source import HTD_BETWEEN_PAGES_SEC, HtdDayCursor, OracleFinacleSource
 
@@ -98,9 +99,10 @@ class DtdPipeline:
                     if flush_rows
                     else None
                 )
-                raw = (
+                mapped = (
                     map_htd_rows(flush_rows, customers, banks, nip_lookup) if flush_rows else []
                 )
+                raw = nip_staged_transactions(mapped)
                 new, skipped = await self._stage(run.id, business_start, raw)
                 total_new += new
                 total_skipped += skipped

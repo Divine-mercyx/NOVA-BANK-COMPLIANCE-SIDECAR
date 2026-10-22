@@ -155,9 +155,9 @@ export function IntegrationApiDocsPage() {
       section: "transactions",
       method: "GET",
       path: "/api/v1/export/transactions",
-      title: "All staged transactions",
+      title: "NIP staged transactions",
       description:
-        "Every staged Finacle transaction in the date range, in the NFIU sample-data column layout (same as CTR).",
+        "NIP-only staged transactions in the date range, NFIU sample-data columns (institution codes from NIP flow tables).",
       params: [
         { name: "date_from", required: true, hint: "YYYY-MM-DD or ISO datetime" },
         { name: "date_to", required: true, hint: "Inclusive end date" },
@@ -171,9 +171,9 @@ export function IntegrationApiDocsPage() {
       section: "transactions",
       method: "GET",
       path: "/api/v1/export/transactions/ctr",
-      title: "CTR ₦5m and above",
+      title: "NIP CTR ₦5m and above",
       description:
-        "Same NFIU columns as the full pull, filtered to NGN rows with amount ≥ ₦5,000,000.",
+        "NIP only: same NFIU columns, NGN rows with amount ≥ ₦5,000,000.",
       params: [
         { name: "date_from", required: true, hint: "YYYY-MM-DD or ISO datetime" },
         { name: "date_to", required: true, hint: "Inclusive end date" },
@@ -215,7 +215,7 @@ export function IntegrationApiDocsPage() {
       path: "/api/v1/export/dtd",
       title: "Daily DTD (same day)",
       description:
-        "Staged TBAADM.DTD for one Lagos day. Source/Dest account from GAM. Institution from DTD BANK_CODE + BANK_CODE_TABLE; null when BANK_CODE is blank.",
+        "NIP-only pairs staged from same-day TBAADM.DTD (one Lagos day). Institution codes from NIP_OUT_FLW / NIP_IN_FLW when matched.",
       params: [
         { name: "date", hint: "YYYY-MM-DD. Omit = today (Africa/Lagos). One day only — not a range." },
         { name: "limit", hint: "Optional. Omit for all rows that day (server cap 50,000)." },

@@ -25,6 +25,7 @@ from app.schemas.integration import (
 )
 from app.services.etl.dtd_pipeline import lagos_day_bounds
 from app.services.integration.ctr_nfiu import map_nfiu_row
+from app.services.etl.vendor_scope import VENDOR_EXPORT_CHANNEL
 
 EXPORT_UNBOUNDED_CAP = 50_000
 
@@ -123,6 +124,7 @@ class ExportService:
             period_end=period_end,
             report_type="CTR" if scope == "ctr" else (report_type.value if report_type else None),
             scope=scope,
+            channel=channel.value if channel else None,
             ctr_threshold_ngn=settings.ctr_threshold_ngn if scope == "ctr" else None,
             total_matching=total,
             returned=len(rows),
@@ -134,7 +136,10 @@ class ExportService:
 
     async def get_transaction(self, finacle_ref: str) -> NfiuTransactionRow | None:
         result = await self.db.execute(
-            select(StagingTransaction).where(StagingTransaction.finacle_ref == finacle_ref)
+            select(StagingTransaction).where(
+                StagingTransaction.finacle_ref == finacle_ref,
+                StagingTransaction.channel == VENDOR_EXPORT_CHANNEL,
+            )
         )
         row = result.scalar_one_or_none()
         return map_nfiu_row(row) if row else None
@@ -146,7 +151,10 @@ class ExportService:
         offset: int = 0,
     ) -> DtdExportResponse:
         business_start, _, _ = lagos_day_bounds(day)
-        filters = [DtdTransaction.business_date == business_start]
+        filters = [
+            DtdTransaction.business_date == business_start,
+            DtdTransaction.channel == VENDOR_EXPORT_CHANNEL,
+        ]
         count_stmt = select(func.count()).select_from(DtdTransaction).where(and_(*filters))
         total = await self._scalar(count_stmt)
         stmt = (
@@ -221,10 +229,16 @@ class ExportService:
             media = "application/xml"
             filename = f"{report.report_type.value}_{report.id[:8]}.xml"
 
-        if not path or not Path(path).is_file():
+        if not path:
+            return None
+        base = Path(settings.reports_output_dir).resolve()
+        resolved = Path(path).resolve()
+        if base not in resolved.parents and resolved != base:
+            return None
+        if not resolved.is_file():
             return None
 
-        return Path(path).read_text(encoding="utf-8"), media, filename
+        return resolved.read_text(encoding="utf-8"), media, filename
 
     def _period_filters(self, period_start: datetime, period_end: datetime) -> list:
         return [

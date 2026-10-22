@@ -81,8 +81,8 @@ Nova Bank IT pulls translated, NFIU-ready transactions using `X-API-Key` (create
 
 - `GET /api/v1/export/verify` — validate API key
 - `GET /api/v1/export/summary?date_from=&date_to=` — counts for a date range
-- `GET /api/v1/export/transactions?date_from=&date_to=` — all staged transactions (paginated)
-- `GET /api/v1/export/transactions/ctr?date_from=&date_to=` — NGN CTR of ₦5,000,000 and above
+- `GET /api/v1/export/transactions?date_from=&date_to=` — staged **NIP** transactions (paginated)
+- `GET /api/v1/export/transactions/ctr?date_from=&date_to=` — **NIP** CTR (NGN ₦5,000,000 and above)
 - `GET /api/v1/export/transactions/{finacle_ref}` — single transaction
 - `GET /api/v1/export/reports` — list generated reports
 - `GET /api/v1/export/reports/{id}/download?format=xml|csv` — download report file
@@ -122,5 +122,25 @@ alembic upgrade head
 ```bash
 PYTHONPATH=. python -m pytest tests/ -v
 ```
+
+API auth boundary checks (VAPT-style, no live pen-test):
+
+```bash
+PYTHONPATH=. python -m pytest tests/test_api_vapt.py tests/test_session_security.py -v
+```
+
+## Security (staff vs export)
+
+| Surface | Auth |
+|---------|------|
+| Portal `/api/v1/*` (compliance, DTD, screening, integration **info/keys**) | httpOnly session cookie; **CSRF** header on POST/PATCH/DELETE |
+| Partner `/api/v1/export/*` | **`X-API-Key`** only (no browser cookie) |
+| `/api/v1/auth/login`, `/verify-otp` | Public (rate-limit at reverse proxy in prod) |
+| `/health` | Public (lock down in prod if required) |
+| `/api/v1/ws` | Session cookie + **Origin** allowlist |
+
+**Production:** `DEBUG=false`, strong `JWT_SECRET`, HTTPS, `cors_origins` set to the real portal URL, disable OpenAPI (`docs_url=None`) if policy requires.
+
+**Test/UAT data:** sparse `NIP_INST_LIST` and partial NIP flow in non-prod DBs cause empty or odd institution codes — not an application default; prod Finacle + NIP tables are the source of truth. Nova on NIP rails is **`060003`** in flow tables; vendor NFIU constants (teller, country, etc.) are **bank-approved fixed values** for now.
 
 API docs: http://localhost:8000/docs

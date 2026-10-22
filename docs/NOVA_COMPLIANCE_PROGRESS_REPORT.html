@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Nova Bank — Compliance Sidecar Progress Report</title>
+  <style>
+    @page { margin: 16mm 14mm; size: A4; }
+    * { box-sizing: border-box; }
+    body {
+      font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif;
+      font-size: 10pt;
+      line-height: 1.5;
+      color: #1e293b;
+      margin: 0;
+      padding: 0;
+    }
+    .cover {
+      page-break-after: always;
+      min-height: 260mm;
+      padding: 24mm 18mm;
+      background: linear-gradient(145deg, #1e1b4b 0%, #4c1d95 45%, #0e7490 100%);
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .cover h1 { font-size: 28pt; font-weight: 700; margin: 0 0 8px; line-height: 1.2; border: none; }
+    .cover .subtitle { font-size: 14pt; font-weight: 400; opacity: 0.92; max-width: 90%; }
+    .cover .meta-block { font-size: 10pt; opacity: 0.88; line-height: 1.6; }
+    .cover .badge {
+      display: inline-block;
+      background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.35);
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 9pt;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .content { padding: 14mm 16mm; }
+    h2 {
+      font-size: 13pt;
+      color: #4c1d95;
+      margin: 22px 0 10px;
+      padding-bottom: 4px;
+      border-bottom: 2px solid #e9d5ff;
+      page-break-after: avoid;
+    }
+    h3 { font-size: 11pt; color: #0f172a; margin: 16px 0 8px; page-break-after: avoid; }
+    p { margin: 8px 0; }
+    ul { margin: 8px 0; padding-left: 20px; }
+    li { margin: 4px 0; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0 16px;
+      font-size: 9pt;
+      page-break-inside: avoid;
+    }
+    th, td { border: 1px solid #cbd5e1; padding: 8px 10px; text-align: left; vertical-align: top; }
+    th { background: #f5f3ff; color: #4c1d95; font-weight: 600; }
+    tr:nth-child(even) td { background: #f8fafc; }
+    .kpi-row { display: table; width: 100%; margin: 16px 0; border-spacing: 10px 0; }
+    .kpi {
+      display: table-cell;
+      width: 33.33%;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 12px 14px;
+      text-align: center;
+    }
+    .kpi .num { font-size: 22pt; font-weight: 700; color: #4c1d95; line-height: 1.1; }
+    .kpi .lbl { font-size: 8.5pt; color: #64748b; text-transform: uppercase; letter-spacing: 0.03em; margin-top: 4px; }
+    .callout {
+      background: #eff6ff;
+      border-left: 4px solid #2563eb;
+      padding: 12px 14px;
+      margin: 14px 0;
+      font-size: 9.5pt;
+      page-break-inside: avoid;
+    }
+    .callout-warn {
+      background: #fffbeb;
+      border-left-color: #d97706;
+    }
+    .callout-ok {
+      background: #ecfdf5;
+      border-left-color: #059669;
+    }
+    .screening-grid { display: table; width: 100%; border-spacing: 12px 0; margin: 12px 0; }
+    .screening-col {
+      display: table-cell;
+      width: 50%;
+      vertical-align: top;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 12px 14px;
+    }
+    .screening-col h4 { margin: 0 0 8px; font-size: 10pt; color: #4c1d95; }
+    .done { color: #059669; font-weight: 600; }
+    .need { color: #b45309; font-weight: 600; }
+    .footer {
+      margin-top: 24px;
+      padding-top: 12px;
+      border-top: 1px solid #e2e8f0;
+      font-size: 8.5pt;
+      color: #64748b;
+      text-align: center;
+    }
+    .page-break { page-break-before: always; }
+    code { font-family: Consolas, monospace; font-size: 8.5pt; background: #f1f5f9; padding: 1px 4px; border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+<section class="cover">
+  <div>
+    <span class="badge">Confidential — Nova Bank Internal</span>
+    <h1 style="margin-top: 20px;">Compliance Sidecar<br/>Progress Report</h1>
+    <p class="subtitle">Regulatory reporting automation (CTR, FTR, PEP, STR), Finacle integration, Export API, and transaction screening readiness</p>
+  </div>
+  <div class="meta-block">
+    <p><strong>Prepared for:</strong> Nova Bank — Compliance, IT &amp; Core Banking</p>
+    <p><strong>Project:</strong> Nova Bank Compliance Sidecar</p>
+    <p><strong>Report date:</strong> 10 September 2026</p>
+    <p><strong>Status:</strong> Development progress prior to formal UAT (UAT schedule not included)</p>
+  </div>
+</section>
+
+<div class="content">
+
+<h2>1. Executive summary</h2>
+<p>Nova Bank identified two strategic gaps: (1)&nbsp;automation of NFIU reportable transactions (CTR, FTR, PEP, etc.) from Finacle into a staging platform, and (2)&nbsp;online real-time screening of all local and foreign currency transactions. The Compliance Sidecar addresses these requirements through a dedicated portal and machine-to-machine Export API, without modifying Finacle core.</p>
+
+<div class="kpi-row">
+  <div class="kpi"><div class="num">78–82%</div><div class="lbl">M1 development (pre-UAT)</div></div>
+  <div class="kpi"><div class="num">38–42%</div><div class="lbl">M2 screening (pre-UAT)</div></div>
+  <div class="kpi"><div class="num">68–72%</div><div class="lbl">Overall sidecar development</div></div>
+</div>
+
+<div class="callout callout-ok">
+  <strong>UAT validation completed on VPN laptop:</strong> Finacle-shaped HTD data (CSV path) — transactions staged with 100% validation; CTR/FTR eligibility; regulatory reports; Export API pull with API key. Live Oracle extract is implemented but constrained by VPN/HTD query performance on wide date ranges.
+</div>
+
+<p><strong>On track:</strong> Milestone&nbsp;1 (Finacle → staging → flags → reports → IT pull API).<br/>
+<strong>Pending bank inputs:</strong> Official NFIU goAML formats; production Oracle operations; screening vendor and live list feeds.</p>
+
+<h2>2. Alignment with Nova’s stated problems</h2>
+<table>
+  <tr>
+    <th>Problem (internal tracker)</th>
+    <th>Expectation</th>
+    <th>Sidecar response</th>
+    <th>Dev progress (pre-UAT)</th>
+  </tr>
+  <tr>
+    <td><strong>1. Automation of CTR, FTR, PEP NFIU reporting</strong></td>
+    <td>Auto-capture reportable transactions from Finacle into staging; coverage beyond NIP-only; reports for cash, SWIFT, RTGS, NEFT, NAPS</td>
+    <td>ETL from TBAADM.HTD + GAM; multi-channel mapping; CTR/FTR/PEP/STR flags; portal reports; Export API for translated payloads</td>
+    <td><strong>~78–82%</strong> application; ~55–60% including NFIU filing format &amp; prod ops</td>
+  </tr>
+  <tr>
+    <td><strong>2. Online real-time screening (LCY &amp; FCY)</strong></td>
+    <td>Every transaction screened in real time; suspicious activity detected automatically</td>
+    <td>Alert Queue workflow, screening API scaffold, demo/simulate mode; production lists &amp; universal Finacle hook pending vendor decision</td>
+    <td><strong>~38–42%</strong> workflow/API; ~15–20% full “all transactions live”</td>
+  </tr>
+</table>
+
+<h2>3. Milestone 1 — What has been delivered</h2>
+<h3>3.1 Data pipeline</h3>
+<ul>
+  <li>Extract from Finacle Oracle (<code>TBAADM.HTD</code> joined to <code>TBAADM.GAM</code>) or from UAT CSV export when Oracle over VPN is slow.</li>
+  <li>Validate accounts, amounts, and names; map channels (NIP, RTGS, SWIFT, and others present in HTD).</li>
+  <li>Stage in PostgreSQL with CTR, FTR, PEP, and STR flags and internal <code>nfiu_payload</code> (translated JSON per transaction).</li>
+  <li>Background ETL, date-range extraction, duplicate skip, Oracle thick-mode client for bank password compatibility.</li>
+</ul>
+
+<h3>3.2 Compliance portal (frontend)</h3>
+<ul>
+  <li>Dashboard, Extraction (date picker), Data Quality, Reports (CTR/FTR/PEP/STR workflow), Audit Trail, Team &amp; roles.</li>
+  <li>Integration: API Keys (admin) and API Docs (live testing with copy response / cURL).</li>
+</ul>
+
+<h3>3.3 Export API — Nova IT pulls translated data</h3>
+<p>Authentication: <code>X-API-Key</code>. IT pulls after extraction has run for the same date range.</p>
+<table>
+  <tr><th>Endpoint</th><th>Purpose</th></tr>
+  <tr><td><code>GET /api/v1/export/verify</code></td><td>Validate API key</td></tr>
+  <tr><td><code>GET /api/v1/export/summary</code></td><td>Counts valid / CTR / FTR / PEP / STR for period</td></tr>
+  <tr><td><code>GET /api/v1/export/transactions</code></td><td>Paginated pull with <code>nfiu_payload</code>; optional <code>report_type</code> filter</td></tr>
+  <tr><td><code>GET /api/v1/export/transactions/{ref}</code></td><td>Single transaction</td></tr>
+  <tr><td><code>GET /api/v1/export/reports</code></td><td>List portal-generated reports</td></tr>
+  <tr><td><code>GET /api/v1/export/reports/{id}/download</code></td><td>Download XML or CSV report file</td></tr>
+</table>
+
+<h3>3.4 NFIU reporting formats — gap and ask</h3>
+<div class="callout callout-warn">
+  <strong>Required from Nova Compliance:</strong> Official NFIU goAML XSD and field specifications for <strong>CTR, FTR, PEP, and STR</strong>. Current outputs are structurally consistent and API-ready but are <strong>not yet certified</strong> as filing-identical to NFIU portal requirements. Once specifications and sandbox access are provided, report generation and Export API payloads will be aligned field-for-field.
+</div>
+
+<h3>3.5 Finacle / Oracle performance</h3>
+<p>Direct HTD reads over VPN can be slow on large date windows. Mitigations in software: narrow date ranges, day-by-day chunked extract, CSV UAT path. <strong>Recommendation to DBA/IT:</strong> read-only grants, confirm listener port (1625 vs 1521), date indexes/statistics, or replica/scheduled export for production volumes.</p>
+
+<h2 class="page-break">4. Milestone 2 — Transaction screening</h2>
+
+<h3>4.1 What screening means in this project</h3>
+<p>Before or during a payment, customer and counterparty names are checked against sanctions, PEP, and internal watchlists. A <strong>match</strong> does not always mean a block—it creates a <strong>compliance alert</strong> for analysts to review (false positive vs true hit) and documents the decision for audit.</p>
+
+<h3>4.2 What has been built (delivered in the sidecar)</h3>
+<div class="screening-grid">
+  <div class="screening-col">
+    <h4><span class="done">Delivered — Operations</span></h4>
+    <ul>
+      <li><strong>Alert Queue</strong> — unified inbox for pending screening hits; search and detail view.</li>
+      <li><strong>Analyst workflow</strong> — Approve (e.g. false positive), Reject, Escalate to senior approver; role-based access.</li>
+      <li><strong>Screening Log &amp; Performance</strong> — history of decisions, latency and volume metrics for management reporting.</li>
+      <li><strong>Simulate flags</strong> — training/demo mode generating sample alerts without live external lists (for process UAT).</li>
+    </ul>
+  </div>
+  <div class="screening-col">
+    <h4><span class="done">Delivered — Technical integration</span></h4>
+    <ul>
+      <li><strong>Synchronous screening check</strong> — middleware can POST a transaction; sidecar returns <em>clear</em> or <em>review</em> and optionally creates a PENDING alert in the queue.</li>
+      <li><strong>PEP sample registry</strong> and keyword-based demo matching for proof-of-concept.</li>
+      <li><strong>Audit events</strong> for screening actions (aligned with Alert Queue decisions).</li>
+    </ul>
+  </div>
+</div>
+
+<h3>4.3 What Nova must provide for live online screening</h3>
+<p>This aligns with your internal note: <em>vendor review and a cost-effective screening solution</em> before full coverage.</p>
+<table>
+  <tr><th>#</th><th>Requirement</th><th>Why it matters</th></tr>
+  <tr><td>1</td><td><strong>Screening vendor / data source</strong> — sanctions (global &amp; Nigeria), PEP, internal watchlist, BVN if mandated</td><td>Alert Queue needs real list data, not simulate-only</td></tr>
+  <tr><td>2</td><td><strong>Integration architecture</strong> — where checks run: payment middleware, Finacle hook, or near-real-time batch</td><td>Defines “real time” for all LCY/FCY channels</td></tr>
+  <tr><td>3</td><td><strong>Commercial &amp; technical contract</strong> — API vs file feed, latency SLA, licensing, UAT environment</td><td>Cost-effective solution selection</td></tr>
+  <tr><td>4</td><td><strong>Policy</strong> — auto-hold vs alert-only, match thresholds, escalation to MLRO</td><td>Drives Alert Queue operating procedures</td></tr>
+  <tr><td>5</td><td><strong>Channel scope</strong> — phased (e.g. NIP + RTGS first) vs all products day one</td><td>Realistic rollout vs “all transactions” goal</td></tr>
+</table>
+
+<div class="callout">
+  <strong>Plain language for stakeholders:</strong> The <strong>Alert Queue is the compliance inbox</strong> when a name might match a list. The sidecar provides the desk, the process, and the API hook. <strong>Live screening of every transaction</strong> requires Nova to choose the list provider and connect it to the payment/Finacle path—we cannot complete that portion without bank decisions.
+</div>
+
+<h3>4.4 Screening development status</h3>
+<table>
+  <tr><th>Component</th><th>Status</th></tr>
+  <tr><td>Alert Queue UI &amp; workflow</td><td>Built — ready for process UAT with simulated alerts</td></tr>
+  <tr><td>Screening check API (middleware)</td><td>Built — stub/demo matching; swap in vendor API when selected</td></tr>
+  <tr><td>Live Finacle / all-channel real-time feed</td><td>Not implemented — awaiting vendor + architecture</td></tr>
+  <tr><td>Production watchlist coverage</td><td>Not implemented — awaiting Nova procurement/compliance</td></tr>
+</table>
+
+<h2>5. Consolidated asks to Nova Bank</h2>
+<table>
+  <tr><th>Priority</th><th>Ask</th><th>Owner (typical)</th></tr>
+  <tr><td>Critical</td><td>NFIU goAML XSD / field specs for CTR, FTR, PEP, STR</td><td>Compliance / NFIU liaison</td></tr>
+  <tr><td>Critical</td><td>NFIU sandbox and submission process</td><td>Compliance</td></tr>
+  <tr><td>High</td><td>Screening vendor decision + integration contact</td><td>Compliance + IT</td></tr>
+  <tr><td>High</td><td>Oracle HTD performance (VPN, port, grants, indexes or extract alternative)</td><td>DBA / IT</td></tr>
+  <tr><td>High</td><td>Production hosting, HTTPS, email/SMS OTP, Export API key policy</td><td>IT / InfoSec</td></tr>
+  <tr><td>High</td><td>UAT ownership and sign-off criteria (parallel run vs manual process)</td><td>Compliance / MLRO</td></tr>
+</table>
+
+<h2>6. Conclusion</h2>
+<p>The Compliance Sidecar materially advances Nova’s first objective—automating capture and reporting of Finacle transactions into a staging platform with IT-accessible translated exports. Development is approximately <strong>68–72% complete</strong> prior to formal UAT, with Milestone&nbsp;1 near <strong>80%</strong> and Milestone&nbsp;2 screening workflow at approximately <strong>40%</strong>, pending vendor-led live list integration. Provision of NFIU official formats and screening vendor selection are the two critical path items to move from successful technical demo to production-ready compliance operations.</p>
+
+<div class="footer">
+  Nova Bank Compliance Sidecar — Progress Report — 10 September 2026 — Internal &amp; confidential
+</div>
+
+</div>
+</body>
+</html>

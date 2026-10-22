@@ -82,7 +82,11 @@ def _tran_type(channel: str) -> str:
 
 
 def map_nfiu_row(tx: StagingTransaction) -> NfiuTransactionRow:
-    """One NFIU sample-data row. Fields we do not have from HTD use Nova defaults."""
+    """One NFIU sample-data row.
+
+    Bank-approved defaults (teller, country, transmode, funds/currency codes, etc.) apply until
+    Finacle-sourced values are available. Institution codes come from NIP enrichment on staging.
+    """
     date_s = _iso_date(tx.transaction_date)
     source = _party_fields(
         "source",

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Activity, Play, RefreshCw } from "lucide-react";
 import { ExtractionProgressBanner } from "../components/ExtractionProgressBanner";
 import { ExtractionRunModal } from "../components/ExtractionRunModal";
@@ -9,6 +9,7 @@ import { displayLogMessage, latestHtdProgress } from "../lib/extractionProgress"
 import { channelLabel, formatDate, formatDateRange, formatNumber } from "../lib/format";
 import { canRunEtl, extractSourceLabel } from "../lib/roles";
 import { useAuth } from "../lib/auth";
+import { useLiveRefresh } from "../lib/live";
 
 export function ExtractionPage() {
   const { user } = useAuth();
@@ -59,34 +60,33 @@ export function ExtractionPage() {
     }
   }, [runs, starting, selected]);
 
-  useEffect(() => {
+  const poll = useCallback(async () => {
     if (!selected) return;
-    let cancelled = false;
+    try {
+      const [run, runLogs] = await Promise.all([api.getRun(selected), api.runLogs(selected)]);
+      setLogs(runLogs);
+      setRuns((prev) => {
+        const exists = prev.some((r) => r.id === run.id);
+        if (!exists) return [run, ...prev];
+        return prev.map((r) => (r.id === run.id ? run : r));
+      });
+      const last = runLogs[runLogs.length - 1];
+      if (last && run.status === "running") setProgressMessage(displayLogMessage(last.message));
+    } catch {
+      /* run may not exist yet */
+    }
+  }, [selected]);
 
-    const poll = async () => {
-      try {
-        const [run, runLogs] = await Promise.all([api.getRun(selected), api.runLogs(selected)]);
-        if (cancelled) return;
-        setLogs(runLogs);
-        setRuns((prev) => {
-          const exists = prev.some((r) => r.id === run.id);
-          if (!exists) return [run, ...prev];
-          return prev.map((r) => (r.id === run.id ? run : r));
-        });
-        const last = runLogs[runLogs.length - 1];
-        if (last && run.status === "running") setProgressMessage(displayLogMessage(last.message));
-      } catch {
-        /* run may not exist yet */
-      }
-    };
+  useEffect(() => {
+    void poll();
+  }, [poll, selected]);
 
-    poll();
-    const timer = window.setInterval(poll, 1000);
-    return () => {
-      cancelled = true;
-      window.clearInterval(timer);
-    };
-  }, [selected, running]);
+  useLiveRefresh(["extraction.run", "extraction.log"], poll, {
+    enabled: Boolean(selected),
+    match: selected,
+    fallbackMs: running ? 2000 : undefined,
+  });
+  useLiveRefresh(["extraction.run"], load);
 
   useEffect(() => {
     logEndRef.current?.scrollIntoView({ behavior: "smooth" });

@@ -19,12 +19,18 @@ def generate_otp() -> str:
     return f"{randbelow(1_000_000):06d}"
 
 
-def create_access_token(user_id: str, email: str, role: str) -> str:
+def generate_csrf_token() -> str:
+    return token_urlsafe(32)
+
+
+def create_access_token(user_id: str, email: str, role: str, csrf: str) -> str:
+    """Session JWT. `csrf` binds the double-submit token to this session."""
     expire = datetime.now(timezone.utc) + timedelta(minutes=settings.jwt_expire_minutes)
     payload = {
         "sub": user_id,
         "email": email,
         "role": role,
+        "csrf": csrf,
         "exp": expire,
     }
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)

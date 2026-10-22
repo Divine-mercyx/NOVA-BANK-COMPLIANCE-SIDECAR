@@ -1,14 +1,14 @@
 import logging
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, require_roles
 from app.core.config import settings
 from app.core.database import get_db
-from app.core.security import create_access_token, generate_otp, hash_password, verify_password
+from app.core.security import create_access_token, generate_csrf_token, generate_otp, hash_password, verify_password
 from app.models.entities import AuditEvent, OtpSession, User, UserRole
 from app.schemas.auth import (
     AuthResponse,
@@ -22,6 +22,35 @@ from app.schemas.compliance import UserOut
 
 logger = logging.getLogger("nova.auth")
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
+
+
+def _set_session_cookies(response: Response, token: str, csrf: str) -> None:
+    max_age = settings.jwt_expire_minutes * 60
+    secure = settings.cookies_secure
+    response.set_cookie(
+        settings.session_cookie_name,
+        token,
+        max_age=max_age,
+        httponly=True,
+        secure=secure,
+        samesite="strict",
+        path="/api",
+    )
+    response.set_cookie(
+        settings.csrf_cookie_name,
+        csrf,
+        max_age=max_age,
+        httponly=False,
+        secure=secure,
+        samesite="strict",
+        path="/",
+    )
+
+
+def _clear_session_cookies(response: Response) -> None:
+    secure = settings.cookies_secure
+    response.delete_cookie(settings.session_cookie_name, path="/api", secure=secure, httponly=True, samesite="strict")
+    response.delete_cookie(settings.csrf_cookie_name, path="/", secure=secure, samesite="strict")
 
 
 @router.post("/login", response_model=LoginResponse)
@@ -43,8 +72,8 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
     await db.commit()
     await db.refresh(session)
 
-    logger.warning("OTP for %s (%s): %s", user.full_name, user.email, code)
-    print(f"\n{'=' * 48}\nNOVA OTP for {user.email}: {code}\nExpires in {settings.otp_expire_minutes} minutes\n{'=' * 48}\n")
+    if settings.debug:
+        print(f"\n{'=' * 48}\nNOVA OTP for {user.email}: {code}\nExpires in {settings.otp_expire_minutes} minutes\n{'=' * 48}\n")
 
     return LoginResponse(
         otp_session_id=session.id,
@@ -53,7 +82,7 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/verify-otp", response_model=AuthResponse)
-async def verify_otp(body: VerifyOtpRequest, db: AsyncSession = Depends(get_db)):
+async def verify_otp(body: VerifyOtpRequest, response: Response, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(OtpSession).where(OtpSession.id == body.otp_session_id))
     session = result.scalar_one_or_none()
     if not session or session.used:
@@ -78,13 +107,31 @@ async def verify_otp(body: VerifyOtpRequest, db: AsyncSession = Depends(get_db))
     )
     await db.commit()
 
-    token = create_access_token(user.id, user.email, user.role.value)
-    return AuthResponse(access_token=token, user=UserOut.model_validate(user))
+    csrf = generate_csrf_token()
+    token = create_access_token(user.id, user.email, user.role.value, csrf)
+    _set_session_cookies(response, token, csrf)
+    return AuthResponse(user=UserOut.model_validate(user))
 
 
 @router.get("/me", response_model=UserOut)
 async def me(user: User = Depends(get_current_user)):
     return UserOut.model_validate(user)
+
+
+@router.post("/logout", status_code=204)
+async def logout(response: Response, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    db.add(
+        AuditEvent(
+            actor_id=user.id,
+            actor_name=user.full_name,
+            action="LOGOUT",
+            entity_type="user",
+            entity_id=user.id,
+        )
+    )
+    await db.commit()
+    _clear_session_cookies(response)
+    return None
 
 
 @router.post("/staff", response_model=UserOut)

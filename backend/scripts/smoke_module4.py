@@ -9,6 +9,7 @@ Requires backend running on http://localhost:8000 with staged data in Postgres.
 
 from __future__ import annotations
 
+import http.cookiejar
 import json
 import os
 import sys
@@ -19,18 +20,25 @@ import urllib.request
 BASE = "http://localhost:8000"
 ADMIN_EMAIL = "admin@novabank.ng"
 ADMIN_PASSWORD = "Admin@Nova2026"
+CSRF_COOKIE = "nova_csrf"
+
+_jar = http.cookiejar.CookieJar()
+_opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(_jar))
+
+
+def _csrf_header() -> dict[str, str]:
+    for cookie in _jar:
+        if cookie.name == CSRF_COOKIE:
+            return {"X-CSRF-Token": cookie.value}
+    return {}
 
 
 def request(method: str, path: str, body: dict | None = None, headers: dict | None = None) -> dict:
     data = json.dumps(body).encode() if body is not None else None
-    req = urllib.request.Request(
-        f"{BASE}{path}",
-        data=data,
-        method=method,
-        headers={"Content-Type": "application/json", **(headers or {})},
-    )
+    hdrs = {"Content-Type": "application/json", **_csrf_header(), **(headers or {})}
+    req = urllib.request.Request(f"{BASE}{path}", data=data, method=method, headers=hdrs)
     try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
+        with _opener.open(req, timeout=30) as resp:
             raw = resp.read().decode()
             return json.loads(raw) if raw else {}
     except urllib.error.HTTPError as exc:
@@ -49,12 +57,11 @@ def partner_get(path: str, api_key: str, params: dict | None = None) -> dict:
         return json.loads(resp.read().decode())
 
 
-def login_admin() -> str:
+def login_admin() -> None:
     login = request("POST", "/api/v1/auth/login", {"email": ADMIN_EMAIL, "password": ADMIN_PASSWORD})
     otp = os.environ.get("SMOKE_OTP") or input("Enter OTP from backend console: ").strip()
-    auth = request("POST", "/api/v1/auth/verify-otp", {"otp_session_id": login["otp_session_id"], "code": otp})
-    print("✓ Admin authenticated")
-    return auth["access_token"]
+    request("POST", "/api/v1/auth/verify-otp", {"otp_session_id": login["otp_session_id"], "code": otp})
+    print("✓ Admin authenticated (session cookie)")
 
 
 def main() -> int:
@@ -67,14 +74,12 @@ def main() -> int:
         print(f"✗ Backend not reachable: {exc}")
         return 1
 
-    token = login_admin()
-    auth_headers = {"Authorization": f"Bearer {token}"}
+    login_admin()
 
     key_resp = request(
         "POST",
         "/api/v1/integration/keys",
         {"name": "Export Smoke Key", "description": "Automated export API smoke test"},
-        auth_headers,
     )
     api_key = key_resp["api_key"]
     assert api_key.startswith("nova_"), "API key format invalid"

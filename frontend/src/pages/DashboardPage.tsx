@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Play, RefreshCw } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
@@ -11,6 +11,7 @@ import { progressLabel } from "../lib/extractionProgress";
 import { actionLabel, formatDateRange, formatNumber, formatRelative } from "../lib/format";
 import { canRunEtl, extractModeLabel, extractSourceLabel } from "../lib/roles";
 import { useAuth } from "../lib/auth";
+import { useLiveRefresh } from "../lib/live";
 
 export function DashboardPage() {
   const { user } = useAuth();
@@ -37,10 +38,32 @@ export function DashboardPage() {
     load();
   }, []);
 
-  const liveRunId =
-    data?.pipeline_status === "running" || data?.last_extraction?.status === "running"
-      ? data?.last_extraction?.id ?? null
-      : null;
+  const liveRunId = data?.last_extraction?.status === "running" ? data.last_extraction.id : null;
+
+  const tickRun = useCallback(async () => {
+    if (!liveRunId) return;
+    try {
+      const [updated, logs] = await Promise.all([api.getRun(liveRunId), api.runLogs(liveRunId)]);
+      setRunLogs(logs);
+      setProgressMessage(progressLabel(logs, null));
+      setData((prev) =>
+        prev
+          ? {
+              ...prev,
+              pipeline_status: updated.status,
+              last_extraction: updated,
+            }
+          : prev,
+      );
+      if (updated.status !== "running") {
+        setStarting(false);
+        setRunning(false);
+        await load(true);
+      }
+    } catch {
+      /* run may not exist yet */
+    }
+  }, [liveRunId]);
 
   useEffect(() => {
     if (!liveRunId) {
@@ -48,38 +71,14 @@ export function DashboardPage() {
       return;
     }
     setRunning(true);
-    let cancelled = false;
-    const tick = async () => {
-      try {
-        const [updated, logs] = await Promise.all([api.getRun(liveRunId), api.runLogs(liveRunId)]);
-        if (cancelled) return;
-        setRunLogs(logs);
-        setProgressMessage(progressLabel(logs, null));
-        setData((prev) =>
-          prev
-            ? {
-                ...prev,
-                pipeline_status: updated.status,
-                last_extraction: updated,
-              }
-            : prev,
-        );
-        if (updated.status !== "running") {
-          setStarting(false);
-          setRunning(false);
-          await load(true);
-        }
-      } catch {
-        /* run may not exist yet */
-      }
-    };
-    void tick();
-    const timer = window.setInterval(tick, 1000);
-    return () => {
-      cancelled = true;
-      window.clearInterval(timer);
-    };
-  }, [liveRunId]);
+    void tickRun();
+  }, [liveRunId, starting, tickRun]);
+
+  useLiveRefresh(["extraction.run", "extraction.log"], tickRun, {
+    enabled: Boolean(liveRunId),
+    match: liveRunId,
+    fallbackMs: running ? 2000 : undefined,
+  });
 
   const runPipeline = async (params: ExtractionRunParams) => {
     setStarting(true);

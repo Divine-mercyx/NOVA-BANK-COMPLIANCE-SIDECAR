@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Nova Bank Compliance Sidecar — Project Status Report</title>
+  <style>
+    @page { margin: 18mm 16mm; size: A4; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      font-size: 10.5pt;
+      line-height: 1.45;
+      color: #1a1a1a;
+      max-width: 210mm;
+      margin: 0 auto;
+      padding: 12mm;
+    }
+    h1 { font-size: 22pt; color: #0f3d2e; border-bottom: 3px solid #0f3d2e; padding-bottom: 8px; margin-top: 0; }
+    h2 { font-size: 14pt; color: #0f3d2e; margin-top: 22px; page-break-after: avoid; }
+    h3 { font-size: 11.5pt; color: #333; margin-top: 16px; page-break-after: avoid; }
+    h4 { font-size: 10.5pt; color: #555; margin-top: 12px; }
+    p, li { margin: 6px 0; }
+    table { width: 100%; border-collapse: collapse; margin: 10px 0 16px; font-size: 9.5pt; page-break-inside: avoid; }
+    th, td { border: 1px solid #ccc; padding: 6px 8px; text-align: left; vertical-align: top; }
+    th { background: #e8f5ef; font-weight: 600; }
+    tr:nth-child(even) { background: #fafafa; }
+    code, pre { font-family: "SF Mono", Menlo, monospace; font-size: 8.5pt; background: #f4f4f4; }
+    pre {
+      white-space: pre-wrap;
+      border: 1px solid #ddd;
+      padding: 10px;
+      border-radius: 4px;
+      page-break-inside: avoid;
+    }
+    .meta { color: #555; font-size: 9.5pt; margin-bottom: 20px; }
+    .meta strong { color: #333; }
+    hr { border: none; border-top: 1px solid #ddd; margin: 20px 0; }
+    .scorecard {
+      background: #f0f7f4;
+      border: 1px solid #0f3d2e;
+      padding: 14px;
+      border-radius: 6px;
+      font-family: monospace;
+      font-size: 9pt;
+      white-space: pre-wrap;
+      page-break-inside: avoid;
+    }
+    .page-break { page-break-before: always; }
+  </style>
+</head>
+<body>
+
+<h1>Nova Bank Compliance Sidecar</h1>
+<h2 style="margin-top:0;border:none;color:#333;font-size:16pt;">Project Status &amp; Completion Report</h2>
+
+<div class="meta">
+  <p><strong>Document type:</strong> Status report — work completed, remaining scope, step-by-step flows<br>
+  <strong>Client:</strong> Nova Bank (internal use only)<br>
+  <strong>Repository:</strong> github.com/Divine-mercyx/NOVA-BANK-COMPLIANCE-SIDECAR<br>
+  <strong>Report date:</strong> 7 September 2026</p>
+</div>
+
+<hr>
+
+<h2>1. Executive Summary</h2>
+<p>Nova Bank is building an <strong>internal compliance sidecar</strong> alongside Finacle for NFIU regulatory reporting (M1), transaction screening (M2), and middleware integration (Module 4).</p>
+
+<table>
+  <tr><th>Scope</th><th>Complete</th><th>Notes</th></tr>
+  <tr><td>Demo / prototype</td><td><strong>~91%</strong></td><td>Portal + ETL code + partner APIs; runnable on VPN laptop</td></tr>
+  <tr><td>Production go-live</td><td><strong>~50%</strong></td><td>Blocked on goAML, NFIU sandbox, sanctions, prod hosting</td></tr>
+</table>
+
+<h3>Bank confirmations (September 2026)</h3>
+<table>
+  <tr><th>Item</th><th>Status</th></tr>
+  <tr><td>All transactions → TBAADM.HTD</td><td>Confirmed</td></tr>
+  <tr><td>Customer details → TBAADM.GAM</td><td>Confirmed</td></tr>
+  <tr><td>Test data in tables</td><td>Confirmed</td></tr>
+  <tr><td>HTD/GAM columns validated (FORACID, ACCT_NAME)</td><td>Done</td></tr>
+  <tr><td>Oracle credentials for VPN laptop</td><td>Provided</td></tr>
+  <tr><td>GitHub monorepo pushed</td><td>Done</td></tr>
+</table>
+
+<h2>2. What We Have Built</h2>
+
+<h3>2.1 Platform foundation</h3>
+<table>
+  <tr><th>Feature</th><th>Status</th></tr>
+  <tr><td>Monorepo on GitHub (backend + frontend + docs)</td><td>Done</td></tr>
+  <tr><td>Docker Compose (PostgreSQL + Redis)</td><td>Done</td></tr>
+  <tr><td>FastAPI backend + React frontend</td><td>Done</td></tr>
+  <tr><td>PostgreSQL staging warehouse</td><td>Done</td></tr>
+  <tr><td>Alembic migrations</td><td>Done</td></tr>
+  <tr><td>Startup scripts + .env.example</td><td>Done</td></tr>
+</table>
+
+<h3>2.2 Authentication &amp; team</h3>
+<table>
+  <tr><th>Feature</th><th>Status</th></tr>
+  <tr><td>Login + OTP + JWT</td><td>Done (OTP: console in dev)</td></tr>
+  <tr><td>Roles: viewer, analyst, approver, admin</td><td>Done</td></tr>
+  <tr><td>Role hardening (ETL analyst+, approve approver+)</td><td>Done</td></tr>
+  <tr><td>Team CRUD (admin)</td><td>Done</td></tr>
+</table>
+<p><strong>Admin login:</strong> admin@novabank.ng / Admin@Nova2026</p>
+
+<h3>2.3 Milestone 1 — Reporting (ETL)</h3>
+<table>
+  <tr><th>Feature</th><th>Status</th></tr>
+  <tr><td>ETL pipeline (extract → transform → load)</td><td>Done</td></tr>
+  <tr><td>Extract modes: mock, csv, oracle</td><td>Done</td></tr>
+  <tr><td>Oracle HTD + GAM (primary source)</td><td>Done (code)</td></tr>
+  <tr><td>HTD debit/credit pairing (TRAN_ID + amount)</td><td>Done</td></tr>
+  <tr><td>Customer names from GAM.ACCT_NAME</td><td>Done</td></tr>
+  <tr><td>Withdrawal name parsing (PARTICULAR)</td><td>Done</td></tr>
+  <tr><td>PEP registry (PEP_CUSTOMERS)</td><td>Done</td></tr>
+  <tr><td>Flags: CTR, FTR, PEP, STR</td><td>Done</td></tr>
+  <tr><td>Data quality + withdrawal spot-check UI</td><td>Done</td></tr>
+  <tr><td>Scheduled daily ETL (opt-in)</td><td>Done</td></tr>
+</table>
+
+<h3>2.4 Milestone 1 — Reports &amp; workflow</h3>
+<table>
+  <tr><th>Feature</th><th>Status</th></tr>
+  <tr><td>Generate CTR, FTR, PEP, STR (XML + CSV)</td><td>Done (generic format)</td></tr>
+  <tr><td>Approve / reject / submit workflow</td><td>Done</td></tr>
+  <tr><td>Audit trail</td><td>Done</td></tr>
+  <tr><td>Unit tests (14 passing)</td><td>Done</td></tr>
+  <tr><td>Official goAML / NFIU submission</td><td>Not done</td></tr>
+</table>
+
+<h3>2.5 Milestone 2 — Screening</h3>
+<table>
+  <tr><th>Feature</th><th>Status</th></tr>
+  <tr><td>Alert queue, approve/reject/escalate</td><td>Done</td></tr>
+  <tr><td>Simulate alerts (demo)</td><td>Done</td></tr>
+  <tr><td>Performance + screening audit</td><td>Done</td></tr>
+  <tr><td>Sync screening API for middleware</td><td>Done</td></tr>
+  <tr><td>Live Finacle events + real sanctions lists</td><td>Not done</td></tr>
+</table>
+
+<h3>2.6 Module 4 — Partner APIs</h3>
+<table>
+  <tr><th>Feature</th><th>Status</th></tr>
+  <tr><td>POST /ingest/transactions</td><td>Done</td></tr>
+  <tr><td>POST /screening/check</td><td>Done</td></tr>
+  <tr><td>API key management + Integration UI</td><td>Done</td></tr>
+  <tr><td>Smoke test script</td><td>Done</td></tr>
+</table>
+
+<div class="page-break"></div>
+
+<h2>3. Completion Matrix</h2>
+<table>
+  <tr><th>Workstream</th><th>Demo %</th><th>Production gap</th></tr>
+  <tr><td>M1 ETL &amp; staging</td><td>95%</td><td>Live Oracle run on VPN laptop</td></tr>
+  <tr><td>M1 Reporting</td><td>85%</td><td>goAML XSD + NFIU submit</td></tr>
+  <tr><td>M1 Workflow</td><td>90%</td><td>Prod OTP</td></tr>
+  <tr><td>M2 Screening UI</td><td>88%</td><td>Real watchlists</td></tr>
+  <tr><td>M2 Live screening</td><td>35%</td><td>Finacle feed + sanctions API</td></tr>
+  <tr><td>M4 Partner APIs</td><td>90%</td><td>Prod integration test</td></tr>
+  <tr><td>Auth &amp; team</td><td>92%</td><td>Email/SMS OTP</td></tr>
+  <tr><td><strong>Overall</strong></td><td><strong>~91%</strong></td><td><strong>~50% prod remains</strong></td></tr>
+</table>
+
+<h2>4. Step-by-Step Flows</h2>
+
+<h3>Flow A — VPN laptop setup</h3>
+<pre>1. Install Docker, Git, Node 18+, Python 3.11+
+2. Connect bank VPN
+3. git clone https://github.com/Divine-mercyx/NOVA-BANK-COMPLIANCE-SIDECAR.git
+4. docker compose up -d
+5. cp backend/.env.example backend/.env
+   Set: FINACLE_MODE=oracle, FINACLE_ORACLE_SOURCE=htd
+   FINACLE_ORACLE_DSN=10.0.240.180:1625/NOVAPRD (or :1521)
+   FINACLE_ORACLE_USER=customer, FINACLE_ORACLE_PASSWORD=***
+6. Terminal 1: ./scripts/start-backend.sh
+7. Terminal 2: ./scripts/start-frontend.sh
+8. Browser → http://localhost:5173 → login → OTP from backend terminal</pre>
+
+<h3>Flow B — ETL (Finacle → staging)</h3>
+<pre>TBAADM.HTD + TBAADM.GAM
+    → Extract (Oracle query)
+    → Pair D/C legs by TRAN_ID + amount
+    → Transform (validate, PEP/CTR/FTR/STR flags)
+    → Load to PostgreSQL staging
+    → Dashboard / Data Quality / Extraction pages
+
+Trigger: Dashboard → "Run extraction" (analyst+)
+     OR: POST /api/v1/etl/run
+     OR: Scheduled cron (ETL_SCHEDULE_ENABLED=true)
+     OR: Middleware POST /api/v1/ingest/transactions</pre>
+
+<h3>Flow C — Regulatory reporting</h3>
+<pre>Staging (flagged txns)
+    → Reports → Generate CTR/FTR/PEP/STR
+    → XML + CSV saved (DRAFT)
+    → Approver reviews → Approve
+    → Submit (audit logged — not yet real NFIU portal)
+    → Audit Trail</pre>
+
+<h3>Flow D — Screening</h3>
+<pre>Path 1: Simulate flags (demo) → Alert queue → Review
+Path 2: POST /api/v1/screening/check (middleware) → clear | review → alert
+Path 3: Analyst approve/reject; Approver escalate</pre>
+
+<h3>Flow E — Production completion</h3>
+<pre>Phase 1  Live Oracle ETL validated on VPN laptop
+Phase 2  30-day parallel UAT run
+Phase 3  goAML XSD reports pass validation
+Phase 4  NFIU sandbox test submission
+Phase 5  Real sanctions/watchlist for M2
+Phase 6  Middleware integrated (Module 4)
+Phase 7  Prod hosting, OTP email/SMS, monitoring
+Phase 8  Compliance + IT sign-off
+Phase 9  Go-live</pre>
+
+<div class="page-break"></div>
+
+<h2>5. Required to Mark Project COMPLETE</h2>
+
+<h3>5.1 Must-have (production)</h3>
+<table>
+  <tr><th>#</th><th>Task</th><th>Status</th></tr>
+  <tr><td>1</td><td>Live Oracle ETL (HTD + GAM)</td><td>In progress</td></tr>
+  <tr><td>2</td><td>Confirm Oracle port &amp; grants</td><td>Pending</td></tr>
+  <tr><td>3</td><td>Validate HTD vs staged row counts</td><td>Pending</td></tr>
+  <tr><td>4</td><td>NFIU goAML XSD specification</td><td>Pending</td></tr>
+  <tr><td>5</td><td>Report generator → goAML compliant</td><td>Not started</td></tr>
+  <tr><td>6</td><td>NFIU sandbox / submission API</td><td>Pending</td></tr>
+  <tr><td>7</td><td>Real NFIU submit (not audit-only)</td><td>Not started</td></tr>
+  <tr><td>8</td><td>Production sanctions / watchlist</td><td>Pending</td></tr>
+  <tr><td>9</td><td>Live screening feed</td><td>Partial</td></tr>
+  <tr><td>10</td><td>Production OTP (email/SMS)</td><td>Not started</td></tr>
+  <tr><td>11</td><td>Production hosting &amp; security</td><td>Pending</td></tr>
+  <tr><td>12</td><td>30-day UAT parallel run</td><td>Not started</td></tr>
+  <tr><td>13</td><td>Compliance written sign-off</td><td>Not started</td></tr>
+</table>
+
+<h3>5.2 Immediate next steps</h3>
+<ol>
+  <li>VPN laptop: clone, configure .env, run first live ETL</li>
+  <li>Validate names and counts in Data Quality UI</li>
+  <li>Demo CTR/FTR report generation from live data</li>
+  <li>Run Module 4 smoke test</li>
+  <li>Request goAML spec + NFIU sandbox from Nova</li>
+  <li>Confirm sanctions/watchlist provider</li>
+  <li>Plan 30-day parallel UAT with compliance team</li>
+</ol>
+
+<h2>6. Summary Scorecard</h2>
+<div class="scorecard">COMPLETED:
+  Full portal (M1 Reporting + M2 Screening + Integration)
+  Auth, roles, team management
+  ETL: mock / csv / oracle (TBAADM.HTD + GAM)
+  Staging, quality, CTR/FTR/PEP/STR reports
+  Screening queue + sync API
+  Partner APIs (ingest, screening, API keys)
+  Docs, tests (14), GitHub monorepo
+  Bank confirmed HTD + GAM; Oracle credentials received
+
+IN PROGRESS:
+  VPN laptop first live Oracle ETL
+
+NOT STARTED (production):
+  goAML official format, NFIU real submission
+  Production sanctions feeds, OTP email/SMS
+  Production hosting, 30-day UAT, sign-off
+
+PROJECT COMPLETE = all Section 5.1 must-haves + sign-off
+~91% demo | ~50% production remaining</div>
+
+<hr>
+<p style="font-size:9pt;color:#666;">Nova Bank Compliance Sidecar — Status Report — 7 September 2026</p>
+
+</body>
+</html>

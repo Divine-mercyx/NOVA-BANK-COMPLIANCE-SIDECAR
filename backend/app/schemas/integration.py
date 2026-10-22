@@ -12,6 +12,10 @@ class ExportMeta(BaseModel):
     period_end: datetime
     report_type: str | None = None
     scope: str = "all"
+    channel: str | None = Field(
+        default=None,
+        description="Channel filter applied to the pull, e.g. NIP.",
+    )
     ctr_threshold_ngn: float | None = None
     total_matching: int
     returned: int
@@ -237,6 +241,7 @@ class DtdVendorTransaction(BaseModel):
 class DtdExportMeta(BaseModel):
     business_date: date
     source: str = "TBAADM.DTD"
+    channel: str = "NIP"
     total_matching: int
     returned: int
     offset: int

@@ -62,7 +62,7 @@ async def dashboard(db: AsyncSession = Depends(get_db)):
     )
 
     pipeline_status = "idle"
-    if last_run:
+    if last_run and last_run.status.value != "running":
         pipeline_status = last_run.status.value
 
     return DashboardStats(
