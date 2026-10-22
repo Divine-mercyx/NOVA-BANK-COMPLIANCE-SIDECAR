@@ -227,7 +227,7 @@ export function DashboardPage() {
               hint={`${formatNumber(data.data_quality.valid_records)} valid · ${formatNumber(data.data_quality.invalid_records)} need review`}
             />
             <FeaturedKpiCard
-              tone="blue"
+              tone="rose"
               icon={Shield}
               label="CTR reportable"
               value={formatNumber(data.data_quality.ctr_eligible)}

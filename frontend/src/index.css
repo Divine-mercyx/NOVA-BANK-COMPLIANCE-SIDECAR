@@ -12,35 +12,35 @@
     --content: 17 24 39;
     --content-muted: 90 102 120;
     --content-subtle: 148 157 172;
-    --brand: 109 76 217;
-    --brand-hover: 91 62 194;
-    --brand-muted: 237 231 255;
+    --brand: 0 82 168;
+    --brand-hover: 0 64 132;
+    --brand-muted: 219 234 254;
     --brand-foreground: 255 255 255;
-    --accent: 109 76 217;
-    --accent-hover: 91 62 194;
-    --accent-muted: 237 231 255;
+    --accent: 0 82 168;
+    --accent-hover: 0 64 132;
+    --accent-muted: 219 234 254;
     --accent-foreground: 255 255 255;
-    --sidebar: 36 22 62;
-    --sidebar-foreground: 248 246 255;
-    --sidebar-muted: 168 155 196;
+    --sidebar: 11 31 58;
+    --sidebar-foreground: 248 250 252;
+    --sidebar-muted: 148 163 184;
     --success: 22 101 52;
     --success-muted: 220 252 231;
     --warning: 180 83 9;
     --warning-muted: 254 243 199;
     --danger: 185 28 28;
     --danger-muted: 254 226 226;
-    --info: 109 76 217;
-    --code-bg: 30 27 46;
+    --info: 0 82 168;
+    --code-bg: 15 23 42;
     --code-fg: 226 232 240;
-    --shadow-soft: 0 1px 2px rgba(36, 22, 62, 0.06);
-    --shadow-card: 0 8px 30px rgba(36, 22, 62, 0.08);
-    --shadow-lg: 0 24px 48px rgba(36, 22, 62, 0.12);
+    --shadow-soft: 0 1px 2px rgba(11, 31, 58, 0.06);
+    --shadow-card: 0 8px 30px rgba(11, 31, 58, 0.1);
+    --shadow-lg: 0 24px 48px rgba(11, 31, 58, 0.14);
   }
 
   .dark {
-    --sidebar: 20 14 36;
-    --sidebar-foreground: 248 246 255;
-    --sidebar-muted: 148 140 170;
+    --sidebar: 8 20 40;
+    --sidebar-foreground: 248 250 252;
+    --sidebar-muted: 148 163 184;
     --surface: 15 17 26;
     --surface-raised: 24 27 38;
     --surface-overlay: 35 39 54;
@@ -49,22 +49,22 @@
     --content: 248 250 252;
     --content-muted: 156 163 175;
     --content-subtle: 107 114 128;
-    --brand: 147 120 255;
-    --brand-hover: 167 139 250;
-    --brand-muted: 55 48 85;
+    --brand: 96 165 250;
+    --brand-hover: 147 197 253;
+    --brand-muted: 30 58 95;
     --brand-foreground: 255 255 255;
-    --accent: 147 120 255;
-    --accent-hover: 167 139 250;
-    --accent-muted: 55 48 85;
-    --accent-foreground: 255 255 255;
+    --accent: 96 165 250;
+    --accent-hover: 147 197 253;
+    --accent-muted: 30 58 95;
+    --accent-foreground: 15 23 42;
     --success: 134 239 172;
     --success-muted: 20 83 45;
     --warning: 253 224 71;
     --warning-muted: 120 53 15;
     --danger: 252 165 165;
     --danger-muted: 127 29 29;
-    --info: 167 139 250;
-    --code-bg: 12 10 22;
+    --info: 96 165 250;
+    --code-bg: 8 15 30;
     --code-fg: 203 213 225;
     --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.35);
     --shadow-card: 0 8px 24px rgba(0, 0, 0, 0.35);
@@ -150,7 +150,7 @@
   }
 
   .hero-panel {
-    @apply overflow-hidden rounded-3xl bg-gradient-to-br from-sidebar via-[rgb(45,27,78)] to-[rgb(26,16,48)] px-6 py-6 text-white shadow-lg sm:px-8;
+    @apply overflow-hidden rounded-3xl bg-gradient-to-br from-sidebar via-[rgb(15,48,96)] to-[rgb(8,20,40)] px-6 py-6 text-white shadow-lg sm:px-8;
   }
 
   .kpi-featured {
@@ -235,11 +235,11 @@
 
   .sidebar-nav-link-active-expanded::before {
     content: "";
-    @apply absolute left-0 top-1/2 h-7 w-1 -translate-y-1/2 rounded-r-full bg-accent shadow-[0_0_14px_rgba(147,120,255,0.75)];
+    @apply absolute left-0 top-1/2 h-7 w-1 -translate-y-1/2 rounded-r-full bg-accent shadow-[0_0_14px_rgba(59,130,246,0.75)];
   }
 
   .sidebar-nav-link-active-collapsed {
-    @apply bg-accent text-accent-foreground shadow-[0_8px_24px_rgba(109,76,217,0.45)] ring-2 ring-white/20;
+    @apply bg-accent text-accent-foreground shadow-[0_8px_24px_rgba(0,82,168,0.45)] ring-2 ring-white/20;
   }
 
   .sidebar-nav-icon {
@@ -260,7 +260,7 @@
 
   .sidebar-nav-child-active::before {
     content: "";
-    @apply absolute -left-2 top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-accent shadow-[0_0_8px_rgba(147,120,255,0.8)];
+    @apply absolute -left-2 top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-accent shadow-[0_0_8px_rgba(59,130,246,0.8)];
   }
 
   .code-panel {
@@ -271,7 +271,7 @@
 
   .auth-shell {
     @apply flex min-h-screen items-center justify-center p-4 sm:p-8;
-    background: linear-gradient(145deg, rgb(36 22 62) 0%, rgb(20 12 36) 55%, rgb(109 76 217 / 0.4) 100%);
+    background: linear-gradient(145deg, rgb(11 31 58) 0%, rgb(8 20 40) 55%, rgb(0 82 168 / 0.45) 100%);
   }
 
   .auth-frame {
@@ -279,7 +279,7 @@
   }
 
   .auth-hero {
-    background: linear-gradient(165deg, rgb(45 27 78) 0%, rgb(36 22 62) 45%, rgb(109 76 217 / 0.45) 100%);
+    background: linear-gradient(165deg, rgb(15 40 80) 0%, rgb(11 31 58) 45%, rgb(0 82 168 / 0.5) 100%);
     position: relative;
     overflow: hidden;
   }
