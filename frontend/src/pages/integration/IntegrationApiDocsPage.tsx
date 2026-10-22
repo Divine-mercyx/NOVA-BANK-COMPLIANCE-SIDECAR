@@ -99,10 +99,11 @@ export function IntegrationApiDocsPage() {
     [periodParams, parsedPullLimit],
   );
 
+  /** DTD export is one Lagos calendar day — use the period **To** date (not the range). */
   const dtdQuery = useMemo(() => {
-    const date = `${periodFrom.year}-${String(periodFrom.month).padStart(2, "0")}-${String(periodFrom.day).padStart(2, "0")}`;
+    const date = `${periodTo.year}-${String(periodTo.month).padStart(2, "0")}-${String(periodTo.day).padStart(2, "0")}`;
     return { date, limit: parsedPullLimit };
-  }, [periodFrom, parsedPullLimit]);
+  }, [periodTo, parsedPullLimit]);
 
   const persistKey = (value: string) => {
     setApiKey(value);
@@ -217,7 +218,10 @@ export function IntegrationApiDocsPage() {
       description:
         "NIP-only pairs staged from same-day TBAADM.DTD (one Lagos day). Institution codes from NIP_OUT_FLW / NIP_IN_FLW when matched.",
       params: [
-        { name: "date", hint: "YYYY-MM-DD. Omit = today (Africa/Lagos). One day only — not a range." },
+        {
+          name: "date",
+          hint: "YYYY-MM-DD (Africa/Lagos). Docs tester sends the period **To** date below. One day only — not date_from/date_to.",
+        },
         { name: "limit", hint: "Optional. Omit for all rows that day (server cap 50,000)." },
       ],
       run: async () => execute("dtd", "/api/v1/export/dtd", dtdQuery),
@@ -379,7 +383,10 @@ export function IntegrationApiDocsPage() {
           </label>
         </div>
         <p className="border-t border-border px-5 py-3 text-[11px] text-content-subtle">
-          Period {formatCalendarDateLabel(periodFrom)} – {formatCalendarDateLabel(periodTo)} (Africa/Lagos, inclusive)
+          Period {formatCalendarDateLabel(periodFrom)} – {formatCalendarDateLabel(periodTo)} (Africa/Lagos, inclusive) for
+          summary and NIP transactions. Daily DTD uses only{" "}
+          <span className="font-medium text-content">{formatCalendarDateLabel(periodTo)}</span> as the{" "}
+          <code className="font-mono">date</code> query param.
         </p>
       </div>
 

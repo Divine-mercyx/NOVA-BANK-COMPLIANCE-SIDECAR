@@ -2,7 +2,7 @@ from datetime import datetime
 
 import pytest
 
-from app.services.integration.period import resolve_export_window
+from app.services.integration.period import dtd_day_param, resolve_export_window
 
 
 def test_same_calendar_day_is_inclusive():
@@ -29,3 +29,10 @@ def test_explicit_datetimes_are_kept():
 def test_reversed_range_rejected():
     with pytest.raises(Exception):
         resolve_export_window(datetime(2023, 2, 4), datetime(2023, 2, 3))
+
+
+def test_dtd_day_param_is_single_lagos_calendar_day():
+    day = dtd_day_param(datetime(2026, 10, 22))
+    assert day.year == 2026
+    assert day.month == 10
+    assert day.day == 22
