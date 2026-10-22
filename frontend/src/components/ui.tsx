@@ -1,6 +1,6 @@
 import { type LucideIcon } from "lucide-react";
 import { type ReactNode } from "react";
-import { Cell, Pie, PieChart, ResponsiveContainer } from "recharts";
+import { Area, AreaChart, Cell, Pie, PieChart, ResponsiveContainer } from "recharts";
 
 export function PageHeader({
   title,
@@ -27,6 +27,124 @@ export function PageHeader({
         {subtitle && <p className="mt-1 text-sm text-content-muted">{subtitle}</p>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+    </div>
+  );
+}
+
+export type KpiTone = "violet" | "blue" | "rose" | "emerald" | "amber";
+
+const kpiToneStroke: Record<KpiTone, string> = {
+  violet: "rgb(109, 76, 217)",
+  blue: "rgb(14, 165, 233)",
+  rose: "rgb(244, 63, 94)",
+  emerald: "rgb(16, 185, 129)",
+  amber: "rgb(245, 158, 11)",
+};
+
+const kpiToneIconWrap: Record<KpiTone, string> = {
+  violet: "bg-accent/15 text-accent ring-accent/20",
+  blue: "bg-sky-500/15 text-sky-600 ring-sky-500/20 dark:text-sky-400",
+  rose: "bg-rose-500/15 text-rose-600 ring-rose-500/20 dark:text-rose-400",
+  emerald: "bg-emerald-500/15 text-emerald-600 ring-emerald-500/20 dark:text-emerald-400",
+  amber: "bg-amber-500/15 text-amber-600 ring-amber-500/20 dark:text-amber-400",
+};
+
+function MiniSparkline({ values, stroke }: { values: number[]; stroke: string }) {
+  const series =
+    values.length >= 2
+      ? values
+      : values.length === 1
+        ? [0, values[0]]
+        : [0, 0, 0, 0, 0];
+  const data = series.map((v, i) => ({ i, v }));
+
+  return (
+    <div className="h-11 w-[76px] shrink-0">
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={data} margin={{ top: 6, right: 2, left: 2, bottom: 0 }}>
+          <Area
+            type="monotone"
+            dataKey="v"
+            stroke={stroke}
+            fill={stroke}
+            fillOpacity={0.12}
+            strokeWidth={2}
+            dot={false}
+            isAnimationActive={false}
+          />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+export function FeaturedKpiCard({
+  label,
+  value,
+  hint,
+  tone = "violet",
+  icon: Icon,
+  sparkline,
+  change,
+  changeUp,
+  ringPercent,
+}: {
+  label: string;
+  value: string | number;
+  hint?: string;
+  tone?: KpiTone;
+  icon?: LucideIcon;
+  sparkline?: number[];
+  change?: string;
+  changeUp?: boolean;
+  ringPercent?: number;
+}) {
+  const stroke = kpiToneStroke[tone];
+  const changeClass =
+    changeUp === undefined ? "kpi-change-neutral" : changeUp ? "kpi-change-up" : "kpi-change-down";
+
+  return (
+    <div className={`kpi-featured-${tone}`}>
+      <div
+        className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full opacity-40 blur-2xl"
+        style={{ background: stroke }}
+        aria-hidden
+      />
+      <div className="relative flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2.5">
+            {Icon && (
+              <span
+                className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ring-1 ring-inset ${kpiToneIconWrap[tone]}`}
+              >
+                <Icon className="h-4 w-4" strokeWidth={2.25} />
+              </span>
+            )}
+            <p className="text-xs font-semibold uppercase tracking-wide text-content-muted">{label}</p>
+          </div>
+          <p className="mt-3 text-3xl font-semibold tracking-tight text-content tabular-nums sm:text-[2rem] leading-none">
+            {value}
+          </p>
+          {(change || hint) && (
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              {change && (
+                <span className={changeClass}>
+                  {changeUp !== undefined && (changeUp ? "↑" : "↓")} {change}
+                </span>
+              )}
+              {hint && <span className="text-xs text-content-muted">{hint}</span>}
+            </div>
+          )}
+        </div>
+        <div className="flex flex-col items-end gap-2">
+          {sparkline && sparkline.length > 0 && <MiniSparkline values={sparkline} stroke={stroke} />}
+          {ringPercent !== undefined && (
+            <span className="rounded-lg bg-surface-raised/80 px-2 py-1 text-xs font-semibold tabular-nums text-content ring-1 ring-border/80">
+              {ringPercent}%
+            </span>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -240,7 +358,7 @@ export function LoadingGrid({ count = 4 }: { count?: number }) {
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       {Array.from({ length: count }).map((_, i) => (
-        <div key={i} className="card h-28 animate-pulse bg-surface-overlay/50" />
+        <div key={i} className="kpi-featured-violet h-[8.5rem] animate-pulse bg-surface-overlay/30" />
       ))}
     </div>
   );

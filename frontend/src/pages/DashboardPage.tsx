@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useState } from "react";
-import { Play, RefreshCw } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { AlertTriangle, CheckCircle2, FileStack, Play, RefreshCw, Shield } from "lucide-react";
 import { Link } from "react-router-dom";
-import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ExtractionProgressBanner } from "../components/ExtractionProgressBanner";
 import { ExtractionRunModal } from "../components/ExtractionRunModal";
-import { EmptyState, KpiCard, LoadingGrid } from "../components/ui";
-import { api, DashboardStats, ExtractionLog } from "../lib/api";
+import { EmptyState, FeaturedKpiCard, LoadingGrid } from "../components/ui";
+import { api, DashboardStats, ExtractionLog, ExtractionRun } from "../lib/api";
+import { compareLastTwo, recentRunSeries, shareOfTotal } from "../lib/dashboardMetrics";
 import type { ExtractionRunParams } from "../lib/dates";
 import { progressLabel } from "../lib/extractionProgress";
 import { actionLabel, formatDateRange, formatNumber, formatRelative } from "../lib/format";
@@ -16,19 +17,23 @@ import { useLiveRefresh } from "../lib/live";
 export function DashboardPage() {
   const { user } = useAuth();
   const [data, setData] = useState<DashboardStats | null>(null);
+  const [runs, setRuns] = useState<ExtractionRun[]>([]);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
   const [starting, setStarting] = useState(false);
   const [extractOpen, setExtractOpen] = useState(false);
   const [progressMessage, setProgressMessage] = useState<string | null>(null);
   const [runLogs, setRunLogs] = useState<ExtractionLog[]>([]);
+  const [volumeView, setVolumeView] = useState<"channel" | "flags">("channel");
 
   const firstName = user?.full_name?.split(" ")[0] ?? "there";
 
   const load = async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      setData(await api.dashboard());
+      const [dashboard, runList] = await Promise.all([api.dashboard(), api.listRuns()]);
+      setData(dashboard);
+      setRuns(runList);
     } finally {
       setLoading(false);
     }
@@ -97,10 +102,39 @@ export function DashboardPage() {
     }
   };
 
-  const chartData = Object.entries(data?.data_quality.by_channel ?? {}).map(([channel, count]) => ({
-    name: channel.replace(/_/g, " "),
-    count,
-  }));
+  const dq = data?.data_quality;
+  const totalStaged = data?.total_staged_transactions ?? 0;
+  const extractSeries = useMemo(() => recentRunSeries(runs, "records_extracted"), [runs]);
+  const validSeries = useMemo(() => recentRunSeries(runs, "records_valid"), [runs]);
+  const extractTrend = useMemo(() => compareLastTwo(extractSeries), [extractSeries]);
+  const validTrend = useMemo(() => compareLastTwo(validSeries), [validSeries]);
+
+  const channelChart = useMemo(() => {
+    const entries = Object.entries(dq?.by_channel ?? {}).map(([channel, count]) => ({
+      name: channel.replace(/_/g, " "),
+      count,
+    }));
+    return entries.sort((a, b) => b.count - a.count);
+  }, [dq?.by_channel]);
+
+  const flagChart = useMemo(
+    () =>
+      dq
+        ? [
+            { name: "CTR", count: dq.ctr_eligible },
+            { name: "FTR", count: dq.ftr_eligible },
+            { name: "PEP", count: dq.pep_eligible },
+            { name: "STR", count: dq.str_eligible },
+          ]
+        : [],
+    [dq],
+  );
+
+  const activeChart = volumeView === "channel" ? channelChart : flagChart;
+  const chartPeak = activeChart.reduce((max, row) => (row.count > max ? row.count : max), 0);
+  const chartTitle = volumeView === "channel" ? "Volume by channel" : "Regulatory flags";
+  const chartSubtitle =
+    volumeView === "channel" ? "Where staged Finacle traffic sits today" : "Reportable signals across the warehouse";
 
   return (
     <div>
@@ -148,78 +182,142 @@ export function DashboardPage() {
         <LoadingGrid />
       ) : data ? (
         <>
-          <div className="hero-panel mb-6">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-              <div>
-                <p className="text-xs font-medium uppercase tracking-[0.14em] text-white/50">Staged warehouse</p>
-                <p className="mt-2 text-3xl font-semibold tabular-nums tracking-tight sm:text-4xl">
-                  {formatNumber(data.total_staged_transactions)}
-                </p>
-                <p className="mt-2 text-sm text-white/60">
-                  {data.last_extraction
-                    ? `Last extract ${formatDateRange(data.last_extraction.date_from, data.last_extraction.date_to)}`
-                    : "No extraction run yet"}
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center gap-3">
-                <span className="inline-flex items-center rounded-full bg-white/10 px-3 py-1 text-xs font-medium capitalize text-white/80">
-                  {data.pipeline_status.replace(/_/g, " ")}
-                </span>
-                <span className="text-sm text-white/55">{data.data_quality.validation_rate}% valid</span>
-                <Link to="/reports" className="rounded-xl bg-accent px-4 py-2 text-sm font-medium text-white shadow-md hover:bg-accent-hover">
-                  View transactions
-                </Link>
-              </div>
-            </div>
+          <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <FeaturedKpiCard
+              tone="violet"
+              icon={FileStack}
+              label="Staged transactions"
+              value={formatNumber(totalStaged)}
+              sparkline={extractSeries}
+              change={extractTrend?.label}
+              changeUp={extractTrend?.up}
+              hint={
+                data.last_extraction
+                  ? `Last extract ${formatDateRange(data.last_extraction.date_from, data.last_extraction.date_to)}`
+                  : "Run extraction to populate"
+              }
+            />
+            <FeaturedKpiCard
+              tone="emerald"
+              icon={CheckCircle2}
+              label="Data quality"
+              value={`${data.data_quality.validation_rate}%`}
+              ringPercent={data.data_quality.validation_rate}
+              sparkline={validSeries}
+              change={validTrend?.label}
+              changeUp={validTrend?.up ?? data.data_quality.validation_rate >= 95}
+              hint={`${formatNumber(data.data_quality.valid_records)} valid · ${formatNumber(data.data_quality.invalid_records)} need review`}
+            />
+            <FeaturedKpiCard
+              tone="blue"
+              icon={Shield}
+              label="CTR reportable"
+              value={formatNumber(data.data_quality.ctr_eligible)}
+              change={`${shareOfTotal(data.data_quality.ctr_eligible, totalStaged)}% of staged`}
+              changeUp={data.data_quality.ctr_eligible > 0}
+              hint={`FTR ${formatNumber(data.data_quality.ftr_eligible)} · PEP ${formatNumber(data.data_quality.pep_eligible)}`}
+            />
+            <FeaturedKpiCard
+              tone="amber"
+              icon={AlertTriangle}
+              label="Reports pipeline"
+              value={formatNumber(data.pending_reports)}
+              hint={`${formatNumber(data.submitted_reports)} submitted to regulators`}
+              change={data.pipeline_status.replace(/_/g, " ")}
+              changeUp={data.pipeline_status === "success"}
+            />
           </div>
 
-          <div className="mb-6 grid gap-4 sm:grid-cols-3">
-            <KpiCard
-              label="CTR flagged"
-              value={formatNumber(data.data_quality.ctr_eligible)}
-              ringPercent={data.data_quality.validation_rate}
-            />
-            <KpiCard label="FTR flagged" value={formatNumber(data.data_quality.ftr_eligible)} />
-            <KpiCard
-              label="PEP / STR"
-              value={`${formatNumber(data.data_quality.pep_eligible)} / ${formatNumber(data.data_quality.str_eligible)}`}
-            />
+          <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-border bg-surface-raised px-4 py-3 shadow-soft sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <span className="theme-chip capitalize">{data.pipeline_status.replace(/_/g, " ")}</span>
+              <span className="text-content-muted">
+                Finacle {extractModeLabel(data.finacle_mode).toLowerCase()} · {formatNumber(data.data_quality.str_eligible)} STR candidates
+              </span>
+            </div>
+            <Link to="/reports" className="btn-primary shrink-0 px-4 py-2 text-sm">
+              Browse transactions
+            </Link>
           </div>
 
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(280px,0.8fr)]">
-            <div className="card p-5">
-              <div className="mb-4 flex items-center justify-between">
+            <div className="card p-5 sm:p-6">
+              <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                 <div>
-                  <h2 className="font-semibold text-content">Volume by channel</h2>
-                  <p className="text-sm text-content-muted">Staged Finacle distribution</p>
+                  <h2 className="text-lg font-semibold tracking-tight text-content">{chartTitle}</h2>
+                  <p className="mt-0.5 text-sm text-content-muted">{chartSubtitle}</p>
+                  {volumeView === "channel" && channelChart.length > 0 && (
+                    <p className="mt-2 text-2xl font-semibold tabular-nums text-content">
+                      {formatNumber(channelChart.reduce((s, r) => s + r.count, 0))}
+                      <span className="ml-2 text-sm font-medium text-content-muted">records across channels</span>
+                    </p>
+                  )}
+                </div>
+                <div className="flex rounded-xl border border-border bg-surface-overlay/60 p-1 text-sm">
+                  <button
+                    type="button"
+                    className={`rounded-lg px-3 py-1.5 font-medium transition ${
+                      volumeView === "channel" ? "bg-surface-raised text-accent shadow-soft" : "text-content-muted hover:text-content"
+                    }`}
+                    onClick={() => setVolumeView("channel")}
+                  >
+                    Channels
+                  </button>
+                  <button
+                    type="button"
+                    className={`rounded-lg px-3 py-1.5 font-medium transition ${
+                      volumeView === "flags" ? "bg-surface-raised text-accent shadow-soft" : "text-content-muted hover:text-content"
+                    }`}
+                    onClick={() => setVolumeView("flags")}
+                  >
+                    Flags
+                  </button>
                 </div>
               </div>
-              {chartData.length > 0 ? (
-                <div className="h-56">
+              {activeChart.length > 0 ? (
+                <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={chartData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(11,31,58,0.08)" />
-                      <XAxis dataKey="name" tick={{ fontSize: 11, fill: "rgb(var(--content-muted))" }} />
-                      <YAxis tick={{ fontSize: 11, fill: "rgb(var(--content-muted))" }} />
+                    <BarChart data={activeChart} margin={{ top: 12, right: 8, left: -16, bottom: 0 }} barCategoryGap="18%">
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgb(var(--border) / 0.6)" />
+                      <XAxis
+                        dataKey="name"
+                        tick={{ fontSize: 11, fill: "rgb(var(--content-muted))" }}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <YAxis
+                        tick={{ fontSize: 11, fill: "rgb(var(--content-muted))" }}
+                        axisLine={false}
+                        tickLine={false}
+                        allowDecimals={false}
+                      />
                       <Tooltip
+                        cursor={{ fill: "rgb(var(--accent-muted) / 0.35)" }}
                         contentStyle={{
                           borderRadius: 12,
                           border: "1px solid rgb(var(--border))",
                           background: "rgb(var(--surface-raised))",
+                          boxShadow: "var(--shadow-card)",
                         }}
+                        formatter={(value: number) => [formatNumber(value), "Count"]}
                       />
-                      <Area
-                        type="monotone"
-                        dataKey="count"
-                        stroke="rgb(var(--accent))"
-                        fill="rgba(109,76,217,0.12)"
-                        strokeWidth={2}
-                      />
-                    </AreaChart>
+                      <Bar dataKey="count" radius={[8, 8, 0, 0]} maxBarSize={48}>
+                        {activeChart.map((entry) => (
+                          <Cell
+                            key={entry.name}
+                            fill={
+                              entry.count === chartPeak && chartPeak > 0
+                                ? "rgb(var(--accent))"
+                                : "rgb(var(--accent) / 0.28)"
+                            }
+                          />
+                        ))}
+                      </Bar>
+                    </BarChart>
                   </ResponsiveContainer>
                 </div>
               ) : (
-                <p className="py-12 text-center text-sm text-content-muted">No channel volume until an extraction completes.</p>
+                <p className="py-14 text-center text-sm text-content-muted">No staged data yet — run an extraction to see volume.</p>
               )}
             </div>
 

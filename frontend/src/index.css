@@ -153,6 +153,46 @@
     @apply overflow-hidden rounded-3xl bg-gradient-to-br from-sidebar via-[rgb(45,27,78)] to-[rgb(26,16,48)] px-6 py-6 text-white shadow-lg sm:px-8;
   }
 
+  .kpi-featured {
+    @apply relative overflow-hidden rounded-2xl border p-5 shadow-card transition hover:shadow-lg;
+  }
+
+  .kpi-featured-violet {
+    @apply kpi-featured border-accent/20 bg-gradient-to-br from-accent-muted/90 via-surface-raised to-surface-raised;
+  }
+
+  .kpi-featured-blue {
+    @apply kpi-featured border-sky-200/80 bg-gradient-to-br from-sky-50 via-surface-raised to-surface-raised dark:border-sky-500/20 dark:from-sky-950/40;
+  }
+
+  .kpi-featured-rose {
+    @apply kpi-featured border-rose-200/80 bg-gradient-to-br from-rose-50 via-surface-raised to-surface-raised dark:border-rose-500/20 dark:from-rose-950/35;
+  }
+
+  .kpi-featured-emerald {
+    @apply kpi-featured border-emerald-200/80 bg-gradient-to-br from-emerald-50 via-surface-raised to-surface-raised dark:border-emerald-500/20 dark:from-emerald-950/35;
+  }
+
+  .kpi-featured-amber {
+    @apply kpi-featured border-amber-200/80 bg-gradient-to-br from-amber-50 via-surface-raised to-surface-raised dark:border-amber-500/20 dark:from-amber-950/35;
+  }
+
+  .kpi-change-pill {
+    @apply inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums;
+  }
+
+  .kpi-change-up {
+    @apply kpi-change-pill bg-success-muted/80 text-success;
+  }
+
+  .kpi-change-down {
+    @apply kpi-change-pill bg-danger-muted/80 text-danger;
+  }
+
+  .kpi-change-neutral {
+    @apply kpi-change-pill bg-surface-overlay text-content-muted;
+  }
+
   .code-panel {
     @apply overflow-hidden rounded-xl border border-border shadow-lg;
     background: rgb(var(--code-bg));
