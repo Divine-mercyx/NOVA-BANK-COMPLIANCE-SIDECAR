@@ -23,6 +23,7 @@ import { roleLabel } from "../lib/format";
 import { NOVA_BANK_LOGO_URL } from "../lib/brand";
 import { pageTitle } from "../lib/pageTitles";
 import { useSidebar } from "../lib/sidebar";
+import { PageTransition } from "./PageTransition";
 import { ThemeToggle } from "./ThemeToggle";
 
 const reportingNav = [
@@ -243,7 +244,8 @@ export function Layout() {
 
       <div className="flex min-h-screen flex-1 flex-col p-3 sm:p-4" style={{ marginLeft: width }}>
         <div className="nova-app-panel flex min-h-[calc(100vh-1.5rem)] flex-1 flex-col overflow-hidden rounded-[28px]">
-          <header className="flex h-[4.25rem] shrink-0 items-center gap-4 border-b border-border/80 px-5 sm:px-7">
+          <header className="relative flex h-[4.25rem] shrink-0 items-center gap-4 border-b border-border/80 px-5 sm:px-7">
+            <div className="wow-header-accent absolute inset-x-0 bottom-0 h-px" aria-hidden />
             <div className="min-w-0">
               <h1 className="truncate text-lg font-semibold tracking-tight text-content sm:text-xl">{title}</h1>
               <p className="hidden text-xs text-content-muted sm:block">Nova compliance · Finacle staging</p>
@@ -270,8 +272,10 @@ export function Layout() {
             </div>
           </header>
 
-          <main className="flex-1 overflow-y-auto px-5 py-6 sm:px-7">
-            <Outlet />
+          <main className="relative z-[1] flex-1 overflow-y-auto px-5 py-6 sm:px-7">
+            <PageTransition>
+              <Outlet />
+            </PageTransition>
           </main>
         </div>
       </div>

@@ -70,7 +70,8 @@ function MiniSparkline({ values, stroke }: { values: number[]; stroke: string })
             fillOpacity={0.12}
             strokeWidth={2}
             dot={false}
-            isAnimationActive={false}
+            isAnimationActive={true}
+            animationDuration={900}
           />
         </AreaChart>
       </ResponsiveContainer>

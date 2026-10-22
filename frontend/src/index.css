@@ -99,6 +99,7 @@
       radial-gradient(ellipse 80% 55% at 0% 100%, rgb(var(--nova-navy) / 0.07), transparent 52%);
     background-size: 420px 420px, 100% 100%, 100% 100%;
     background-position: center top, center, center;
+    animation: nova-mesh-drift 72s ease-in-out infinite;
   }
 
   .dark .nova-workspace-bg {
@@ -109,10 +110,43 @@
   }
 
   .nova-app-panel {
-    @apply border border-white/70 bg-surface-raised/95 shadow-card backdrop-blur-md dark:border-white/10 dark:bg-surface-raised/90;
+    @apply relative overflow-hidden border border-white/70 bg-surface-raised/95 shadow-card backdrop-blur-md dark:border-white/10 dark:bg-surface-raised/90;
+    animation: nova-panel-breathe 10s ease-in-out infinite;
+  }
+
+  .nova-app-panel::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.65);
+  }
+
+  .nova-app-panel::after {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    pointer-events: none;
+    padding: 1px;
+    background: linear-gradient(
+      120deg,
+      rgb(var(--nova-cyan) / 0.55),
+      transparent 35%,
+      transparent 65%,
+      rgb(var(--nova-cyan) / 0.35)
+    );
+    mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+    animation: nova-border-shine 14s linear infinite;
+    opacity: 0.7;
   }
 
   .nova-sidebar {
+    position: relative;
     color: rgb(var(--sidebar-foreground));
     background-color: rgb(var(--sidebar-deep));
     background-image:
@@ -127,6 +161,20 @@
     border-right: 1px solid rgb(var(--nova-cyan) / 0.18);
     box-shadow: 4px 0 28px rgb(var(--sidebar-deep) / 0.45);
   }
+
+  .nova-sidebar::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(ellipse 90% 45% at 50% -5%, rgb(var(--nova-cyan) / 0.22), transparent 58%);
+    animation: nova-sidebar-aurora 9s ease-in-out infinite;
+  }
+
+  .wow-header-accent {
+    background: linear-gradient(90deg, rgb(var(--nova-cyan)), rgb(var(--nova-cyan) / 0.2), transparent);
+    animation: nova-header-sweep 8s ease-in-out infinite;
+  }
 }
 
 @layer components {
@@ -139,7 +187,7 @@
   }
 
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-accent-foreground shadow-soft transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-accent-foreground shadow-soft transition-all duration-200 hover:bg-accent-hover hover:shadow-[0_8px_24px_rgb(var(--nova-cyan)/0.35)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50;
   }
 
   .btn-secondary {
@@ -203,7 +251,31 @@
   }
 
   .kpi-featured {
-    @apply relative min-h-[8.5rem] overflow-hidden rounded-2xl border p-5 shadow-card transition hover:shadow-lg;
+    @apply relative min-h-[8.5rem] overflow-hidden rounded-2xl border p-5 shadow-card transition-all duration-300 ease-out;
+  }
+
+  .kpi-featured:hover {
+    transform: translateY(-4px);
+    box-shadow:
+      var(--shadow-lg),
+      0 0 0 1px rgb(var(--nova-cyan) / 0.12),
+      0 16px 48px rgb(var(--nova-cyan) / 0.14);
+  }
+
+  .kpi-featured::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0;
+    background: linear-gradient(105deg, transparent 40%, rgb(255 255 255 / 0.35) 50%, transparent 60%);
+    transform: translateX(-120%);
+    transition: opacity 0.3s;
+  }
+
+  .kpi-featured:hover::after {
+    opacity: 1;
+    animation: nova-card-shine 0.85s ease-out;
   }
 
   .kpi-tone-violet {
@@ -331,6 +403,7 @@
     background: linear-gradient(165deg, rgb(0 173 239 / 0.35) 0%, rgb(30 32 94) 40%, rgb(18 20 52) 100%);
     position: relative;
     overflow: hidden;
+    animation: nova-auth-aurora 12s ease-in-out infinite;
   }
 
   .auth-hero::after {
@@ -371,5 +444,159 @@
 
   .auth-footnote {
     @apply text-center text-sm text-content-subtle;
+  }
+}
+
+@layer utilities {
+  .wow-page-enter {
+    animation: wow-fade-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .wow-stagger > * {
+    animation: wow-fade-up 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .wow-stagger > *:nth-child(1) {
+    animation-delay: 0.05s;
+  }
+
+  .wow-stagger > *:nth-child(2) {
+    animation-delay: 0.1s;
+  }
+
+  .wow-stagger > *:nth-child(3) {
+    animation-delay: 0.15s;
+  }
+
+  .wow-stagger > *:nth-child(4) {
+    animation-delay: 0.2s;
+  }
+
+  .wow-stagger > *:nth-child(5) {
+    animation-delay: 0.25s;
+  }
+
+  .wow-stagger > *:nth-child(6) {
+    animation-delay: 0.3s;
+  }
+
+  .wow-reveal {
+    animation: wow-fade-up 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.22s both;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .nova-workspace-bg,
+    .nova-app-panel,
+    .nova-app-panel::after,
+    .nova-sidebar::after,
+    .wow-header-accent,
+    .auth-hero,
+    .wow-page-enter,
+    .wow-stagger > *,
+    .wow-reveal,
+    .kpi-featured:hover::after {
+      animation: none !important;
+    }
+
+    .kpi-featured:hover {
+      transform: none;
+    }
+  }
+}
+
+@keyframes nova-mesh-drift {
+  0%,
+  100% {
+    background-position: 0% 0%, center, center;
+  }
+
+  50% {
+    background-position: 100% 60%, center, center;
+  }
+}
+
+@keyframes nova-panel-breathe {
+  0%,
+  100% {
+    box-shadow: var(--shadow-card);
+  }
+
+  50% {
+    box-shadow:
+      var(--shadow-lg),
+      0 0 48px rgb(var(--nova-cyan) / 0.1);
+  }
+}
+
+@keyframes nova-border-shine {
+  0% {
+    filter: hue-rotate(0deg);
+    opacity: 0.45;
+  }
+
+  50% {
+    opacity: 0.85;
+  }
+
+  100% {
+    filter: hue-rotate(15deg);
+    opacity: 0.45;
+  }
+}
+
+@keyframes nova-sidebar-aurora {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+
+  50% {
+    opacity: 0.9;
+  }
+}
+
+@keyframes nova-header-sweep {
+  0%,
+  100% {
+    opacity: 0.35;
+    background-position: 0% 50%;
+  }
+
+  50% {
+    opacity: 0.9;
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes nova-card-shine {
+  from {
+    transform: translateX(-120%);
+  }
+
+  to {
+    transform: translateX(120%);
+  }
+}
+
+@keyframes nova-auth-aurora {
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+
+  50% {
+    filter: brightness(1.08);
+  }
+}
+
+@keyframes wow-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }

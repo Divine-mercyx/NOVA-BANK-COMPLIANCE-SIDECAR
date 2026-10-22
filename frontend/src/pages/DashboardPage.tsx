@@ -201,7 +201,7 @@ export function DashboardPage() {
         <LoadingGrid />
       ) : data ? (
         <>
-          <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="wow-stagger mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <FeaturedKpiCard
               tone="violet"
               icon={FileStack}
@@ -260,7 +260,7 @@ export function DashboardPage() {
             </Link>
           </div>
 
-          <div className="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(280px,0.8fr)]">
+          <div className="wow-reveal grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(280px,0.8fr)]">
             <div className="card p-5 sm:p-6">
               <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                 <div>
@@ -321,7 +321,7 @@ export function DashboardPage() {
                         }}
                         formatter={(value: number) => [formatNumber(value), "Count"]}
                       />
-                      <Bar dataKey="count" radius={[8, 8, 0, 0]} maxBarSize={48}>
+                      <Bar dataKey="count" radius={[8, 8, 0, 0]} maxBarSize={48} animationDuration={800} animationEasing="ease-out">
                         {activeChart.map((entry) => (
                           <Cell
                             key={entry.name}
