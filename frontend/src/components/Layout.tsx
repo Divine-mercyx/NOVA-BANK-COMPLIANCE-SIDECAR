@@ -156,7 +156,7 @@ export function Layout() {
   return (
     <div className="flex min-h-screen nova-workspace-bg">
       <aside
-        className="fixed inset-y-0 left-0 z-30 flex flex-col bg-sidebar text-sidebar-foreground shadow-lg transition-[width] duration-200 ease-in-out"
+        className="nova-sidebar fixed inset-y-0 left-0 z-30 flex flex-col transition-[width] duration-200 ease-in-out"
         style={{ width }}
       >
         <div className={`flex items-center py-5 ${expanded ? "justify-between px-5" : "justify-center px-2"}`}>

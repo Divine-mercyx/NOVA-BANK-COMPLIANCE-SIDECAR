@@ -23,9 +23,11 @@
     --accent-hover: 0 150 210;
     --accent-muted: 224 247 254;
     --accent-foreground: 255 255 255;
-    --sidebar: 30 32 94;
-    --sidebar-foreground: 248 250 252;
-    --sidebar-muted: 148 163 196;
+    --sidebar-top: 24 26 82;
+    --sidebar: 14 16 50;
+    --sidebar-deep: 8 10 34;
+    --sidebar-foreground: 241 248 255;
+    --sidebar-muted: 136 158 198;
     --success: 22 101 52;
     --success-muted: 220 252 231;
     --warning: 180 83 9;
@@ -43,9 +45,11 @@
   .dark {
     --nova-navy: 30 32 94;
     --nova-cyan: 0 173 239;
-    --sidebar: 18 20 52;
-    --sidebar-foreground: 248 250 252;
-    --sidebar-muted: 148 163 184;
+    --sidebar-top: 18 20 58;
+    --sidebar: 10 12 38;
+    --sidebar-deep: 6 8 26;
+    --sidebar-foreground: 241 248 255;
+    --sidebar-muted: 120 140 178;
     --surface: 15 17 26;
     --surface-raised: 24 27 38;
     --surface-overlay: 35 39 54;
@@ -106,6 +110,22 @@
 
   .nova-app-panel {
     @apply border border-white/70 bg-surface-raised/95 shadow-card backdrop-blur-md dark:border-white/10 dark:bg-surface-raised/90;
+  }
+
+  .nova-sidebar {
+    color: rgb(var(--sidebar-foreground));
+    background-color: rgb(var(--sidebar-deep));
+    background-image:
+      linear-gradient(
+        180deg,
+        rgb(var(--sidebar-top)) 0%,
+        rgb(var(--sidebar)) 42%,
+        rgb(var(--sidebar-deep)) 100%
+      ),
+      radial-gradient(ellipse 140% 55% at 50% -8%, rgb(var(--nova-cyan) / 0.14), transparent 55%),
+      radial-gradient(ellipse 80% 45% at 100% 100%, rgb(var(--nova-cyan) / 0.08), transparent 50%);
+    border-right: 1px solid rgb(var(--nova-cyan) / 0.18);
+    box-shadow: 4px 0 28px rgb(var(--sidebar-deep) / 0.45);
   }
 }
 
@@ -255,11 +275,11 @@
   }
 
   .sidebar-nav-link-idle {
-    @apply text-sidebar-muted hover:-translate-y-0.5 hover:bg-white/10 hover:text-sidebar-foreground hover:shadow-[0_8px_20px_rgba(0,0,0,0.22)] hover:ring-1 hover:ring-white/10;
+    @apply text-sidebar-muted hover:-translate-y-0.5 hover:bg-cyan-400/10 hover:text-sidebar-foreground hover:shadow-[0_8px_20px_rgba(0,0,0,0.28)] hover:ring-1 hover:ring-cyan-400/20;
   }
 
   .sidebar-nav-link-active-expanded {
-    @apply bg-white/10 font-medium text-sidebar-foreground shadow-[0_10px_28px_rgba(0,0,0,0.28)] ring-1 ring-white/10;
+    @apply bg-cyan-400/10 font-medium text-sidebar-foreground shadow-[0_10px_28px_rgba(0,0,0,0.32)] ring-1 ring-cyan-400/25;
   }
 
   .sidebar-nav-link-active-expanded::before {
