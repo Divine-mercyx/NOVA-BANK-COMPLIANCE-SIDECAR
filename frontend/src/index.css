@@ -154,27 +154,47 @@
   }
 
   .kpi-featured {
-    @apply relative overflow-hidden rounded-2xl border p-5 shadow-card transition hover:shadow-lg;
+    @apply relative min-h-[8.5rem] overflow-hidden rounded-2xl border p-5 shadow-card transition hover:shadow-lg;
   }
 
-  .kpi-featured-violet {
-    @apply kpi-featured border-accent/20 bg-gradient-to-br from-accent-muted/90 via-surface-raised to-surface-raised;
+  .kpi-tone-violet {
+    @apply border-accent/30 bg-gradient-to-br from-accent-muted to-surface-raised;
   }
 
-  .kpi-featured-blue {
-    @apply kpi-featured border-sky-200/80 bg-gradient-to-br from-sky-50 via-surface-raised to-surface-raised dark:border-sky-500/20 dark:from-sky-950/40;
+  .dark .kpi-tone-violet {
+    @apply border-accent/25 from-accent-muted/50;
   }
 
-  .kpi-featured-rose {
-    @apply kpi-featured border-rose-200/80 bg-gradient-to-br from-rose-50 via-surface-raised to-surface-raised dark:border-rose-500/20 dark:from-rose-950/35;
+  .kpi-tone-emerald {
+    @apply border-emerald-300/60 bg-gradient-to-br from-emerald-100 to-surface-raised;
   }
 
-  .kpi-featured-emerald {
-    @apply kpi-featured border-emerald-200/80 bg-gradient-to-br from-emerald-50 via-surface-raised to-surface-raised dark:border-emerald-500/20 dark:from-emerald-950/35;
+  .dark .kpi-tone-emerald {
+    @apply border-emerald-500/30 from-emerald-950/50;
   }
 
-  .kpi-featured-amber {
-    @apply kpi-featured border-amber-200/80 bg-gradient-to-br from-amber-50 via-surface-raised to-surface-raised dark:border-amber-500/20 dark:from-amber-950/35;
+  .kpi-tone-blue {
+    @apply border-sky-300/60 bg-gradient-to-br from-sky-100 to-surface-raised;
+  }
+
+  .dark .kpi-tone-blue {
+    @apply border-sky-500/30 from-sky-950/50;
+  }
+
+  .kpi-tone-rose {
+    @apply border-rose-300/60 bg-gradient-to-br from-rose-100 to-surface-raised;
+  }
+
+  .dark .kpi-tone-rose {
+    @apply border-rose-500/30 from-rose-950/45;
+  }
+
+  .kpi-tone-amber {
+    @apply border-amber-300/60 bg-gradient-to-br from-amber-100 to-surface-raised;
+  }
+
+  .dark .kpi-tone-amber {
+    @apply border-amber-500/30 from-amber-950/45;
   }
 
   .kpi-change-pill {

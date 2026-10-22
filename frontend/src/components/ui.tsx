@@ -104,7 +104,7 @@ export function FeaturedKpiCard({
     changeUp === undefined ? "kpi-change-neutral" : changeUp ? "kpi-change-up" : "kpi-change-down";
 
   return (
-    <div className={`kpi-featured-${tone}`}>
+    <div className={`kpi-featured kpi-tone-${tone}`}>
       <div
         className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full opacity-40 blur-2xl"
         style={{ background: stroke }}
@@ -358,7 +358,7 @@ export function LoadingGrid({ count = 4 }: { count?: number }) {
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       {Array.from({ length: count }).map((_, i) => (
-        <div key={i} className="kpi-featured-violet h-[8.5rem] animate-pulse bg-surface-overlay/30" />
+        <div key={i} className="kpi-featured kpi-tone-violet animate-pulse bg-surface-overlay/30" />
       ))}
     </div>
   );
