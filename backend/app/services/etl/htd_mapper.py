@@ -28,13 +28,17 @@ def infer_htd_channel(particular: str, tran_type: str, tran_sub_type: str) -> Tr
         return TransactionChannel.SWIFT
     if any(k in text for k in ("CSHWD", "WITHD", "CASH W/D", "CHEQUE WITHDRAWAL")):
         return TransactionChannel.CASH_WITHDRAWAL
+    if any(k in text for k in ("CHEQUEBOOK", "CHQBOOK", "CHQ BOOK", "CBR-")):
+        return TransactionChannel.NAPS
     if "CASH DEP" in text or "DEPOSIT" in text and "CASH" in text:
         return TransactionChannel.CASH_DEPOSIT
-    if any(k in text for k in ("NIP", "NEFT", "INSTANT PAYMENT", "TRANSFER", "BALANCE TRANSFER")):
+    if any(k in text for k in ("NIP", "NEFT", "INSTANT PAYMENT", "BALANCE TRANSFER")):
+        return TransactionChannel.NIP
+    if "TRANSFER" in text and "CHEQUEBOOK" not in text:
         return TransactionChannel.NIP
     if tran_type.upper() in ("C", "M", "U"):
         return TransactionChannel.MOBILE
-    return TransactionChannel.NIP
+    return TransactionChannel.NAPS
 
 
 def _raw_foracid(row: dict[str, Any]) -> str:

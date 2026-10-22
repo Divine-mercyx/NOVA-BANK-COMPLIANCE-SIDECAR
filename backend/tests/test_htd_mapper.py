@@ -12,6 +12,13 @@ def test_infer_htd_channel_withdrawal():
     assert infer_htd_channel("CSHWD: Cheque Withdrawal BY JOY", "C", "NP") == TransactionChannel.CASH_WITHDRAWAL
 
 
+def test_infer_htd_channel_chequebook_fee_is_not_nip():
+    assert (
+        infer_htd_channel("CHEQUEBOOK CBR-2026-002-000310", "T", "CI")
+        == TransactionChannel.NAPS
+    )
+
+
 def test_map_htd_rows_pairs_debit_credit():
     rows = [
         {
