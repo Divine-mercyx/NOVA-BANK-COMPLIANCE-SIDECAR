@@ -34,7 +34,7 @@ export function PageHeader({
 export type KpiTone = "violet" | "blue" | "rose" | "emerald" | "amber";
 
 const kpiToneStroke: Record<KpiTone, string> = {
-  violet: "rgb(0, 82, 168)",
+  violet: "rgb(0, 173, 239)",
   blue: "rgb(14, 165, 233)",
   rose: "rgb(244, 63, 94)",
   emerald: "rgb(16, 185, 129)",

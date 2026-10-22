@@ -14,13 +14,13 @@ import {
   Plug,
   Search,
   Settings,
-  Shield,
   Users,
 } from "lucide-react";
 import { useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { roleLabel } from "../lib/format";
+import { NOVA_BANK_LOGO_URL } from "../lib/brand";
 import { pageTitle } from "../lib/pageTitles";
 import { useSidebar } from "../lib/sidebar";
 import { ThemeToggle } from "./ThemeToggle";
@@ -154,21 +154,26 @@ export function Layout() {
   const searchPlaceholder = isDaily ? "Search same-day DTD…" : "Search records…";
 
   return (
-    <div className="flex min-h-screen bg-surface">
+    <div className="flex min-h-screen nova-workspace-bg">
       <aside
         className="fixed inset-y-0 left-0 z-30 flex flex-col bg-sidebar text-sidebar-foreground shadow-lg transition-[width] duration-200 ease-in-out"
         style={{ width }}
       >
         <div className={`flex items-center py-5 ${expanded ? "justify-between px-5" : "justify-center px-2"}`}>
           <div className="flex items-center gap-2.5">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent text-accent-foreground shadow-md">
-              <Shield className="h-5 w-5" />
+            <div
+              className={`flex shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white shadow-md ${
+                expanded ? "h-10 max-w-[148px] px-2" : "h-10 w-10 p-1"
+              }`}
+            >
+              <img
+                src={NOVA_BANK_LOGO_URL}
+                alt="Nova Bank"
+                className={expanded ? "h-7 w-auto max-w-full object-contain" : "h-full w-full object-contain object-left"}
+              />
             </div>
             {expanded && (
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold">Nova Bank</p>
-                <p className="truncate text-[11px] text-sidebar-muted">Compliance sidecar</p>
-              </div>
+              <p className="min-w-0 truncate text-[11px] font-medium text-sidebar-muted">Compliance sidecar</p>
             )}
           </div>
           {expanded && (
@@ -237,7 +242,7 @@ export function Layout() {
       </aside>
 
       <div className="flex min-h-screen flex-1 flex-col p-3 sm:p-4" style={{ marginLeft: width }}>
-        <div className="flex min-h-[calc(100vh-1.5rem)] flex-1 flex-col overflow-hidden rounded-[28px] border border-border/60 bg-surface-raised shadow-card">
+        <div className="nova-app-panel flex min-h-[calc(100vh-1.5rem)] flex-1 flex-col overflow-hidden rounded-[28px]">
           <header className="flex h-[4.25rem] shrink-0 items-center gap-4 border-b border-border/80 px-5 sm:px-7">
             <div className="min-w-0">
               <h1 className="truncate text-lg font-semibold tracking-tight text-content sm:text-xl">{title}</h1>

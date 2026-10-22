@@ -2,6 +2,7 @@ import { Eye, EyeOff } from "lucide-react";
 import { FormEvent, ReactNode, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
+import { NOVA_BANK_LOGO_URL } from "../lib/brand";
 
 function AuthMark() {
   return (
@@ -27,7 +28,9 @@ function AuthShell({ children }: { children: ReactNode }) {
       <div className="auth-frame">
         <aside className="auth-hero relative hidden min-h-[580px] w-[46%] lg:block">
           <div className="relative z-10 flex h-full flex-col justify-end p-10 xl:p-12">
-            <p className="text-xs font-medium uppercase tracking-[0.16em] text-white/50">Nova Bank</p>
+            <div className="inline-flex rounded-xl bg-white/95 px-3 py-2 shadow-md">
+              <img src={NOVA_BANK_LOGO_URL} alt="Nova Bank" className="h-8 w-auto max-w-[160px]" />
+            </div>
             <h1 className="mt-4 max-w-sm text-[2rem] font-semibold leading-tight text-white">
               Compliance reporting from the bank&apos;s own books.
             </h1>

@@ -4,41 +4,46 @@
 
 @layer base {
   :root {
-    --surface: 237 240 245;
+    /* Nova Bank logo: navy #1E205E, cyan #00ADEF */
+    --nova-navy: 30 32 94;
+    --nova-cyan: 0 173 239;
+    --surface: 241 248 252;
     --surface-raised: 255 255 255;
-    --surface-overlay: 245 247 250;
-    --border: 226 230 236;
-    --border-strong: 203 210 219;
-    --content: 17 24 39;
-    --content-muted: 90 102 120;
-    --content-subtle: 148 157 172;
-    --brand: 0 82 168;
-    --brand-hover: 0 64 132;
-    --brand-muted: 219 234 254;
+    --surface-overlay: 232 244 252;
+    --border: 210 226 240;
+    --border-strong: 186 210 228;
+    --content: 30 32 94;
+    --content-muted: 71 85 105;
+    --content-subtle: 100 116 139;
+    --brand: 0 173 239;
+    --brand-hover: 0 150 210;
+    --brand-muted: 224 247 254;
     --brand-foreground: 255 255 255;
-    --accent: 0 82 168;
-    --accent-hover: 0 64 132;
-    --accent-muted: 219 234 254;
+    --accent: 0 173 239;
+    --accent-hover: 0 150 210;
+    --accent-muted: 224 247 254;
     --accent-foreground: 255 255 255;
-    --sidebar: 11 31 58;
+    --sidebar: 30 32 94;
     --sidebar-foreground: 248 250 252;
-    --sidebar-muted: 148 163 184;
+    --sidebar-muted: 148 163 196;
     --success: 22 101 52;
     --success-muted: 220 252 231;
     --warning: 180 83 9;
     --warning-muted: 254 243 199;
     --danger: 185 28 28;
     --danger-muted: 254 226 226;
-    --info: 0 82 168;
-    --code-bg: 15 23 42;
+    --info: 0 173 239;
+    --code-bg: 22 24 62;
     --code-fg: 226 232 240;
-    --shadow-soft: 0 1px 2px rgba(11, 31, 58, 0.06);
-    --shadow-card: 0 8px 30px rgba(11, 31, 58, 0.1);
-    --shadow-lg: 0 24px 48px rgba(11, 31, 58, 0.14);
+    --shadow-soft: 0 1px 2px rgba(30, 32, 94, 0.07);
+    --shadow-card: 0 8px 30px rgba(30, 32, 94, 0.1);
+    --shadow-lg: 0 24px 48px rgba(30, 32, 94, 0.14);
   }
 
   .dark {
-    --sidebar: 8 20 40;
+    --nova-navy: 30 32 94;
+    --nova-cyan: 0 173 239;
+    --sidebar: 18 20 52;
     --sidebar-foreground: 248 250 252;
     --sidebar-muted: 148 163 184;
     --surface: 15 17 26;
@@ -49,22 +54,22 @@
     --content: 248 250 252;
     --content-muted: 156 163 175;
     --content-subtle: 107 114 128;
-    --brand: 96 165 250;
-    --brand-hover: 147 197 253;
-    --brand-muted: 30 58 95;
+    --brand: 0 173 239;
+    --brand-hover: 56 189 248;
+    --brand-muted: 22 42 72;
     --brand-foreground: 255 255 255;
-    --accent: 96 165 250;
-    --accent-hover: 147 197 253;
-    --accent-muted: 30 58 95;
-    --accent-foreground: 15 23 42;
+    --accent: 0 173 239;
+    --accent-hover: 56 189 248;
+    --accent-muted: 22 42 72;
+    --accent-foreground: 255 255 255;
     --success: 134 239 172;
     --success-muted: 20 83 45;
     --warning: 253 224 71;
     --warning-muted: 120 53 15;
     --danger: 252 165 165;
     --danger-muted: 127 29 29;
-    --info: 96 165 250;
-    --code-bg: 8 15 30;
+    --info: 56 189 248;
+    --code-bg: 12 14 40;
     --code-fg: 203 213 225;
     --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.35);
     --shadow-card: 0 8px 24px rgba(0, 0, 0, 0.35);
@@ -76,7 +81,31 @@
   }
 
   body {
-    @apply min-h-screen bg-surface text-content antialiased;
+    @apply min-h-screen text-content antialiased nova-workspace-bg;
+  }
+}
+
+@layer components {
+  /* Network-style mesh inspired by novabank.ng marketing panels */
+  .nova-workspace-bg {
+    background-color: rgb(var(--surface));
+    background-image:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='280' height='280' viewBox='0 0 280 280'%3E%3Cg fill='none' stroke='%2300ADEF' stroke-opacity='0.11' stroke-width='1'%3E%3Cpath d='M40 70 L120 30 L200 80 L160 170 L60 150 Z'/%3E%3Cpath d='M160 170 L240 200 L260 120 L200 80'/%3E%3Cpath d='M60 150 L40 230 L140 250 L160 170'/%3E%3Cpath d='M120 30 L200 80 L260 120'/%3E%3C/g%3E%3Cg fill='%2300ADEF' fill-opacity='0.14'%3E%3Ccircle cx='120' cy='30' r='2.5'/%3E%3Ccircle cx='200' cy='80' r='2.5'/%3E%3Ccircle cx='160' cy='170' r='2.5'/%3E%3Ccircle cx='60' cy='150' r='2'/%3E%3Ccircle cx='240' cy='200' r='2'/%3E%3C/g%3E%3C/svg%3E"),
+      radial-gradient(ellipse 90% 70% at 100% 0%, rgb(var(--nova-cyan) / 0.16), transparent 58%),
+      radial-gradient(ellipse 80% 55% at 0% 100%, rgb(var(--nova-navy) / 0.07), transparent 52%);
+    background-size: 420px 420px, 100% 100%, 100% 100%;
+    background-position: center top, center, center;
+  }
+
+  .dark .nova-workspace-bg {
+    background-image:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='280' height='280' viewBox='0 0 280 280'%3E%3Cg fill='none' stroke='%2300ADEF' stroke-opacity='0.08' stroke-width='1'%3E%3Cpath d='M40 70 L120 30 L200 80 L160 170 L60 150 Z'/%3E%3Cpath d='M160 170 L240 200 L260 120 L200 80'/%3E%3Cpath d='M60 150 L40 230 L140 250 L160 170'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E"),
+      radial-gradient(ellipse 90% 70% at 100% 0%, rgb(var(--nova-cyan) / 0.12), transparent 58%),
+      radial-gradient(ellipse 80% 55% at 0% 100%, rgb(var(--nova-cyan) / 0.06), transparent 52%);
+  }
+
+  .nova-app-panel {
+    @apply border border-white/70 bg-surface-raised/95 shadow-card backdrop-blur-md dark:border-white/10 dark:bg-surface-raised/90;
   }
 }
 
@@ -150,7 +179,7 @@
   }
 
   .hero-panel {
-    @apply overflow-hidden rounded-3xl bg-gradient-to-br from-sidebar via-[rgb(15,48,96)] to-[rgb(8,20,40)] px-6 py-6 text-white shadow-lg sm:px-8;
+    @apply overflow-hidden rounded-3xl bg-gradient-to-br from-sidebar via-[rgb(30,32,94)] to-[rgb(0,173,239)] px-6 py-6 text-white shadow-lg sm:px-8;
   }
 
   .kpi-featured {
@@ -235,11 +264,11 @@
 
   .sidebar-nav-link-active-expanded::before {
     content: "";
-    @apply absolute left-0 top-1/2 h-7 w-1 -translate-y-1/2 rounded-r-full bg-accent shadow-[0_0_14px_rgba(59,130,246,0.75)];
+    @apply absolute left-0 top-1/2 h-7 w-1 -translate-y-1/2 rounded-r-full bg-accent shadow-[0_0_14px_rgba(0,173,239,0.75)];
   }
 
   .sidebar-nav-link-active-collapsed {
-    @apply bg-accent text-accent-foreground shadow-[0_8px_24px_rgba(0,82,168,0.45)] ring-2 ring-white/20;
+    @apply bg-accent text-accent-foreground shadow-[0_8px_24px_rgba(0,173,239,0.45)] ring-2 ring-white/20;
   }
 
   .sidebar-nav-icon {
@@ -260,7 +289,7 @@
 
   .sidebar-nav-child-active::before {
     content: "";
-    @apply absolute -left-2 top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-accent shadow-[0_0_8px_rgba(59,130,246,0.8)];
+    @apply absolute -left-2 top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-accent shadow-[0_0_8px_rgba(0,173,239,0.8)];
   }
 
   .code-panel {
@@ -271,7 +300,7 @@
 
   .auth-shell {
     @apply flex min-h-screen items-center justify-center p-4 sm:p-8;
-    background: linear-gradient(145deg, rgb(11 31 58) 0%, rgb(8 20 40) 55%, rgb(0 82 168 / 0.45) 100%);
+    background: linear-gradient(145deg, rgb(30 32 94) 0%, rgb(18 20 52) 50%, rgb(0 173 239 / 0.42) 100%);
   }
 
   .auth-frame {
@@ -279,7 +308,7 @@
   }
 
   .auth-hero {
-    background: linear-gradient(165deg, rgb(15 40 80) 0%, rgb(11 31 58) 45%, rgb(0 82 168 / 0.5) 100%);
+    background: linear-gradient(165deg, rgb(0 173 239 / 0.35) 0%, rgb(30 32 94) 40%, rgb(18 20 52) 100%);
     position: relative;
     overflow: hidden;
   }
