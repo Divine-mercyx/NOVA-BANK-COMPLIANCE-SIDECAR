@@ -1,8 +1,41 @@
 import { Eye, EyeOff } from "lucide-react";
 import { FormEvent, ReactNode, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
+import { OtpInput } from "../components/OtpInput";
 import { useAuth } from "../lib/auth";
 import { NOVA_BANK_LOGO_URL } from "../lib/brand";
+
+const OTP_SESSION_STORAGE_KEY = "nova_otp_session";
+
+type OtpRouteState = {
+  otp_session_id?: string;
+  otpSessionId?: string;
+  email?: string;
+};
+
+function readOtpSession(state: OtpRouteState | null): { otpSessionId: string; email: string } | null {
+  const fromState = state?.otp_session_id ?? state?.otpSessionId;
+  const email = state?.email;
+  if (fromState && email) return { otpSessionId: fromState, email };
+
+  try {
+    const raw = sessionStorage.getItem(OTP_SESSION_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { otpSessionId?: string; email?: string };
+    if (parsed.otpSessionId && parsed.email) return { otpSessionId: parsed.otpSessionId, email: parsed.email };
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
+function storeOtpSession(otpSessionId: string, email: string) {
+  sessionStorage.setItem(OTP_SESSION_STORAGE_KEY, JSON.stringify({ otpSessionId, email }));
+}
+
+function clearOtpSession() {
+  sessionStorage.removeItem(OTP_SESSION_STORAGE_KEY);
+}
 
 function AuthMark() {
   return (
@@ -62,7 +95,11 @@ export function LoginPage() {
     setLoading(true);
     try {
       const result = await login(email, password);
-      navigate("/verify-otp", { state: { otp_session_id: result.otp_session_id, email } });
+      storeOtpSession(result.otp_session_id, email);
+      navigate("/verify-otp", {
+        state: { otp_session_id: result.otp_session_id, email },
+        replace: true,
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {
@@ -142,10 +179,11 @@ export function OtpPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const otpSessionId = (location.state as { otpSessionId?: string; email?: string } | null)?.otpSessionId;
-  const email = (location.state as { otpSessionId?: string; email?: string } | null)?.email;
+  const session = readOtpSession(location.state as OtpRouteState | null);
 
-  if (!otpSessionId) return <Navigate to="/login" replace />;
+  if (!session) return <Navigate to="/login" replace />;
+
+  const { otpSessionId, email } = session;
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -153,6 +191,7 @@ export function OtpPage() {
     setLoading(true);
     try {
       await verifyOtp(otpSessionId, code);
+      clearOtpSession();
       navigate("/", { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Invalid code");
@@ -171,18 +210,8 @@ export function OtpPage() {
 
       <form onSubmit={onSubmit} className="mt-8 space-y-5">
         <div>
-          <label htmlFor="otp" className="auth-label">One-time password</label>
-          <input
-            id="otp"
-            type="text"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            maxLength={6}
-            className="auth-input text-center text-xl tracking-[0.4em]"
-            value={code}
-            onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-            required
-          />
+          <p className="auth-label">One-time password</p>
+          <OtpInput value={code} onChange={setCode} disabled={loading} />
         </div>
         {error && <p className="auth-error">{error}</p>}
         <button type="submit" className="auth-submit-btn" disabled={loading || code.length !== 6}>
@@ -190,7 +219,11 @@ export function OtpPage() {
         </button>
       </form>
 
-      <Link to="/login" className="auth-footnote mt-8 block hover:text-accent">
+      <Link
+        to="/login"
+        className="auth-footnote mt-8 block hover:text-accent"
+        onClick={() => clearOtpSession()}
+      >
         Back to sign in
       </Link>
     </AuthShell>
