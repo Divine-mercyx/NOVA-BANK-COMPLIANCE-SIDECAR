@@ -93,10 +93,11 @@ def test_empty_dtd_bank_code_stays_null():
     assert tx.dest_institution_name == "ZENITH INTERNATIONAL BANK PLC"
 
 
-def test_vendor_dtd_row_has_no_duplicate_party_keys():
-    from app.schemas.integration import DtdVendorTransaction
+def test_dtd_export_maps_to_nfiu_row():
+    from app.models.entities import TransactionChannel
+    from app.services.integration.ctr_nfiu import map_nfiu_row
 
-    row = DtdVendorTransaction.model_validate(
+    row = map_nfiu_row(
         SimpleNamespace(
             finacle_ref="M00000347-500000-1003001861",
             transaction_date=datetime(2026, 9, 18, 14, 36, 30),
@@ -111,10 +112,12 @@ def test_vendor_dtd_row_has_no_duplicate_party_keys():
             receiver_name="ESOCITY INTERGATED LIMITED",
             dest_institution_code="60003",
             dest_institution_name="NOVA BANK",
+            branch_code="001",
+            channel=TransactionChannel.NIP,
         )
     )
-    dumped = row.model_dump()
-    assert dumped["Source_Account_number"] == "1003001861"
-    assert dumped["Dest_Account_name"] == "ESOCITY INTERGATED LIMITED"
-    assert "sender_account" not in dumped
-    assert "receiver_name" not in dumped
+    assert row.t_trans_number == "M00000347-500000-1003001861"
+    assert row.t_source_account_number == "1003001861"
+    assert row.t_dest_account_name == "ESOCITY INTERGATED LIMITED"
+    assert row.t_source_institution_code == "60003"
+    assert row.Tran_Type == "NIP"

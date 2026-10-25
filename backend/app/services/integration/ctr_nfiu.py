@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from app.models.entities import StagingTransaction
+from app.models.entities import DtdTransaction, StagingTransaction
 from app.schemas.integration import NfiuTransactionRow
 
 ENTITY_MARKERS = (
@@ -81,7 +81,7 @@ def _tran_type(channel: str) -> str:
     return mapping.get(channel, channel)
 
 
-def map_nfiu_row(tx: StagingTransaction) -> NfiuTransactionRow:
+def map_nfiu_row(tx: StagingTransaction | DtdTransaction) -> NfiuTransactionRow:
     """One NFIU sample-data row.
 
     Bank-approved defaults (teller, country, transmode, funds/currency codes, etc.) apply until

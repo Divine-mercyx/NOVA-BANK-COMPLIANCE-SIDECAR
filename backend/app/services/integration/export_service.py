@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date as date_type, datetime, timezone
+from datetime import date as date_type, datetime, time, timezone
 from pathlib import Path
 
 from typing import Literal
@@ -13,9 +13,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.models.entities import DtdTransaction, RegulatoryReport, ReportType, StagingTransaction, TransactionChannel
 from app.schemas.integration import (
-    DtdExportMeta,
-    DtdExportResponse,
-    DtdVendorTransaction,
     ExportMeta,
     ExportedReportSummary,
     ExportReportsResponse,
@@ -25,6 +22,7 @@ from app.schemas.integration import (
 )
 from app.services.etl.dtd_pipeline import lagos_day_bounds
 from app.services.integration.ctr_nfiu import map_nfiu_row
+from app.services.integration.period import resolve_export_window
 from app.services.etl.vendor_scope import VENDOR_EXPORT_CHANNEL
 
 EXPORT_UNBOUNDED_CAP = 50_000
@@ -149,8 +147,12 @@ class ExportService:
         day: date_type,
         limit: int | None = None,
         offset: int = 0,
-    ) -> DtdExportResponse:
+    ) -> NfiuTransactionsResponse:
         business_start, _, _ = lagos_day_bounds(day)
+        period_start, period_end = resolve_export_window(
+            datetime.combine(day, time.min),
+            datetime.combine(day, time.min),
+        )
         filters = [
             DtdTransaction.business_date == business_start,
             DtdTransaction.channel == VENDOR_EXPORT_CHANNEL,
@@ -167,17 +169,20 @@ class ExportService:
         stmt = stmt.limit(applied)
         result = await self.db.execute(stmt)
         rows = list(result.scalars().all())
-        return DtdExportResponse(
-            meta=DtdExportMeta(
-                business_date=day,
-                total_matching=total,
-                returned=len(rows),
-                offset=offset,
-                limit=limit,
-                generated_at=datetime.now(timezone.utc),
-            ),
-            transactions=[DtdVendorTransaction.model_validate(r) for r in rows],
+        meta = ExportMeta(
+            period_start=period_start,
+            period_end=period_end,
+            report_type=None,
+            scope="dtd",
+            channel=VENDOR_EXPORT_CHANNEL.value,
+            ctr_threshold_ngn=None,
+            total_matching=total,
+            returned=len(rows),
+            offset=offset,
+            limit=limit,
+            generated_at=datetime.now(timezone.utc),
         )
+        return NfiuTransactionsResponse(meta=meta, transactions=[map_nfiu_row(tx) for tx in rows])
 
     async def list_reports(
         self,

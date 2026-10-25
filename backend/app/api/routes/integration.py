@@ -15,7 +15,6 @@ from app.schemas.integration import (
     ApiKeyCreateRequest,
     ApiKeyCreated,
     ApiKeyOut,
-    DtdExportResponse,
     ExportReportsResponse,
     ExportSummaryResponse,
     IntegrationEndpointDoc,
@@ -62,7 +61,7 @@ EXPORT_DOCS = [
     IntegrationEndpointDoc(
         method="GET",
         path="/api/v1/export/dtd",
-        summary="Pull staged same-day NIP transactions from TBAADM.DTD for one Lagos calendar day",
+        summary="Pull same-day NIP DTD rows in NFIU column layout (one Lagos calendar day; same shape as /export/transactions)",
     ),
     IntegrationEndpointDoc(
         method="GET",
@@ -96,7 +95,7 @@ async def export_summary(
     return await ExportService(db).summary(period_start, period_end)
 
 
-@partner_router.get("/dtd", response_model=DtdExportResponse)
+@partner_router.get("/dtd", response_model=NfiuTransactionsResponse)
 async def export_dtd_transactions(
     day: date = Depends(dtd_day_param),
     limit: int | None = Query(
@@ -228,7 +227,7 @@ async def integration_info(_: User = Depends(get_current_user)):
         purpose=(
             "Nova Bank IT pulls staged Finacle transactions with X-API-Key. "
             "GET /export/transactions and /export/transactions/ctr for NIP-only NFIU columns; "
-            "GET /export/dtd for same-day NIP staged from TBAADM.DTD (one Lagos day)."
+            "GET /export/dtd for same-day NIP from TBAADM.DTD (one Lagos day, NFIU columns like /export/transactions)."
         ),
         auth_header="X-API-Key",
         endpoints=EXPORT_DOCS,

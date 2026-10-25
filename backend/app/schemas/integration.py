@@ -207,7 +207,7 @@ class DtdTransactionOut(BaseModel):
 
 
 class DtdVendorTransaction(BaseModel):
-    """GET /export/dtd — vendor keys only, no duplicate sender/receiver fields."""
+    """Legacy DTD vendor layout (Source_*/Dest_*). Export API now returns NfiuTransactionRow."""
 
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
@@ -250,6 +250,8 @@ class DtdExportMeta(BaseModel):
 
 
 class DtdExportResponse(BaseModel):
+    """Legacy export envelope; GET /export/dtd returns NfiuTransactionsResponse."""
+
     meta: DtdExportMeta
     transactions: list[DtdVendorTransaction]
 

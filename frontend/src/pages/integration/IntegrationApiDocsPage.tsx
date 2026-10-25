@@ -15,6 +15,7 @@ import {
   loadSavedRange,
   presetRange,
 } from "../../lib/dates";
+import { integrationSampleResponse } from "../../lib/integrationSamples";
 import { buildExportCurl, loadPartnerApiKey, partnerGet, savePartnerApiKey, type PartnerRequestResult } from "../../lib/partnerApi";
 
 type EndpointSection = "start" | "transactions" | "dtd" | "reports";
@@ -216,7 +217,7 @@ export function IntegrationApiDocsPage() {
       path: "/api/v1/export/dtd",
       title: "Daily DTD (same day)",
       description:
-        "NIP-only pairs staged from same-day TBAADM.DTD (one Lagos day). Institution codes from NIP_OUT_FLW / NIP_IN_FLW when matched.",
+        "Same NFIU column layout as Transactions / CTR (t_trans_number, t_source_*, t_dest_*, etc.). NIP-only pairs from same-day TBAADM.DTD — one Lagos calendar day via date=, not date_from/date_to.",
       params: [
         {
           name: "date",
@@ -427,6 +428,8 @@ export function IntegrationApiDocsPage() {
         {/* Endpoint reference */}
         <main className="min-w-0 space-y-6">
           {endpoints.map((ep) => {
+            const sampleResponse = integrationSampleResponse(ep.id);
+
             const curl = buildExportCurl(
               ep.path.replace("{finacle_ref}", finacleRef || "FINACLE_REF").replace("{id}", reportId || "REPORT_ID"),
               apiKey,
@@ -493,6 +496,20 @@ export function IntegrationApiDocsPage() {
                     </div>
                     <pre className="overflow-x-auto p-3 font-mono text-[11px] leading-relaxed text-content">{curl}</pre>
                   </div>
+
+                  {sampleResponse && (
+                    <div className="mt-4 overflow-hidden rounded-lg border border-border">
+                      <div className="flex items-center justify-between border-b border-border bg-surface-overlay px-3 py-2">
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-content-subtle">
+                          Example response
+                        </span>
+                        <ApiCopyButton text={sampleResponse} label="Copy JSON" />
+                      </div>
+                      <pre className="code-panel max-h-80 overflow-auto rounded-none border-0 shadow-none">
+                        <code className="block p-3 font-mono text-[11px] leading-relaxed text-code-fg">{sampleResponse}</code>
+                      </pre>
+                    </div>
+                  )}
 
                   <button
                     type="button"
