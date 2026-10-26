@@ -1,7 +1,6 @@
 import { AlertTriangle, Play, RefreshCw, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { DatePickerField } from "./DatePickerField";
-import { InfoCallout } from "./ui";
 import {
   CalendarDate,
   ExtractionPreset,
@@ -16,11 +15,11 @@ import {
 } from "../lib/dates";
 import { extractModeLabel } from "../lib/roles";
 
-const PRESETS: { id: ExtractionPreset; label: string; hint: string }[] = [
-  { id: "yesterday", label: "Yesterday", hint: "Previous calendar day" },
-  { id: "last7", label: "Last 7 days", hint: "Including today" },
-  { id: "last30", label: "Last 30 days", hint: "Including today" },
-  { id: "custom", label: "Custom range", hint: "Pick year, month, and day" },
+const PRESETS: { id: ExtractionPreset; label: string }[] = [
+  { id: "yesterday", label: "Yesterday" },
+  { id: "last7", label: "Last 7 days" },
+  { id: "last30", label: "Last 30 days" },
+  { id: "custom", label: "Custom" },
 ];
 
 interface ExtractionRunModalProps {
@@ -76,6 +75,7 @@ export function ExtractionRunModal({ open, onClose, onRun, finacleMode, running,
   const invalidRange = compareDates(from, to) > 0;
   const largeRange = dayCount > 90;
   const oracleMode = finacleMode === "oracle";
+  const modeLabel = extractModeLabel(finacleMode ?? "csv");
 
   const handleRun = async () => {
     if (invalidRange) {
@@ -91,7 +91,7 @@ export function ExtractionRunModal({ open, onClose, onRun, finacleMode, running,
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <button
         type="button"
-        className="absolute inset-0 bg-content/40 backdrop-blur-sm"
+        className="absolute inset-0 bg-content/35 backdrop-blur-[2px]"
         aria-label="Close dialog"
         onClick={() => !running && onClose()}
       />
@@ -99,117 +99,109 @@ export function ExtractionRunModal({ open, onClose, onRun, finacleMode, running,
         role="dialog"
         aria-modal="true"
         aria-labelledby="extract-modal-title"
-        className="relative z-10 w-full max-w-2xl rounded-2xl border border-border bg-surface-raised shadow-lg"
+        className="relative z-10 w-full max-w-md overflow-hidden rounded-xl border border-border bg-surface-raised shadow-lg"
       >
-        <div className="flex items-start justify-between border-b border-border px-6 py-5">
-          <div>
-            <h2 id="extract-modal-title" className="text-xl font-semibold text-content">
-              Run Finacle extraction
+        <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
+          <div className="min-w-0">
+            <h2 id="extract-modal-title" className="text-base font-semibold text-content">
+              Run extraction
             </h2>
-            <p className="mt-1 text-sm text-content-muted">
-              Choose the posting date range to pull from{" "}
-              <span className="font-medium text-content">{extractModeLabel(finacleMode ?? "csv")}</span>
+            <p className="truncate text-xs text-content-muted">
+              Posting dates · {modeLabel}
             </p>
           </div>
-          <button type="button" className="btn-ghost -mr-2" onClick={onClose} disabled={running} aria-label="Close">
-            <X className="h-5 w-5" />
+          <button type="button" className="btn-ghost shrink-0 p-1.5" onClick={onClose} disabled={running} aria-label="Close">
+            <X className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="space-y-6 px-6 py-5">
+        <div className="space-y-4 px-4 py-4">
           <div>
-            <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-content-subtle">Quick presets</p>
-            <div className="grid gap-2 sm:grid-cols-2">
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-content-subtle">Period</p>
+            <div className="flex flex-wrap gap-1.5">
               {PRESETS.map((item) => (
                 <button
                   key={item.id}
                   type="button"
                   disabled={running}
                   onClick={() => setPreset(item.id)}
-                  className={`rounded-xl border px-4 py-3 text-left transition ${
+                  className={`rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
                     preset === item.id
                       ? "theme-selected"
-                      : "border-border bg-surface-overlay/30 hover:border-accent/40 hover:bg-accent-muted/30"
+                      : "border border-border bg-surface-overlay/40 text-content-muted hover:border-accent/35 hover:text-content"
                   }`}
                 >
-                  <p className="text-sm font-semibold text-content">{item.label}</p>
-                  <p className="text-xs text-content-muted">{item.hint}</p>
+                  {item.label}
                 </button>
               ))}
             </div>
           </div>
 
-          <div className="rounded-xl border border-border bg-surface-overlay/20 p-4">
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-              <p className="text-sm font-semibold text-content">Transaction date range</p>
-              <span className="theme-chip px-3 py-1">
-                {dayCount} day{dayCount === 1 ? "" : "s"}
+          <div className="rounded-lg border border-border bg-surface/60 px-3 py-2.5">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm font-medium text-content">
+                {formatCalendarDateLabel(from)}
+                <span className="mx-1.5 font-normal text-content-subtle">→</span>
+                {formatCalendarDateLabel(to)}
+              </p>
+              <span className="theme-chip shrink-0 px-2 py-0.5 text-[11px]">
+                {dayCount}d
               </span>
             </div>
-            <div className="grid gap-5 md:grid-cols-2">
-              <DatePickerField
-                label="From"
-                value={from}
-                onChange={(next) => {
-                  setPreset("custom");
-                  setFrom(next);
-                }}
-                max={to}
-                disabled={running || preset !== "custom"}
-              />
-              <DatePickerField
-                label="To"
-                value={to}
-                onChange={(next) => {
-                  setPreset("custom");
-                  setTo(next);
-                }}
-                min={from}
-                disabled={running || preset !== "custom"}
-              />
-            </div>
-            {preset !== "custom" && (
-              <p className="mt-3 text-xs text-content-muted">
-                Select <span className="font-medium text-content">Custom range</span> to edit year, month, and day manually.
-              </p>
+            {preset === "custom" && (
+              <div className="mt-3 grid grid-cols-2 gap-3 border-t border-border/80 pt-3">
+                <DatePickerField
+                  label="From"
+                  value={from}
+                  onChange={setFrom}
+                  max={to}
+                  disabled={running}
+                />
+                <DatePickerField
+                  label="To"
+                  value={to}
+                  onChange={setTo}
+                  min={from}
+                  disabled={running}
+                />
+              </div>
             )}
-            <p className="mt-2 text-xs text-content-subtle">
-              {formatCalendarDateLabel(from)} → {formatCalendarDateLabel(to)}
-            </p>
           </div>
 
-          {oracleMode && (
-            <InfoCallout title="Oracle / VPN note">
-              HTD rows are filtered by posting date (<code className="text-xs">PSTD_DATE</code> or{" "}
-              <code className="text-xs">TRAN_DATE</code>). Large ranges may take several minutes over VPN.
-            </InfoCallout>
-          )}
-
-          {largeRange && (
-            <div className="flex items-start gap-3 rounded-lg border border-warning/30 bg-amber-50/80 p-3 text-sm text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          {(oracleMode || largeRange) && (
+            <div className="flex gap-2 rounded-lg border border-warning/25 bg-warning-muted/40 px-2.5 py-2 text-[11px] leading-snug text-content-muted">
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" aria-hidden />
               <p>
-                Ranges over 90 days can be slow on VPN. Prefer weekly or monthly slices for production Finacle extracts.
+                {oracleMode && largeRange
+                  ? "Oracle extracts use posting date over VPN — ranges over 90 days can be slow; prefer weekly slices."
+                  : oracleMode
+                    ? "Filters HTD by posting date (PSTD_DATE / TRAN_DATE). VPN latency may apply."
+                    : "Ranges over 90 days can be slow — consider shorter periods."}
               </p>
             </div>
           )}
 
-          {error && <p className="text-sm font-medium text-danger">{error}</p>}
+          {error && <p className="text-xs font-medium text-danger" role="alert">{error}</p>}
 
           {running && progressMessage && (
-            <div className="rounded-lg border border-accent/30 bg-accent-muted/30 px-3 py-2 text-sm text-content-muted">
+            <p className="rounded-lg border border-accent/25 bg-accent-muted/40 px-2.5 py-2 text-xs text-content-muted">
               {progressMessage}
-            </div>
+            </p>
           )}
         </div>
 
-        <div className="flex flex-col-reverse gap-2 border-t border-border px-6 py-4 sm:flex-row sm:justify-end">
-          <button type="button" className="btn-secondary" onClick={onClose} disabled={running}>
+        <div className="flex gap-2 border-t border-border bg-surface-overlay/20 px-4 py-3">
+          <button type="button" className="btn-secondary flex-1 py-2 text-sm" onClick={onClose} disabled={running}>
             Cancel
           </button>
-          <button type="button" className="btn-primary" onClick={handleRun} disabled={running || invalidRange}>
+          <button
+            type="button"
+            className="btn-primary flex-[1.2] py-2 text-sm"
+            onClick={handleRun}
+            disabled={running || invalidRange}
+          >
             {running ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-            {running ? "Extracting…" : "Run extraction"}
+            {running ? "Running…" : "Start"}
           </button>
         </div>
       </div>
