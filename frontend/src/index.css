@@ -391,145 +391,104 @@
   }
 
   .auth-shell {
-    @apply flex min-h-screen flex-col items-center justify-center px-4 py-8 sm:px-6;
-    @apply nova-workspace-bg;
+    @apply flex min-h-screen items-center justify-center bg-[rgb(var(--surface))] px-4 py-10 sm:px-6;
+    background-image: radial-gradient(ellipse 80% 50% at 50% 0%, rgb(var(--nova-cyan) / 0.08), transparent 70%);
   }
 
   .auth-frame {
-    @apply relative flex w-full max-w-[1080px] overflow-hidden rounded-[1.75rem] border border-border/80 bg-surface-raised/95 shadow-lg backdrop-blur-md;
-    box-shadow: var(--shadow-lg), 0 0 0 1px rgb(var(--nova-cyan) / 0.08);
-  }
-
-  .auth-frame::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background: linear-gradient(
-      135deg,
-      rgb(var(--nova-cyan) / 0.06) 0%,
-      transparent 42%,
-      rgb(var(--nova-navy) / 0.04) 100%
-    );
+    @apply relative flex w-full max-w-[960px] overflow-hidden rounded-xl border border-border bg-surface-raised shadow-card;
   }
 
   .auth-hero {
-    background: linear-gradient(168deg, rgb(0 173 239 / 0.28) 0%, rgb(30 32 94) 38%, rgb(14 16 50) 100%);
+    background: linear-gradient(180deg, rgb(24 26 78) 0%, rgb(14 16 50) 100%);
     position: relative;
     overflow: hidden;
-    animation: nova-auth-aurora 12s ease-in-out infinite;
   }
 
   .auth-hero-mesh {
-    @apply pointer-events-none absolute inset-0 opacity-40;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='280' height='280' viewBox='0 0 280 280'%3E%3Cg fill='none' stroke='%23ffffff' stroke-opacity='0.12' stroke-width='1'%3E%3Cpath d='M40 70 L120 30 L200 80 L160 170 L60 150 Z'/%3E%3Cpath d='M160 170 L240 200 L260 120 L200 80'/%3E%3Cpath d='M60 150 L40 230 L140 250 L160 170'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
-    background-size: 360px 360px;
+    @apply pointer-events-none absolute inset-0 opacity-[0.18];
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='280' height='280' viewBox='0 0 280 280'%3E%3Cg fill='none' stroke='%2300ADEF' stroke-opacity='0.35' stroke-width='1'%3E%3Cpath d='M40 70 L120 30 L200 80 L160 170 L60 150 Z'/%3E%3Cpath d='M160 170 L240 200 L260 120 L200 80'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    background-size: 320px 320px;
   }
 
   .auth-hero::after {
     content: "";
     position: absolute;
     inset: 0;
-    background: radial-gradient(ellipse 90% 70% at 0% 100%, rgba(0, 173, 239, 0.22), transparent 55%);
+    background: linear-gradient(90deg, transparent 55%, rgb(0 173 239 / 0.12) 100%);
     pointer-events: none;
   }
 
-  .auth-hero-badge {
-    @apply inline-flex rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-white/90 backdrop-blur-sm;
-  }
-
   .auth-panel {
-    @apply relative z-[1] flex flex-1 flex-col justify-center px-6 py-10 sm:px-10 lg:px-12 lg:py-12;
+    @apply relative z-[1] flex flex-1 flex-col justify-center border-l border-border px-6 py-10 sm:px-10 lg:px-11 lg:py-12;
   }
 
   .auth-panel-inner {
-    @apply mx-auto w-full max-w-[400px];
+    @apply mx-auto w-full max-w-[380px];
   }
 
   .auth-panel-brand {
-    @apply mb-8 flex justify-center;
+    @apply mb-7 flex justify-center border-b border-border pb-6 lg:hidden;
   }
 
   .auth-steps {
-    @apply mb-8 flex items-center gap-2;
+    @apply mb-7 grid grid-cols-2 gap-2;
   }
 
-  .auth-step {
-    @apply flex flex-1 items-center gap-2 rounded-xl border border-border/80 bg-surface px-2.5 py-2 text-content-subtle;
+  .auth-step-pill {
+    @apply flex items-center justify-center gap-2 rounded-lg border border-transparent py-2 text-xs font-medium text-content-subtle;
   }
 
-  .auth-step-active {
-    @apply border-accent/35 bg-accent-muted/60 text-content;
-    box-shadow: 0 0 0 1px rgb(var(--nova-cyan) / 0.12);
+  .auth-step-pill-active {
+    @apply border-border bg-surface text-content;
   }
 
-  .auth-step-done {
-    @apply border-accent/20 bg-surface-overlay text-content-muted;
+  .auth-step-pill-done {
+    @apply text-content-muted;
   }
 
-  .auth-step-dot {
-    @apply flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-surface-overlay text-[11px] font-bold tabular-nums;
+  .auth-step-num {
+    @apply flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-surface-overlay text-[10px] font-semibold tabular-nums;
   }
 
-  .auth-step-active .auth-step-dot {
+  .auth-step-pill-active .auth-step-num {
     @apply bg-accent text-accent-foreground;
   }
 
-  .auth-step-done .auth-step-dot {
-    @apply bg-accent/20 text-accent;
-  }
-
-  .auth-step-label {
-    @apply truncate text-[11px] font-semibold uppercase tracking-wide;
+  .auth-step-pill-done .auth-step-num {
+    @apply bg-accent/15 text-accent;
   }
 
   .auth-panel-header {
-    @apply text-center lg:text-left;
-  }
-
-  .auth-mark {
-    @apply inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-accent/30 bg-gradient-to-br from-accent-muted to-surface-raised text-accent shadow-soft;
+    @apply border-b border-border pb-5;
   }
 
   .auth-title {
-    @apply mt-5 text-[1.65rem] font-semibold tracking-tight text-content sm:text-[1.75rem];
+    @apply text-xl font-semibold tracking-tight text-content;
   }
 
   .auth-subtitle {
-    @apply mt-2 text-sm leading-relaxed text-content-muted;
+    @apply mt-1.5 text-sm leading-relaxed text-content-muted;
   }
 
-  .auth-form-card {
-    @apply rounded-2xl border border-border/90 bg-surface/50 p-5 shadow-soft sm:p-6;
+  .auth-form {
+    @apply pt-1;
   }
 
   .auth-label {
-    @apply mb-1.5 block text-xs font-medium uppercase tracking-wide text-content-muted;
+    @apply mb-1.5 block text-sm text-content-muted;
   }
 
   .auth-input {
-    @apply w-full rounded-xl border border-border bg-surface-raised px-4 py-3 text-sm text-content outline-none transition placeholder:text-content-subtle focus:border-accent focus:ring-2 focus:ring-accent/20;
-  }
-
-  .auth-submit-btn {
-    @apply w-full rounded-xl bg-accent py-3.5 text-sm font-semibold text-accent-foreground shadow-md transition hover:bg-accent-hover hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-50;
-    box-shadow: 0 4px 14px rgb(var(--nova-cyan) / 0.35);
-  }
-
-  .auth-submit-btn:hover:not(:disabled) {
-    box-shadow: 0 6px 20px rgb(var(--nova-cyan) / 0.42);
+    @apply input w-full;
   }
 
   .auth-error {
-    @apply rounded-xl border border-danger/20 bg-danger-muted px-3 py-2.5 text-sm text-danger;
+    @apply rounded-lg border border-danger/20 bg-danger-muted px-3 py-2 text-sm text-danger;
   }
 
   .auth-footnote {
-    @apply text-center text-xs leading-relaxed text-content-subtle lg:text-left;
-  }
-
-  .auth-page-foot {
-    @apply mt-6 text-center text-[11px] text-content-subtle;
+    @apply text-xs leading-relaxed text-content-subtle;
   }
 
   .otp-boxes {
@@ -670,17 +629,6 @@
 
   to {
     transform: translateX(120%);
-  }
-}
-
-@keyframes nova-auth-aurora {
-  0%,
-  100% {
-    filter: brightness(1);
-  }
-
-  50% {
-    filter: brightness(1.08);
   }
 }
 

@@ -1,4 +1,4 @@
-import { Eye, EyeOff, LockKeyhole, ShieldCheck } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 import { FormEvent, ReactNode, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { OtpInput } from "../components/OtpInput";
@@ -40,35 +40,34 @@ function clearOtpSession() {
 }
 
 const HERO_POINTS = [
-  "Finacle HTD and same-day DTD in one pipeline",
-  "CTR staging and partner export with NFIU columns",
-  "Audit trail and role-based access for compliance teams",
+  "Finacle HTD extraction and same-day DTD staging",
+  "CTR eligibility and NFIU-format partner export",
+  "Audit trail with role-based staff access",
 ];
 
 function AuthFlowSteps({ active }: { active: AuthFlowStep }) {
-  const steps: { id: AuthFlowStep; label: string }[] = [
+  const items: { id: AuthFlowStep; label: string }[] = [
     { id: "sign-in", label: "Sign in" },
-    { id: "verify", label: "Verify OTP" },
+    { id: "verify", label: "One-time code" },
   ];
-  const activeIndex = steps.findIndex((s) => s.id === active);
 
   return (
-    <ol className="auth-steps" aria-label="Sign-in progress">
-      {steps.map((step, index) => {
-        const done = index < activeIndex;
-        const current = step.id === active;
+    <nav className="auth-steps" aria-label="Sign-in steps">
+      {items.map((item, index) => {
+        const isActive = item.id === active;
+        const isPast = active === "verify" && item.id === "sign-in";
         return (
-          <li
-            key={step.id}
-            className={`auth-step ${current ? "auth-step-active" : ""} ${done ? "auth-step-done" : ""}`}
-            aria-current={current ? "step" : undefined}
+          <span
+            key={item.id}
+            className={`auth-step-pill ${isActive ? "auth-step-pill-active" : ""} ${isPast ? "auth-step-pill-done" : ""}`}
+            aria-current={isActive ? "step" : undefined}
           >
-            <span className="auth-step-dot" aria-hidden>{done ? "✓" : index + 1}</span>
-            <span className="auth-step-label">{step.label}</span>
-          </li>
+            <span className="auth-step-num">{isPast ? "✓" : index + 1}</span>
+            {item.label}
+          </span>
         );
       })}
-    </ol>
+    </nav>
   );
 }
 
@@ -76,38 +75,33 @@ function AuthShell({ children, step }: { children: ReactNode; step: AuthFlowStep
   return (
     <div className="auth-shell">
       <div className="auth-frame">
-        <aside className="auth-hero relative hidden min-h-[560px] w-[44%] xl:w-[46%] lg:block">
+        <aside className="auth-hero relative hidden min-h-[520px] w-[42%] lg:block xl:w-[44%]">
           <div className="auth-hero-mesh" aria-hidden />
-          <div className="relative z-10 flex h-full flex-col justify-between p-10 xl:p-12">
-            <div>
-              <span className="auth-hero-badge">Staff compliance portal</span>
-              <div className="mt-8 inline-flex rounded-2xl border border-white/15 bg-white/95 px-4 py-3 shadow-lg backdrop-blur-sm">
-                <img src={NOVA_BANK_LOGO_URL} alt="Nova Bank" className="h-9 w-auto max-w-[180px]" />
-              </div>
-            </div>
-            <div>
-              <h1 className="max-w-md text-[2rem] font-semibold leading-[1.15] tracking-tight text-white xl:text-[2.15rem]">
-                Reporting from the bank&apos;s own books.
+          <div className="relative z-10 flex h-full flex-col p-10 xl:p-11">
+            <img src={NOVA_BANK_LOGO_URL} alt="Nova Bank" className="h-9 w-auto max-w-[172px] brightness-0 invert" />
+            <div className="mt-10 flex-1">
+              <p className="text-xs font-medium tracking-wide text-white/55">Internal platform</p>
+              <h1 className="mt-2 max-w-sm text-2xl font-semibold leading-snug tracking-tight text-white">
+                Compliance Sidecar
               </h1>
-              <p className="mt-4 max-w-md text-sm leading-relaxed text-white/70">
-                Extract, stage, and hand off clean transaction data to filing and screening partners — without leaving
-                Nova controls.
+              <p className="mt-3 max-w-sm text-sm leading-relaxed text-white/75">
+                Finacle reporting, regulatory staging, and controlled data handoff for Nova Bank operations.
               </p>
-              <ul className="mt-8 space-y-3">
+              <ul className="mt-9 space-y-3.5 border-t border-white/10 pt-8">
                 {HERO_POINTS.map((line) => (
-                  <li key={line} className="flex gap-3 text-sm text-white/80">
-                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent shadow-[0_0_10px_rgb(var(--nova-cyan)/0.9)]" />
-                    <span>{line}</span>
+                  <li key={line} className="flex gap-3 text-sm leading-snug text-white/85">
+                    <span className="mt-2 h-px w-3 shrink-0 bg-accent" aria-hidden />
+                    {line}
                   </li>
                 ))}
               </ul>
             </div>
-            <p className="text-xs text-white/45">Authorised Nova Bank staff only · Africa/Lagos operations</p>
+            <p className="text-[11px] text-white/40">Authorised staff · Africa/Lagos</p>
           </div>
         </aside>
 
         <section className="auth-panel">
-          <div className="auth-panel-inner wow-page-enter">
+          <div className="auth-panel-inner">
             <div className="auth-panel-brand lg:hidden">
               <img src={NOVA_BANK_LOGO_URL} alt="Nova Bank" className="h-8 w-auto max-w-[150px]" />
             </div>
@@ -116,23 +110,13 @@ function AuthShell({ children, step }: { children: ReactNode; step: AuthFlowStep
           </div>
         </section>
       </div>
-      <p className="auth-page-foot">Nova Bank Compliance Sidecar · Internal use</p>
     </div>
   );
 }
 
-function AuthPanelHeader({
-  icon,
-  title,
-  subtitle,
-}: {
-  icon: ReactNode;
-  title: string;
-  subtitle: ReactNode;
-}) {
+function AuthPanelHeader({ title, subtitle }: { title: string; subtitle: ReactNode }) {
   return (
     <header className="auth-panel-header">
-      <span className="auth-mark">{icon}</span>
       <h2 className="auth-title">{title}</h2>
       <p className="auth-subtitle">{subtitle}</p>
     </header>
@@ -169,70 +153,64 @@ export function LoginPage() {
   return (
     <AuthShell step="sign-in">
       <AuthPanelHeader
-        icon={<LockKeyhole className="h-5 w-5" strokeWidth={2} />}
         title="Sign in"
-        subtitle="Use your Nova work email and password. A one-time code is required on the next step."
+        subtitle="Enter your Nova credentials. You will confirm with a one-time code on the next screen."
       />
 
-      <form onSubmit={onSubmit} className="auth-form-card mt-8">
-        <div className="space-y-5">
-          <div>
-            <label htmlFor="email" className="auth-label">Work email</label>
+      <form onSubmit={onSubmit} className="auth-form mt-7 space-y-4">
+        <div>
+          <label htmlFor="email" className="auth-label">Work email</label>
+          <input
+            id="email"
+            type="email"
+            autoComplete="email"
+            placeholder="name@novabank.ng"
+            className="auth-input"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+        </div>
+        <div>
+          <div className="mb-1.5 flex items-center justify-between gap-2">
+            <label htmlFor="password" className="auth-label mb-0">Password</label>
+            <button
+              type="button"
+              className="text-xs text-content-muted hover:text-content"
+              onClick={() => setError("Contact your administrator to reset your password.")}
+            >
+              Forgot password?
+            </button>
+          </div>
+          <div className="relative">
             <input
-              id="email"
-              type="email"
-              autoComplete="email"
-              placeholder="name@novabank.ng"
-              className="auth-input"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              id="password"
+              type={showPassword ? "text" : "password"}
+              autoComplete="current-password"
+              className="auth-input pr-10"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               required
             />
+            <button
+              type="button"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-content-subtle hover:text-content"
+              onClick={() => setShowPassword((v) => !v)}
+              aria-label={showPassword ? "Hide password" : "Show password"}
+            >
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
           </div>
-          <div>
-            <div className="mb-1.5 flex items-center justify-between gap-2">
-              <label htmlFor="password" className="auth-label mb-0">Password</label>
-              <button
-                type="button"
-                className="shrink-0 text-xs font-medium text-accent hover:text-accent-hover"
-                onClick={() => setError("Contact your administrator to reset your password.")}
-              >
-                Forgot password?
-              </button>
-            </div>
-            <div className="relative">
-              <input
-                id="password"
-                type={showPassword ? "text" : "password"}
-                autoComplete="current-password"
-                className="auth-input pr-11"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-              <button
-                type="button"
-                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1 text-content-subtle transition hover:bg-surface-overlay hover:text-content"
-                onClick={() => setShowPassword((v) => !v)}
-                aria-label={showPassword ? "Hide password" : "Show password"}
-              >
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
-          </div>
-
-          {error && <p className="auth-error" role="alert">{error}</p>}
-
-          <button type="submit" className="auth-submit-btn" disabled={loading}>
-            {loading ? "Signing in…" : "Continue to verification"}
-          </button>
         </div>
+
+        {error && <p className="auth-error" role="alert">{error}</p>}
+
+        <button type="submit" className="btn-primary w-full py-2.5" disabled={loading}>
+          {loading ? "Signing in…" : "Continue"}
+        </button>
       </form>
 
-      <p className="auth-footnote mt-6">
-        <ShieldCheck className="inline h-3.5 w-3.5 -translate-y-px text-accent" aria-hidden />
-        <span className="ml-1.5">Need access? Contact your compliance administrator.</span>
-      </p>
+      <p className="auth-footnote mt-6">Need access? Contact your compliance administrator.</p>
     </AuthShell>
   );
 }
@@ -269,32 +247,28 @@ export function OtpPage() {
   return (
     <AuthShell step="verify">
       <AuthPanelHeader
-        icon={<ShieldCheck className="h-5 w-5" strokeWidth={2} />}
-        title="Verify access"
+        title="One-time code"
         subtitle={
           <>
-            Enter the 6-digit code sent to{" "}
-            <span className="font-medium text-content">{email}</span>.
+            Enter the 6-digit code sent to <span className="font-medium text-content">{email}</span>.
           </>
         }
       />
 
-      <form onSubmit={onSubmit} className="auth-form-card mt-8">
-        <div className="space-y-5">
-          <div>
-            <p className="auth-label text-center">One-time password</p>
-            <OtpInput value={code} onChange={setCode} disabled={loading} />
-          </div>
-          {error && <p className="auth-error" role="alert">{error}</p>}
-          <button type="submit" className="auth-submit-btn" disabled={loading || code.length !== 6}>
-            {loading ? "Verifying…" : "Enter portal"}
-          </button>
+      <form onSubmit={onSubmit} className="auth-form mt-7 space-y-4">
+        <div>
+          <p className="auth-label">Verification code</p>
+          <OtpInput value={code} onChange={setCode} disabled={loading} />
         </div>
+        {error && <p className="auth-error" role="alert">{error}</p>}
+        <button type="submit" className="btn-primary w-full py-2.5" disabled={loading || code.length !== 6}>
+          {loading ? "Verifying…" : "Sign in to portal"}
+        </button>
       </form>
 
       <Link
         to="/login"
-        className="auth-footnote mt-6 block text-center transition hover:text-accent"
+        className="auth-footnote mt-6 block hover:text-content"
         onClick={() => clearOtpSession()}
       >
         Back to sign in
