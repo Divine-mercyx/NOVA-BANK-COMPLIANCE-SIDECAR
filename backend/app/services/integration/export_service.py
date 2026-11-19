@@ -160,16 +160,21 @@ class ExportService:
         day: date_type,
         limit: int | None = None,
         offset: int = 0,
+        all_channels: bool = False,
+        channels: list[TransactionChannel] | None = None,
     ) -> NfiuTransactionsResponse:
+        """Staged DTD pairs for one Lagos day. NIP only, unless `all_channels` (optionally narrowed to
+        `channels`)."""
         business_start, _, _ = lagos_day_bounds(day)
         period_start, period_end = resolve_export_window(
             datetime.combine(day, time.min),
             datetime.combine(day, time.min),
         )
-        filters = [
-            DtdTransaction.business_date == business_start,
-            DtdTransaction.channel == VENDOR_EXPORT_CHANNEL,
-        ]
+        filters = [DtdTransaction.business_date == business_start]
+        if not all_channels:
+            filters.append(DtdTransaction.channel == VENDOR_EXPORT_CHANNEL)
+        elif channels:
+            filters.append(DtdTransaction.channel.in_(channels))
         count_stmt = select(func.count()).select_from(DtdTransaction).where(and_(*filters))
         total = await self._scalar(count_stmt)
         stmt = (
@@ -186,8 +191,14 @@ class ExportService:
             period_start=period_start,
             period_end=period_end,
             report_type=None,
-            scope="dtd",
-            channel=VENDOR_EXPORT_CHANNEL.value,
+            scope="dtd_all_channels" if all_channels else "dtd",
+            channel=(
+                VENDOR_EXPORT_CHANNEL.value
+                if not all_channels
+                else ",".join(c.value for c in channels)
+                if channels
+                else "ALL"
+            ),
             ctr_threshold_ngn=None,
             total_matching=total,
             returned=len(rows),

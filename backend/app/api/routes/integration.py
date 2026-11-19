@@ -73,6 +73,14 @@ EXPORT_DOCS = [
     ),
     IntegrationEndpointDoc(
         method="GET",
+        path="/api/v1/export/dtd/all-channels",
+        summary=(
+            "Pull same-day DTD rows from every channel in NFIU column layout (one Lagos day via date=; "
+            "optional channels=RTGS,SWIFT)"
+        ),
+    ),
+    IntegrationEndpointDoc(
+        method="GET",
         path="/api/v1/export/reports",
         summary="List generated regulatory reports available for download",
     ),
@@ -118,6 +126,31 @@ async def export_dtd_transactions(
 ):
     """Staged NIP pairs from DTD for one calendar day. Omit date for today (Africa/Lagos)."""
     return await ExportService(db).list_dtd(day, limit=limit, offset=offset)
+
+
+@partner_router.get("/dtd/all-channels", response_model=NfiuTransactionsResponse)
+async def export_dtd_all_channels(
+    day: date = Depends(dtd_day_param),
+    channels: str | None = Query(
+        None,
+        description="Optional comma-separated channels, e.g. RTGS,SWIFT. Omit for every channel.",
+    ),
+    limit: int | None = Query(
+        None,
+        ge=1,
+        le=EXPORT_UNBOUNDED_CAP,
+        description="Max rows. Omit for all rows that day (capped at 50,000).",
+    ),
+    offset: int = Query(0, ge=0),
+    client: ApiKey = Depends(get_api_client),
+    db: AsyncSession = Depends(get_db),
+):
+    """Same-day DTD pairs from every channel, not only NIP, in the same NFIU layout as /export/dtd. One Lagos
+    calendar day; omit date for today. Institution codes come from the NIP flow tables, so for other
+    channels those fields are usually empty."""
+    return await ExportService(db).list_dtd(
+        day, limit=limit, offset=offset, all_channels=True, channels=_parse_channels(channels)
+    )
 
 
 @partner_router.get("/transactions", response_model=NfiuTransactionsResponse)
