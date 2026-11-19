@@ -3,7 +3,8 @@ from sqlalchemy import inspect, select, text, update
 from app.core.config import settings
 from app.core.database import AsyncSessionLocal, engine
 from app.core.security import hash_password
-from app.models.entities import User, UserRole
+from app.core.permissions import SYSTEM_ROLE_DEFAULTS
+from app.models.entities import Role, User, UserRole
 
 
 async def ensure_schema() -> None:
@@ -18,8 +19,43 @@ async def ensure_schema() -> None:
         await conn.run_sync(migrate)
 
 
+async def ensure_system_roles() -> None:
+    """Create the built-in roles if missing, and give every user without a role the one matching their old
+    fixed role. Never overwrites a role an administrator has edited."""
+    async with AsyncSessionLocal() as db:
+        existing = {r.system_key: r for r in (await db.execute(select(Role).where(Role.system_key.is_not(None)))).scalars()}
+        taken_names = {name for (name,) in (await db.execute(select(Role.name))).all()}
+        for key, spec in SYSTEM_ROLE_DEFAULTS.items():
+            if key in existing:
+                continue
+            name = spec["name"]
+            if name in taken_names:  # an admin already made a custom role with this name
+                name = f"{name} (built-in)"
+            role = Role(
+                name=name,
+                description=spec["description"],
+                permissions=list(spec["permissions"]),
+                system_key=key,
+                all_permissions=spec["all_permissions"],
+            )
+            db.add(role)
+            existing[key] = role
+        await db.flush()
+
+        unassigned = (await db.execute(select(User).where(User.role_id.is_(None)))).scalars().all()
+        for user in unassigned:
+            legacy = user.role.value if user.role else "viewer"
+            user.role_id = existing.get(legacy, existing["viewer"]).id
+        await db.commit()
+
+
 async def seed_database() -> None:
     await ensure_schema()
+    await _seed_users()
+    await ensure_system_roles()
+
+
+async def _seed_users() -> None:
 
     async with AsyncSessionLocal() as db:
         result = await db.execute(select(User).where(User.email == settings.admin_email))

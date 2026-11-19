@@ -97,8 +97,41 @@ export interface User {
   id: string;
   email: string;
   full_name: string;
+  /** Legacy fixed role; access comes from the role and permission fields below. */
   role: UserRole;
+  role_id: string | null;
+  role_name: string | null;
+  /** Per-staff changes on top of the role. */
+  extra_permissions: string[];
+  revoked_permissions: string[];
+  /** What this person can actually do: role + extra - revoked. */
+  permissions: string[];
   is_active: boolean;
+}
+
+export interface PermissionInfo {
+  key: string;
+  label: string;
+  group: string;
+  description: string;
+}
+
+export interface Role {
+  id: string;
+  name: string;
+  description: string | null;
+  permissions: string[];
+  /** Built-in roles cannot be deleted. */
+  system_key: string | null;
+  /** The Admin role: always every permission. */
+  all_permissions: boolean;
+  user_count: number;
+}
+
+export interface RoleInput {
+  name?: string;
+  description?: string | null;
+  permissions?: string[];
 }
 
 export interface DashboardStats {
@@ -125,13 +158,17 @@ export interface CreateStaffRequest {
   email: string;
   password: string;
   full_name: string;
-  role: UserRole;
+  role_id: string;
+  extra_permissions?: string[];
+  revoked_permissions?: string[];
 }
 
 export interface UpdateStaffRequest {
   email?: string;
   full_name?: string;
-  role?: UserRole;
+  role_id?: string;
+  extra_permissions?: string[];
+  revoked_permissions?: string[];
   password?: string;
   is_active?: boolean;
 }
@@ -375,6 +412,14 @@ export const api = {
     }),
   audit: () => request<AuditEvent[]>("/api/v1/audit"),
   users: () => request<User[]>("/api/v1/users"),
+
+  permissionCatalogue: () => request<PermissionInfo[]>("/api/v1/access/permissions"),
+  roles: () => request<Role[]>("/api/v1/access/roles"),
+  createRole: (payload: RoleInput) =>
+    request<Role>("/api/v1/access/roles", { method: "POST", body: JSON.stringify(payload) }),
+  updateRole: (id: string, payload: RoleInput) =>
+    request<Role>(`/api/v1/access/roles/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),
+  deleteRole: (id: string) => request<void>(`/api/v1/access/roles/${id}`, { method: "DELETE" }),
 
   screeningDashboard: () => request<ScreeningDashboard>("/api/v1/screening/dashboard"),
   screeningPerformance: () => request<ScreeningPerformance>("/api/v1/screening/performance"),

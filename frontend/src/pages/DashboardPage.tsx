@@ -176,7 +176,7 @@ export function DashboardPage() {
             <RefreshCw className="h-4 w-4" />
             Refresh
           </button>
-          {canRunEtl(user?.role) && (
+          {canRunEtl(user) && (
             <button className="btn-primary" onClick={() => setExtractOpen(true)} disabled={running}>
               {running ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
               Run extraction
@@ -398,7 +398,7 @@ export function DashboardPage() {
             </div>
           </div>
 
-          {data.total_staged_transactions === 0 && canRunEtl(user?.role) && (
+          {data.total_staged_transactions === 0 && canRunEtl(user) && (
             <div className="card mt-6">
               <EmptyState
                 icon={Play}

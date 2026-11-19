@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, require_analyst
+from app.api.deps import get_current_user, require_permission
 from app.core.database import get_db
 from app.models.entities import User
 from app.schemas.integration import DtdFeedStatus, DtdPullRunOut, DtdTransactionOut
@@ -33,7 +33,7 @@ def _status(data: dict) -> DtdFeedStatus:
     )
 
 
-@router.get("/status", response_model=DtdFeedStatus)
+@router.get("/status", response_model=DtdFeedStatus, dependencies=[Depends(require_permission("dtd.view"))])
 async def dtd_status(db: AsyncSession = Depends(get_db)):
     return _status(await dtd_control.snapshot(db))
 
@@ -41,7 +41,7 @@ async def dtd_status(db: AsyncSession = Depends(get_db)):
 @router.post("/start", response_model=DtdFeedStatus)
 async def dtd_start(
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_analyst()),
+    user: User = Depends(require_permission("dtd.control")),
 ):
     return _status(await dtd_control.start_feed(db, user))
 
@@ -49,6 +49,6 @@ async def dtd_start(
 @router.post("/stop", response_model=DtdFeedStatus)
 async def dtd_stop(
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_analyst()),
+    user: User = Depends(require_permission("dtd.control")),
 ):
     return _status(await dtd_control.stop_feed(db, user))

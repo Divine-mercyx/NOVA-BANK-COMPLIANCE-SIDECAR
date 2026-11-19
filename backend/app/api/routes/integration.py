@@ -5,7 +5,7 @@ from fastapi.responses import PlainTextResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, require_roles
+from app.api.deps import get_current_user, require_permission
 from app.api.integration_deps import get_api_client
 from app.core.config import settings
 from app.core.database import get_db
@@ -219,7 +219,7 @@ async def screening_check_legacy(
 
 
 @router.get("/info", response_model=IntegrationInfo)
-async def integration_info(_: User = Depends(get_current_user)):
+async def integration_info(_: User = Depends(require_permission("integration.view"))):
     return IntegrationInfo(
         base_url=settings.api_base_url,
         openapi_url=f"{settings.api_base_url}/docs",
@@ -237,7 +237,7 @@ async def integration_info(_: User = Depends(get_current_user)):
 @router.get("/keys", response_model=list[ApiKeyOut])
 async def list_api_keys(
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_roles(UserRole.ADMIN)),
+    _: User = Depends(require_permission("apikeys.manage")),
 ):
     result = await db.execute(select(ApiKey).order_by(ApiKey.created_at.desc()))
     return [ApiKeyOut.model_validate(k) for k in result.scalars().all()]
@@ -247,7 +247,7 @@ async def list_api_keys(
 async def create_api_key(
     body: ApiKeyCreateRequest,
     db: AsyncSession = Depends(get_db),
-    admin: User = Depends(require_roles(UserRole.ADMIN)),
+    admin: User = Depends(require_permission("apikeys.manage")),
 ):
     full_key, prefix, key_hash = generate_api_key()
     record = ApiKey(
@@ -280,7 +280,7 @@ async def create_api_key(
 async def revoke_api_key(
     key_id: str,
     db: AsyncSession = Depends(get_db),
-    admin: User = Depends(require_roles(UserRole.ADMIN)),
+    admin: User = Depends(require_permission("apikeys.manage")),
 ):
     result = await db.execute(select(ApiKey).where(ApiKey.id == key_id))
     record = result.scalar_one_or_none()

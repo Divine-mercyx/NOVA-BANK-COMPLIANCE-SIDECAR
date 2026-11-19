@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.routes.access import router as access_router
 from app.api.routes.auth import router as auth_router
 from app.api.routes.compliance import router as compliance_router
 from app.api.routes.dtd import router as dtd_router
@@ -63,6 +64,7 @@ app.add_middleware(
 )
 
 app.include_router(auth_router)
+app.include_router(access_router)
 app.include_router(compliance_router)
 app.include_router(screening_router)
 app.include_router(dtd_router)

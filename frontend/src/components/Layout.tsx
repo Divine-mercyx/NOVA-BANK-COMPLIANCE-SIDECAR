@@ -13,11 +13,13 @@ import {
   Menu,
   Plug,
   Search,
+  ShieldCheck,
   Users,
   X,
 } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { canOpen } from "../lib/access";
 import { useAuth } from "../lib/auth";
 import { roleLabel } from "../lib/format";
 import { pageTitle } from "../lib/pageTitles";
@@ -37,11 +39,12 @@ const reportingNav = [
   { to: "/reports", label: "Transactions", icon: FileText },
   { to: "/audit", label: "Audit trail", icon: ClipboardList },
   { to: "/users", label: "Team", icon: Users },
+  { to: "/roles", label: "Roles & permissions", icon: ShieldCheck },
 ];
 
 const dailyNav = [{ to: "/daily", label: "Day transaction detail", icon: FileText, end: true }];
 
-const integrationChildren = [
+const allIntegrationChildren = [
   { to: "/integration/docs", label: "API documentation", icon: BookOpen },
   { to: "/integration/keys", label: "API keys", icon: KeyRound },
 ];
@@ -58,13 +61,16 @@ function navClass(isActive: boolean, expanded: boolean) {
 
 function NavSection({
   title,
-  items,
+  items: allItems,
   expanded,
 }: {
   title: string;
   items: typeof reportingNav;
   expanded: boolean;
 }) {
+  const { user } = useAuth();
+  const items = allItems.filter(({ to }) => canOpen(user, to));
+  if (items.length === 0) return null;
   return (
     <div className="mb-5">
       {expanded && (
@@ -89,10 +95,13 @@ function NavSection({
 }
 
 function IntegrationNav({ expanded }: { expanded: boolean }) {
+  const { user } = useAuth();
+  const integrationChildren = allIntegrationChildren.filter(({ to }) => canOpen(user, to));
   const { pathname } = useLocation();
   const onIntegration = pathname.startsWith("/integration");
   const [open, setOpen] = useState(onIntegration);
   const showChildren = expanded && (open || onIntegration);
+  if (integrationChildren.length === 0) return null;
 
   if (!expanded) {
     return (
@@ -301,7 +310,7 @@ export function Layout() {
             </button>
           )}
           {expanded && (
-            <p className="px-1 text-[10px] text-sidebar-muted">{user ? roleLabel(user.role) : ""}</p>
+            <p className="px-1 text-[10px] text-sidebar-muted">{user ? user.role_name ?? roleLabel(user.role) : ""}</p>
           )}
         </div>
       </aside>
@@ -329,6 +338,7 @@ export function Layout() {
               <h1 className="truncate text-lg font-semibold tracking-tight text-content sm:text-xl">{title}</h1>
               <p className="hidden text-xs text-content-muted sm:block">Nova compliance · Finacle staging</p>
             </div>
+            {canOpen(user, "/reports") && (
             <form role="search" onSubmit={submitSearch} className="relative ml-auto hidden max-w-md flex-1 md:block">
               <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-content-subtle" />
               <input
@@ -340,6 +350,7 @@ export function Layout() {
                 className="input w-full rounded-full border-transparent bg-surface py-2.5 pl-10 shadow-inner"
               />
             </form>
+            )}
             <div className="ml-auto flex items-center gap-1 md:ml-0">
               <ThemeToggle />
             </div>

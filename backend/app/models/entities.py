@@ -51,6 +51,22 @@ class TransactionChannel(str, enum.Enum):
     MOBILE = "MOBILE"
 
 
+class Role(Base):
+    """A named bundle of permissions (see app/core/permissions.py) that an administrator manages."""
+
+    __tablename__ = "roles"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
+    name: Mapped[str] = mapped_column(String(80), unique=True)
+    description: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    permissions: Mapped[list] = mapped_column(JSONB, default=list)
+    # Built-in roles cannot be deleted; "admin" is also the role that always has every permission.
+    system_key: Mapped[str | None] = mapped_column(String(20), unique=True, nullable=True)
+    all_permissions: Mapped[bool] = mapped_column(default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -58,9 +74,31 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     full_name: Mapped[str] = mapped_column(String(255))
     password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    role: Mapped[UserRole] = mapped_column(Enum(UserRole), default=UserRole.ANALYST)
+    # Legacy fixed role, kept for existing rows and older clients. Access comes from role_id and the
+    # per-staff permission lists below, never from this column.
+    role: Mapped[UserRole] = mapped_column(Enum(UserRole), default=UserRole.VIEWER)
+    role_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("roles.id"), nullable=True, index=True)
+    extra_permissions: Mapped[list] = mapped_column(JSONB, default=list, server_default="[]")
+    revoked_permissions: Mapped[list] = mapped_column(JSONB, default=list, server_default="[]")
     is_active: Mapped[bool] = mapped_column(default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    access_role: Mapped[Role | None] = relationship(lazy="joined")
+
+    @property
+    def permissions(self) -> set[str]:
+        from app.core.permissions import effective_permissions
+
+        role = self.access_role
+        return effective_permissions(
+            role.permissions if role else (),
+            bool(role and role.all_permissions),
+            self.extra_permissions,
+            self.revoked_permissions,
+        )
+
+    def can(self, permission: str) -> bool:
+        return permission in self.permissions
 
 
 class OtpSession(Base):

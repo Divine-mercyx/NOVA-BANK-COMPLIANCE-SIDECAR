@@ -3,7 +3,7 @@ import { FileText, Pause, Play, RefreshCw } from "lucide-react";
 import { EmptyState, KpiCard, PageHeader, StatusBadge, Tag } from "../components/ui";
 import { api, DtdFeedStatus } from "../lib/api";
 import { channelLabel, formatCurrency, formatDate, formatNumber, formatRelative } from "../lib/format";
-import { canRunEtl } from "../lib/roles";
+import { canControlDailyFeed } from "../lib/roles";
 import { useAuth } from "../lib/auth";
 import { useLiveRefresh } from "../lib/live";
 
@@ -59,7 +59,7 @@ export function DailyTransactionsPage() {
               <RefreshCw className="h-4 w-4" />
               Refresh
             </button>
-            {canRunEtl(user?.role) && (
+            {canControlDailyFeed(user) && (
               <button
                 type="button"
                 className={data?.enabled ? "btn-secondary" : "btn-primary"}

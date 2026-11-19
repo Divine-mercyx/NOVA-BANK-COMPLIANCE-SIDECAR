@@ -5,6 +5,7 @@ const TITLES: Record<string, string> = {
   "/reports": "Transactions",
   "/audit": "Audit trail",
   "/users": "Team",
+  "/roles": "Roles & permissions",
   "/daily": "Day transaction detail",
   "/integration/docs": "API documentation",
   "/integration/keys": "API keys",

@@ -1,7 +1,8 @@
 from datetime import datetime
+from typing import Any
 from enum import Enum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class UserRole(str, Enum):
@@ -173,10 +174,38 @@ class UserOut(BaseModel):
     id: str
     email: str
     full_name: str
+    # Legacy fixed role; access comes from role_id and the permission lists.
     role: UserRole
+    role_id: str | None = None
+    role_name: str | None = None
+    extra_permissions: list[str] = []
+    revoked_permissions: list[str] = []
+    # What the user can actually do: role permissions + extra - revoked.
+    permissions: list[str] = []
     is_active: bool
 
     model_config = {"from_attributes": True}
+
+    @model_validator(mode="before")
+    @classmethod
+    def _from_user(cls, data: Any) -> Any:
+        if isinstance(data, dict) or not hasattr(data, "email"):
+            return data
+        from app.core.permissions import normalize
+
+        role = getattr(data, "access_role", None)
+        return {
+            "id": data.id,
+            "email": data.email,
+            "full_name": data.full_name,
+            "role": data.role,
+            "role_id": getattr(data, "role_id", None),
+            "role_name": role.name if role else None,
+            "extra_permissions": normalize(getattr(data, "extra_permissions", None)),
+            "revoked_permissions": normalize(getattr(data, "revoked_permissions", None)),
+            "permissions": normalize(getattr(data, "permissions", None)),
+            "is_active": data.is_active,
+        }
 
 
 class DashboardStats(BaseModel):

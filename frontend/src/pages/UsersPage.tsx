@@ -1,35 +1,12 @@
-import { createPortal } from "react-dom";
-import { FormEvent, useEffect, useMemo, useState, type ReactNode } from "react";
-import {
-  Mail,
-  Pencil,
-  Shield,
-  Trash2,
-  UserPlus,
-  Users,
-  X,
-} from "lucide-react";
-import {
-  EmptyState,
-  InfoCallout,
-  KpiCard,
-  PageHeader,
-  StatusBadge,
-  TableToolbar,
-  Tag,
-} from "../components/ui";
-import { api, CreateStaffRequest, UpdateStaffRequest, User, UserRole } from "../lib/api";
-import { roleLabel } from "../lib/format";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { Mail, Pencil, Shield, ShieldCheck, Trash2, UserPlus, Users } from "lucide-react";
+import { StaffPermissionChecklist } from "../components/access/PermissionChecklist";
+import { Modal } from "../components/Modal";
+import { EmptyState, InfoCallout, KpiCard, PageHeader, StatusBadge, TableToolbar, Tag } from "../components/ui";
+import { api, PermissionInfo, Role, User } from "../lib/api";
 import { useAuth } from "../lib/auth";
-
-const ROLES: UserRole[] = ["viewer", "analyst", "approver", "admin"];
-
-const ROLE_DESC: Record<UserRole, string> = {
-  admin: "Full access · manage team",
-  approver: "Review staged data",
-  analyst: "Run Finacle extraction",
-  viewer: "Read-only access",
-};
+import { canManageTeam } from "../lib/roles";
 
 function initials(name: string) {
   return name
@@ -40,106 +17,166 @@ function initials(name: string) {
     .toUpperCase();
 }
 
+/** Every permission a role gives (the Admin role gives all of them). */
+function rolePermissions(role: Role | undefined, catalogue: PermissionInfo[]): string[] {
+  if (!role) return [];
+  return role.all_permissions ? catalogue.map((p) => p.key) : role.permissions;
+}
+
+interface StaffForm {
+  full_name: string;
+  email: string;
+  password: string;
+  role_id: string;
+  extra_permissions: string[];
+  revoked_permissions: string[];
+  is_active: boolean;
+}
+
+const EMPTY_FORM: StaffForm = {
+  full_name: "",
+  email: "",
+  password: "",
+  role_id: "",
+  extra_permissions: [],
+  revoked_permissions: [],
+  is_active: true,
+};
+
 export function UsersPage() {
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, refreshUser } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [catalogue, setCatalogue] = useState<PermissionInfo[]>([]);
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState("active");
   const [showAdd, setShowAdd] = useState(false);
+  const [customiseNew, setCustomiseNew] = useState(false);
   const [editing, setEditing] = useState<User | null>(null);
   const [removing, setRemoving] = useState<User | null>(null);
-  const [form, setForm] = useState<CreateStaffRequest>({
-    email: "",
-    password: "",
-    full_name: "",
-    role: "analyst",
-  });
-  const [editForm, setEditForm] = useState<UpdateStaffRequest & { password?: string }>({});
+  const [form, setForm] = useState<StaffForm>(EMPTY_FORM);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [formError, setFormError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const isAdmin = currentUser?.role === "admin";
+  const isManager = canManageTeam(currentUser);
+  const grantable = currentUser?.permissions ?? [];
+  const roleById = useMemo(() => new Map(roles.map((r) => [r.id, r])), [roles]);
+  const defaultRoleId = roles.find((r) => r.system_key === "viewer")?.id ?? roles[0]?.id ?? "";
 
-  const load = () => api.users().then(setUsers);
+  const load = useCallback(async () => {
+    const [u, r, c] = await Promise.all([api.users(), api.roles(), api.permissionCatalogue()]);
+    setUsers(u);
+    setRoles(r);
+    setCatalogue(c);
+  }, []);
 
   useEffect(() => {
-    load();
-  }, []);
+    load().catch((e) => setError(e instanceof Error ? e.message : "Could not load the team"));
+  }, [load]);
 
   const activeUsers = users.filter((u) => u.is_active);
   const inactiveUsers = users.filter((u) => !u.is_active);
-
   const displayed = tab === "active" ? activeUsers : inactiveUsers;
+  const customised = activeUsers.filter((u) => u.extra_permissions.length + u.revoked_permissions.length > 0).length;
 
-  const filtered = useMemo(
-    () =>
-      displayed.filter(
-        (u) =>
-          u.full_name.toLowerCase().includes(search.toLowerCase()) ||
-          u.email.toLowerCase().includes(search.toLowerCase()) ||
-          u.role.includes(search.toLowerCase())
-      ),
-    [displayed, search]
-  );
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
+    return displayed.filter(
+      (u) =>
+        u.full_name.toLowerCase().includes(q) ||
+        u.email.toLowerCase().includes(q) ||
+        (u.role_name ?? "").toLowerCase().includes(q),
+    );
+  }, [displayed, search]);
 
-  const roleCounts = useMemo(() => {
-    const counts: Record<string, number> = { admin: 0, approver: 0, analyst: 0, viewer: 0 };
-    activeUsers.forEach((u) => {
-      counts[u.role] = (counts[u.role] ?? 0) + 1;
+  /** A role can only be handed out by someone who holds everything it gives. */
+  const canAssign = (role: Role) => rolePermissions(role, catalogue).every((p) => grantable.includes(p));
+
+  const openAdd = () => {
+    setForm({ ...EMPTY_FORM, role_id: defaultRoleId });
+    setCustomiseNew(false);
+    setFormError("");
+    setShowAdd(true);
+  };
+
+  const openEdit = (u: User) => {
+    setEditing(u);
+    setForm({
+      full_name: u.full_name,
+      email: u.email,
+      password: "",
+      role_id: u.role_id ?? defaultRoleId,
+      extra_permissions: u.extra_permissions,
+      revoked_permissions: u.revoked_permissions,
+      is_active: u.is_active,
     });
-    return counts;
-  }, [activeUsers]);
+    setFormError("");
+  };
+
+  const changeRole = (role_id: string) => {
+    // Per-person changes are relative to the role; keep only those that still mean something.
+    const fromRole = new Set(rolePermissions(roleById.get(role_id), catalogue));
+    setForm((f) => ({
+      ...f,
+      role_id,
+      extra_permissions: f.extra_permissions.filter((k) => !fromRole.has(k)),
+      revoked_permissions: f.revoked_permissions.filter((k) => fromRole.has(k)),
+    }));
+  };
 
   const onAdd = async (e: FormEvent) => {
     e.preventDefault();
-    setError("");
-    setMessage("");
+    setFormError("");
     setLoading(true);
     try {
-      await api.createStaff(form);
-      setMessage(`${form.full_name} has been added.`);
-      setForm({ email: "", password: "", full_name: "", role: "analyst" });
+      await api.createStaff({
+        full_name: form.full_name,
+        email: form.email,
+        password: form.password,
+        role_id: form.role_id,
+        extra_permissions: customiseNew ? form.extra_permissions : [],
+        revoked_permissions: customiseNew ? form.revoked_permissions : [],
+      });
+      setMessage(`${form.full_name} has been added as ${roleById.get(form.role_id)?.name ?? "staff"}.`);
+      setError("");
       setShowAdd(false);
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to add member");
+      setFormError(err instanceof Error ? err.message : "Failed to add member");
     } finally {
       setLoading(false);
     }
   };
 
-  const openEdit = (user: User) => {
-    setEditing(user);
-    setEditForm({
-      full_name: user.full_name,
-      email: user.email,
-      role: user.role,
-      is_active: user.is_active,
-      password: "",
-    });
-    setError("");
-  };
-
   const onEdit = async (e: FormEvent) => {
     e.preventDefault();
     if (!editing) return;
+    const self = editing.id === currentUser?.id;
     setLoading(true);
-    setError("");
+    setFormError("");
     try {
-      const payload: UpdateStaffRequest = {
-        full_name: editForm.full_name,
-        email: editForm.email,
-        role: editForm.role,
-        is_active: editForm.is_active,
-      };
-      if (editForm.password) payload.password = editForm.password;
-      await api.updateStaff(editing.id, payload);
-      setMessage(`${editForm.full_name} has been updated.`);
+      await api.updateStaff(editing.id, {
+        full_name: form.full_name,
+        email: form.email,
+        ...(form.password ? { password: form.password } : {}),
+        ...(self
+          ? {}
+          : {
+              role_id: form.role_id,
+              extra_permissions: form.extra_permissions,
+              revoked_permissions: form.revoked_permissions,
+              is_active: form.is_active,
+            }),
+      });
+      setMessage(`${form.full_name} has been updated.`);
+      setError("");
       setEditing(null);
       await load();
+      if (self) await refreshUser();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update member");
+      setFormError(err instanceof Error ? err.message : "Failed to update member");
     } finally {
       setLoading(false);
     }
@@ -148,37 +185,68 @@ export function UsersPage() {
   const onRemove = async () => {
     if (!removing) return;
     setLoading(true);
-    setError("");
+    setFormError("");
     try {
       await api.removeStaff(removing.id);
       setMessage(`${removing.full_name} has been removed from the team.`);
+      setError("");
       setRemoving(null);
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to remove member");
+      setFormError(err instanceof Error ? err.message : "Failed to remove member");
     } finally {
       setLoading(false);
     }
   };
 
+  const formRole = roleById.get(form.role_id);
+  const roleSelect = (disabled: boolean) => (
+    <div>
+      <label className="label" htmlFor="staff-role">Role</label>
+      <select
+        id="staff-role"
+        className="input"
+        value={form.role_id}
+        onChange={(e) => changeRole(e.target.value)}
+        disabled={disabled}
+        required
+      >
+        {roles.map((r) => (
+          <option key={r.id} value={r.id} disabled={!canAssign(r) && r.id !== form.role_id}>
+            {r.name}
+            {r.description ? ` — ${r.description}` : ""}
+            {!canAssign(r) ? " (needs access you do not have)" : ""}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+
   return (
     <div>
       <PageHeader
         title="Team"
-        subtitle="Manage compliance officers, roles, and access levels across the platform."
+        subtitle="Staff, their role, and anything added or removed for them personally."
         count={`${activeUsers.length} active`}
         actions={
-          isAdmin ? (
-            <button type="button" className="btn-primary" onClick={() => setShowAdd(true)}>
-              <UserPlus className="h-4 w-4" />
-              Add member
-            </button>
-          ) : undefined
+          <div className="flex flex-wrap gap-2">
+            <Link to="/roles" className="btn-secondary">
+              <ShieldCheck className="h-4 w-4" />
+              Roles & permissions
+            </Link>
+            {isManager && (
+              <button type="button" className="btn-primary" onClick={openAdd}>
+                <UserPlus className="h-4 w-4" />
+                Add member
+              </button>
+            )}
+          </div>
         }
       />
 
       {(message || error) && (
         <div
+          role="status"
           className={`mb-4 rounded-lg px-4 py-3 text-sm ${error ? "border border-danger/30 bg-danger/10 text-danger" : "border border-success/30 bg-success/10 text-success"}`}
         >
           {error || message}
@@ -186,15 +254,15 @@ export function UsersPage() {
       )}
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard label="Active members" value={activeUsers.length} changeUp />
-        <KpiCard label="Admins" value={roleCounts.admin} />
-        <KpiCard label="Approvers" value={roleCounts.approver} />
-        <KpiCard label="Analysts & viewers" value={roleCounts.analyst + roleCounts.viewer} />
+        <KpiCard label="Active members" value={activeUsers.length} />
+        <KpiCard label="Roles" value={roles.length} />
+        <KpiCard label="With personal changes" value={customised} />
+        <KpiCard label="Removed" value={inactiveUsers.length} />
       </div>
 
-      {!isAdmin && (
+      {!isManager && (
         <div className="mb-6">
-          <InfoCallout title="View only">Contact an admin to add, edit, or remove team members.</InfoCallout>
+          <InfoCallout title="View only">Ask an administrator to add, edit or remove team members.</InfoCallout>
         </div>
       )}
 
@@ -216,8 +284,8 @@ export function UsersPage() {
             title={tab === "active" ? "No active members" : "No removed members"}
             description={tab === "active" ? "Add your first team member to get started." : "Removed members appear here."}
             action={
-              isAdmin && tab === "active" ? (
-                <button type="button" className="btn-primary" onClick={() => setShowAdd(true)}>
+              isManager && tab === "active" ? (
+                <button type="button" className="btn-primary" onClick={openAdd}>
                   Add member
                 </button>
               ) : undefined
@@ -225,141 +293,162 @@ export function UsersPage() {
           />
         ) : (
           <div className="overflow-x-auto">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Member</th>
-                <th>Role</th>
-                <th>Access</th>
-                {isAdmin && <th className="text-right">Actions</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((u) => (
-                <tr key={u.id}>
-                  <td>
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-                          u.id === currentUser?.id ? "bg-accent text-accent-foreground" : "bg-accent-muted text-accent"
-                        }`}
-                      >
-                        {initials(u.full_name)}
-                      </div>
-                      <div>
-                        <p className="font-medium text-content">
-                          {u.full_name}
-                          {u.id === currentUser?.id && (
-                            <span className="ml-2 text-xs font-normal text-accent">(you)</span>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Member</th>
+                  <th>Role and access</th>
+                  <th>Status</th>
+                  {isManager && <th className="text-right">Actions</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((u) => {
+                  const added = u.extra_permissions.length;
+                  const removed = u.revoked_permissions.length;
+                  return (
+                    <tr key={u.id}>
+                      <td>
+                        <div className="flex items-center gap-3">
+                          <div
+                            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                              u.id === currentUser?.id ? "bg-accent text-accent-foreground" : "bg-accent-muted text-accent"
+                            }`}
+                          >
+                            {initials(u.full_name)}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-medium text-content">
+                              {u.full_name}
+                              {u.id === currentUser?.id && <span className="ml-2 text-xs font-normal text-accent">(you)</span>}
+                            </p>
+                            <p className="flex items-center gap-1 text-xs text-content-muted">
+                              <Mail className="h-3 w-3 shrink-0" />
+                              <span className="truncate">{u.email}</span>
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <Tag color={roleById.get(u.role_id ?? "")?.all_permissions ? "purple" : "blue"}>{u.role_name ?? "No role"}</Tag>
+                        <p className="mt-1 text-xs text-content-subtle">
+                          {u.permissions.length} permission{u.permissions.length === 1 ? "" : "s"}
+                          {added + removed > 0 && (
+                            <span className="ml-1 text-content-muted">
+                              · personal: {added > 0 ? `+${added}` : ""}
+                              {added > 0 && removed > 0 ? " " : ""}
+                              {removed > 0 ? `−${removed}` : ""}
+                            </span>
                           )}
                         </p>
-                        <p className="flex items-center gap-1 text-xs text-content-muted">
-                          <Mail className="h-3 w-3" />
-                          {u.email}
-                        </p>
-                      </div>
-                    </div>
-                  </td>
-                  <td>
-                    <Tag color={u.role === "admin" ? "purple" : u.role === "approver" ? "pink" : "blue"}>
-                      {roleLabel(u.role)}
-                    </Tag>
-                    <p className="mt-1 text-xs text-content-subtle">{ROLE_DESC[u.role]}</p>
-                  </td>
-                  <td>
-                    <StatusBadge status={u.is_active ? "active" : "idle"} />
-                  </td>
-                  {isAdmin && (
-                    <td>
-                      <div className="flex justify-end gap-2">
-                        <button
-                          type="button"
-                          className="btn-ghost rounded-lg p-2"
-                          title="Edit"
-                          onClick={() => openEdit(u)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </button>
-                        {u.is_active && u.id !== currentUser?.id && (
-                          <button
-                            type="button"
-                            className="btn-ghost rounded-lg p-2 text-danger hover:bg-danger/10"
-                            title="Remove"
-                            onClick={() => setRemoving(u)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                      </td>
+                      <td>
+                        <StatusBadge status={u.is_active ? "active" : "idle"} />
+                      </td>
+                      {isManager && (
+                        <td>
+                          <div className="flex justify-end gap-2">
+                            <button type="button" className="btn-ghost rounded-lg p-2" title="Edit" aria-label={`Edit ${u.full_name}`} onClick={() => openEdit(u)}>
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                            {u.is_active && u.id !== currentUser?.id && (
+                              <button
+                                type="button"
+                                className="btn-ghost rounded-lg p-2 text-danger hover:bg-danger/10"
+                                title="Remove"
+                                aria-label={`Remove ${u.full_name}`}
+                                onClick={() => {
+                                  setFormError("");
+                                  setRemoving(u);
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
 
-      {/* Add modal */}
-      {showAdd && isAdmin && (
-        <Modal title="Add team member" onClose={() => setShowAdd(false)}>
+      {showAdd && isManager && (
+        <Modal title="Add team member" subtitle="Choose their role. You can also adjust what they personally can do." onClose={() => setShowAdd(false)} size="lg">
           <form onSubmit={onAdd} className="space-y-4">
-            <Field label="Full name" value={form.full_name} onChange={(v) => setForm({ ...form, full_name: v })} required />
-            <Field label="Email" type="email" value={form.email} onChange={(v) => setForm({ ...form, email: v })} required />
-            <Field label="Temporary password" type="password" value={form.password} onChange={(v) => setForm({ ...form, password: v })} required minLength={8} />
-            <div>
-              <label className="label">Role</label>
-              <select className="input" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as UserRole })}>
-                {ROLES.map((r) => (
-                  <option key={r} value={r}>{roleLabel(r)} — {ROLE_DESC[r]}</option>
-                ))}
-              </select>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Full name" value={form.full_name} onChange={(v) => setForm({ ...form, full_name: v })} required />
+              <Field label="Email" type="email" value={form.email} onChange={(v) => setForm({ ...form, email: v })} required />
             </div>
+            <Field label="Temporary password" type="password" value={form.password} onChange={(v) => setForm({ ...form, password: v })} required minLength={8} />
+            {roleSelect(false)}
+            <label className="flex items-center gap-2 text-sm text-content">
+              <input type="checkbox" checked={customiseNew} onChange={(e) => setCustomiseNew(e.target.checked)} />
+              Adjust permissions for this person
+            </label>
+            {customiseNew && formRole && (
+              <StaffPermissionChecklist
+                catalogue={catalogue}
+                rolePermissions={rolePermissions(formRole, catalogue)}
+                roleName={formRole.name}
+                extra={form.extra_permissions}
+                revoked={form.revoked_permissions}
+                onChange={(extra_permissions, revoked_permissions) => setForm({ ...form, extra_permissions, revoked_permissions })}
+                grantable={grantable}
+              />
+            )}
+            {formError && <p className="text-sm text-danger" role="alert">{formError}</p>}
             <div className="flex justify-end gap-2 pt-2">
               <button type="button" className="btn-secondary" onClick={() => setShowAdd(false)}>Cancel</button>
-              <button type="submit" className="btn-primary" disabled={loading}>{loading ? "Adding..." : "Add member"}</button>
+              <button type="submit" className="btn-primary" disabled={loading || !form.role_id}>{loading ? "Adding..." : "Add member"}</button>
             </div>
           </form>
         </Modal>
       )}
 
-      {/* Edit modal */}
-      {editing && isAdmin && (
-        <Modal title="Edit team member" onClose={() => setEditing(null)}>
+      {editing && isManager && (
+        <Modal title={`Edit ${editing.full_name}`} subtitle={editing.email} onClose={() => setEditing(null)} size="lg">
           <form onSubmit={onEdit} className="space-y-4">
-            <Field label="Full name" value={editForm.full_name ?? ""} onChange={(v) => setEditForm({ ...editForm, full_name: v })} required />
-            <Field label="Email" type="email" value={editForm.email ?? ""} onChange={(v) => setEditForm({ ...editForm, email: v })} required />
-            <div>
-              <label className="label">Role</label>
-              <select
-                className="input"
-                value={editForm.role}
-                onChange={(e) => setEditForm({ ...editForm, role: e.target.value as UserRole })}
-                disabled={editing.id === currentUser?.id}
-              >
-                {ROLES.map((r) => (
-                  <option key={r} value={r}>{roleLabel(r)}</option>
-                ))}
-              </select>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Full name" value={form.full_name} onChange={(v) => setForm({ ...form, full_name: v })} required />
+              <Field label="Email" type="email" value={form.email} onChange={(v) => setForm({ ...form, email: v })} required />
             </div>
-            <Field
-              label="New password (optional)"
-              type="password"
-              value={editForm.password ?? ""}
-              onChange={(v) => setEditForm({ ...editForm, password: v })}
-              minLength={8}
-            />
+            {editing.id === currentUser?.id && (
+              <InfoCallout title="Your own account">
+                You cannot change your own role, permissions or status. Another administrator has to.
+              </InfoCallout>
+            )}
+            {roleSelect(editing.id === currentUser?.id)}
+            {formRole && (
+              <div>
+                <p className="label">Permissions</p>
+                <StaffPermissionChecklist
+                  catalogue={catalogue}
+                  rolePermissions={rolePermissions(formRole, catalogue)}
+                  roleName={formRole.name}
+                  extra={form.extra_permissions}
+                  revoked={form.revoked_permissions}
+                  onChange={(extra_permissions, revoked_permissions) => setForm({ ...form, extra_permissions, revoked_permissions })}
+                  grantable={grantable}
+                  disabled={editing.id === currentUser?.id}
+                />
+              </div>
+            )}
+            <Field label="New password (optional)" type="password" value={form.password} onChange={(v) => setForm({ ...form, password: v })} minLength={8} />
             <label className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
-                checked={editForm.is_active ?? true}
-                onChange={(e) => setEditForm({ ...editForm, is_active: e.target.checked })}
+                checked={form.is_active}
+                onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
                 disabled={editing.id === currentUser?.id}
               />
               <span className="text-content-muted">Account is active</span>
             </label>
-            {error && <p className="text-sm text-danger">{error}</p>}
+            {formError && <p className="text-sm text-danger" role="alert">{formError}</p>}
             <div className="flex justify-end gap-2 pt-2">
               <button type="button" className="btn-secondary" onClick={() => setEditing(null)}>Cancel</button>
               <button type="submit" className="btn-primary" disabled={loading}>{loading ? "Saving..." : "Save changes"}</button>
@@ -368,8 +457,7 @@ export function UsersPage() {
         </Modal>
       )}
 
-      {/* Remove confirm */}
-      {removing && isAdmin && (
+      {removing && isManager && (
         <Modal title="Remove team member" onClose={() => setRemoving(null)}>
           <div className="flex items-start gap-4">
             <div className="rounded-full bg-danger/10 p-3 text-danger">
@@ -378,11 +466,11 @@ export function UsersPage() {
             <div>
               <p className="font-medium text-content">Remove {removing.full_name}?</p>
               <p className="mt-1 text-sm text-content-muted">
-                They will lose access immediately. You can reactivate them later from the Removed tab via Edit.
+                They lose access immediately. You can reactivate them later from the Removed tab via Edit.
               </p>
             </div>
           </div>
-          {error && <p className="mt-4 text-sm text-danger">{error}</p>}
+          {formError && <p className="mt-4 text-sm text-danger" role="alert">{formError}</p>}
           <div className="mt-6 flex justify-end gap-2">
             <button type="button" className="btn-secondary" onClick={() => setRemoving(null)}>Cancel</button>
             <button type="button" className="btn-primary bg-danger hover:opacity-90" disabled={loading} onClick={onRemove}>
@@ -391,26 +479,8 @@ export function UsersPage() {
           </div>
         </Modal>
       )}
-    </div>
-  );
-}
 
-function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
-  // Rendered into <body>: inside the animated page container a fixed dialog is clipped and sits under the header.
-  return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <button type="button" className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} aria-label="Close" />
-      <div className="relative w-full max-w-md rounded-xl border border-border bg-surface-raised p-6 shadow-lg">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-content">{title}</h2>
-          <button type="button" className="btn-ghost rounded-lg p-1" onClick={onClose}>
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-        {children}
-      </div>
-    </div>,
-    document.body,
+    </div>
   );
 }
 
@@ -429,16 +499,19 @@ function Field({
   required?: boolean;
   minLength?: number;
 }) {
+  const id = `field-${label.toLowerCase().replace(/[^a-z]+/g, "-")}`;
   return (
     <div>
-      <label className="label">{label}</label>
+      <label className="label" htmlFor={id}>{label}</label>
       <input
+        id={id}
         type={type}
         className="input"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         required={required}
         minLength={minLength}
+        autoComplete={type === "password" ? "new-password" : undefined}
       />
     </div>
   );
