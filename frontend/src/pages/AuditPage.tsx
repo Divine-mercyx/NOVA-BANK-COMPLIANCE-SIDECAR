@@ -27,6 +27,7 @@ export function AuditPage() {
         {filtered.length === 0 ? (
           <EmptyState icon={ClipboardList} title="No events" description="Activity will appear here as you use the platform." />
         ) : (
+          <div className="overflow-x-auto">
           <table className="data-table">
             <thead>
               <tr>
@@ -51,6 +52,7 @@ export function AuditPage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
     </div>

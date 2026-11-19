@@ -10,7 +10,6 @@ import {
   compareLastTwo,
   recentRunSeries,
   regulatoryFlagSeries,
-  reportPipelineSeries,
   shareOfTotal,
   validationRateSeries,
 } from "../lib/dashboardMetrics";
@@ -20,6 +19,17 @@ import { actionLabel, formatDateRange, formatNumber, formatRelative } from "../l
 import { canRunEtl, extractModeLabel, extractSourceLabel } from "../lib/roles";
 import { useAuth } from "../lib/auth";
 import { useLiveRefresh } from "../lib/live";
+import { useMediaQuery } from "../lib/useMediaQuery";
+
+/** Axis labels short enough that every channel gets one. */
+const SHORT_CHANNEL: Record<string, string> = {
+  "CASH DEPOSIT": "Cash in",
+  "CASH WITHDRAWAL": "Cash out",
+};
+
+function shortChannelLabel(name: string): string {
+  return SHORT_CHANNEL[name] ?? name;
+}
 
 export function DashboardPage() {
   const { user } = useAuth();
@@ -120,13 +130,8 @@ export function DashboardPage() {
         : [0, 0, 0, 0],
     [dq],
   );
-  const reportSeries = useMemo(
-    () => (data ? reportPipelineSeries(data.pending_reports, data.submitted_reports) : [0, 0, 0, 0, 0]),
-    [data],
-  );
   const extractTrend = useMemo(() => compareLastTwo(extractSeries), [extractSeries]);
   const qualityTrend = useMemo(() => compareLastTwo(qualitySeries), [qualitySeries]);
-  const flagTrend = useMemo(() => compareLastTwo(flagSeries), [flagSeries]);
 
   const channelChart = useMemo(() => {
     const entries = Object.entries(dq?.by_channel ?? {}).map(([channel, count]) => ({
@@ -150,6 +155,7 @@ export function DashboardPage() {
   );
 
   const activeChart = volumeView === "channel" ? channelChart : flagChart;
+  const narrowChart = useMediaQuery("(max-width: 639px)");
   const chartPeak = activeChart.reduce((max, row) => (row.count > max ? row.count : max), 0);
   const chartTitle = volumeView === "channel" ? "Volume by channel" : "Regulatory flags";
   const chartSubtitle =
@@ -232,19 +238,16 @@ export function DashboardPage() {
               label="CTR reportable"
               value={formatNumber(data.data_quality.ctr_eligible)}
               sparkline={flagSeries}
-              change={flagTrend?.label ?? `${shareOfTotal(data.data_quality.ctr_eligible, totalStaged)}% of staged`}
-              changeUp={flagTrend?.up ?? data.data_quality.ctr_eligible > 0}
+              change={`${shareOfTotal(data.data_quality.ctr_eligible, totalStaged)}% of staged`}
               hint={`FTR ${formatNumber(data.data_quality.ftr_eligible)} · PEP ${formatNumber(data.data_quality.pep_eligible)}`}
             />
             <FeaturedKpiCard
               tone="amber"
               icon={AlertTriangle}
-              label="Reports pipeline"
-              value={formatNumber(data.pending_reports)}
-              sparkline={reportSeries}
-              hint={`${formatNumber(data.submitted_reports)} submitted to regulators`}
-              change={data.pipeline_status.replace(/_/g, " ")}
-              changeUp={data.pipeline_status === "success"}
+              label="STR candidates"
+              value={formatNumber(data.data_quality.str_eligible)}
+              change={`${shareOfTotal(data.data_quality.str_eligible, totalStaged)}% of staged`}
+              hint="Possible suspicious activity to review"
             />
           </div>
 
@@ -301,7 +304,12 @@ export function DashboardPage() {
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgb(var(--border) / 0.6)" />
                       <XAxis
                         dataKey="name"
-                        tick={{ fontSize: 11, fill: "rgb(var(--content-muted))" }}
+                        interval={0}
+                        tickFormatter={shortChannelLabel}
+                        tick={{ fontSize: narrowChart ? 10 : 11, fill: "rgb(var(--content-muted))" }}
+                        angle={narrowChart ? -40 : 0}
+                        textAnchor={narrowChart ? "end" : "middle"}
+                        height={narrowChart ? 56 : 30}
                         axisLine={false}
                         tickLine={false}
                       />

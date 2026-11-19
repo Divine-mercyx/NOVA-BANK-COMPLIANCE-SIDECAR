@@ -223,6 +223,7 @@ export function UsersPage() {
             }
           />
         ) : (
+          <div className="overflow-x-auto">
           <table className="data-table">
             <thead>
               <tr>
@@ -295,6 +296,7 @@ export function UsersPage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 

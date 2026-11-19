@@ -1,6 +1,5 @@
 import {
   Activity,
-  Bell,
   BookOpen,
   ChevronDown,
   ChevronLeft,
@@ -11,20 +10,25 @@ import {
   KeyRound,
   LayoutDashboard,
   LogOut,
+  Menu,
   Plug,
   Search,
-  Settings,
   Users,
+  X,
 } from "lucide-react";
-import { useState } from "react";
-import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { roleLabel } from "../lib/format";
-import { NOVA_BANK_LOGO_URL } from "../lib/brand";
 import { pageTitle } from "../lib/pageTitles";
 import { useSidebar } from "../lib/sidebar";
+import { DESKTOP_QUERY, useMediaQuery } from "../lib/useMediaQuery";
+import { BrandLogo } from "./BrandLogo";
 import { PageTransition } from "./PageTransition";
 import { ThemeToggle } from "./ThemeToggle";
+
+/** Sidebar width when it opens as a drawer on phones and tablets. */
+const DRAWER_WIDTH = 272;
 
 const reportingNav = [
   { to: "/", label: "Overview", icon: LayoutDashboard, end: true },
@@ -140,10 +144,44 @@ function IntegrationNav({ expanded }: { expanded: boolean }) {
 
 export function Layout() {
   const { user, logout } = useAuth();
-  const { expanded, toggle, width } = useSidebar();
+  const { expanded: desktopExpanded, toggle, width: desktopWidth } = useSidebar();
   const { pathname } = useLocation();
-  const isDaily = pathname.startsWith("/daily");
+  const navigate = useNavigate();
   const title = pageTitle(pathname);
+
+  // Desktop: the sidebar sits beside the content and can collapse to icons.
+  // Phones and tablets: it is a drawer over the content, opened from the menu button.
+  const isDesktop = useMediaQuery(DESKTOP_QUERY);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const expanded = isDesktop ? desktopExpanded : true;
+  const sidebarWidth = isDesktop ? desktopWidth : DRAWER_WIDTH;
+  const [query, setQuery] = useState("");
+
+  // Close the drawer on navigation, and when the screen grows to desktop.
+  useEffect(() => setDrawerOpen(false), [pathname, isDesktop]);
+
+  // A closed drawer is off-screen: keep keyboard focus and screen readers out of it.
+  const asideRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const hidden = !isDesktop && !drawerOpen;
+    asideRef.current?.toggleAttribute("inert", hidden);
+    if (hidden) asideRef.current?.setAttribute("aria-hidden", "true");
+    else asideRef.current?.removeAttribute("aria-hidden");
+  }, [isDesktop, drawerOpen]);
+
+  useEffect(() => {
+    if (!drawerOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setDrawerOpen(false);
+    };
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [drawerOpen]);
 
   const initials = user?.full_name
     ?.split(" ")
@@ -152,32 +190,48 @@ export function Layout() {
     .slice(0, 2)
     .toUpperCase();
 
-  const searchPlaceholder = isDaily ? "Search same-day DTD…" : "Search records…";
+  // The header search looks through staged transactions on the Transactions page.
+  const submitSearch = (e: FormEvent) => {
+    e.preventDefault();
+    const q = query.trim();
+    navigate(q ? `/reports?q=${encodeURIComponent(q)}` : "/reports");
+  };
 
   return (
     <div className="flex min-h-screen nova-workspace-bg">
+      {!isDesktop && drawerOpen && (
+        <div
+          className="fixed inset-0 z-30 bg-slate-950/50 backdrop-blur-[2px]"
+          onClick={() => setDrawerOpen(false)}
+          aria-hidden
+        />
+      )}
       <aside
-        className="nova-sidebar fixed inset-y-0 left-0 z-30 flex flex-col transition-[width] duration-200 ease-in-out"
-        style={{ width }}
+        id="nova-sidebar"
+        className={`nova-sidebar fixed inset-y-0 left-0 z-40 flex flex-col duration-200 ease-in-out ${
+          isDesktop ? "transition-[width]" : `transition-transform ${drawerOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full"}`
+        }`}
+        style={{ width: sidebarWidth }}
+        aria-label="Main navigation"
+        ref={asideRef}
       >
         <div className={`flex items-center py-5 ${expanded ? "justify-between px-5" : "justify-center px-2"}`}>
-          <div className="flex items-center gap-2.5">
+          <div className="flex min-w-0 items-center gap-2.5">
             <div
               className={`flex shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white shadow-md ${
                 expanded ? "h-10 max-w-[148px] px-2" : "h-10 w-10 p-1"
               }`}
             >
-              <img
-                src={NOVA_BANK_LOGO_URL}
-                alt="Nova Bank"
+              <BrandLogo
+                compact={!expanded}
                 className={expanded ? "h-7 w-auto max-w-full object-contain" : "h-full w-full object-contain object-left"}
               />
             </div>
             {expanded && (
-              <p className="min-w-0 truncate text-[11px] font-medium text-sidebar-muted">Compliance sidecar</p>
+              <p className="min-w-0 text-[11px] font-medium leading-tight text-sidebar-muted">Compliance sidecar</p>
             )}
           </div>
-          {expanded && (
+          {isDesktop && expanded && (
             <button
               type="button"
               onClick={toggle}
@@ -187,9 +241,19 @@ export function Layout() {
               <ChevronLeft className="h-4 w-4" />
             </button>
           )}
+          {!isDesktop && (
+            <button
+              type="button"
+              onClick={() => setDrawerOpen(false)}
+              className="rounded-xl p-1.5 text-sidebar-muted transition hover:bg-white/10 hover:text-sidebar-foreground"
+              aria-label="Close menu"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          )}
         </div>
 
-        {!expanded && (
+        {isDesktop && !expanded && (
           <button
             type="button"
             onClick={toggle}
@@ -242,37 +306,46 @@ export function Layout() {
         </div>
       </aside>
 
-      <div className="flex min-h-screen flex-1 flex-col p-3 sm:p-4" style={{ marginLeft: width }}>
-        <div className="nova-app-panel flex min-h-[calc(100vh-1.5rem)] flex-1 flex-col overflow-hidden rounded-[28px]">
-          <header className="relative flex h-[4.25rem] shrink-0 items-center gap-4 border-b border-border/80 px-5 sm:px-7">
+      <div
+        className="flex min-h-screen min-w-0 flex-1 flex-col p-2 sm:p-4"
+        style={{ marginLeft: isDesktop ? desktopWidth : 0 }}
+      >
+        <div className="nova-app-panel flex min-h-[calc(100vh-1rem)] min-w-0 flex-1 flex-col overflow-hidden rounded-[22px] sm:min-h-[calc(100vh-2rem)] sm:rounded-[28px]">
+          <header className="relative flex h-[4.25rem] shrink-0 items-center gap-3 border-b border-border/80 px-4 sm:gap-4 sm:px-7">
             <div className="wow-header-accent absolute inset-x-0 bottom-0 h-px" aria-hidden />
+            {!isDesktop && (
+              <button
+                type="button"
+                onClick={() => setDrawerOpen(true)}
+                className="btn-ghost -ml-1 shrink-0 rounded-xl p-2"
+                aria-label="Open menu"
+                aria-controls="nova-sidebar"
+                aria-expanded={drawerOpen}
+              >
+                <Menu className="h-5 w-5" />
+              </button>
+            )}
             <div className="min-w-0">
               <h1 className="truncate text-lg font-semibold tracking-tight text-content sm:text-xl">{title}</h1>
               <p className="hidden text-xs text-content-muted sm:block">Nova compliance · Finacle staging</p>
             </div>
-            <div className="relative ml-auto hidden max-w-md flex-1 md:block">
-              <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-content-subtle" />
+            <form role="search" onSubmit={submitSearch} className="relative ml-auto hidden max-w-md flex-1 md:block">
+              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-content-subtle" />
               <input
                 type="search"
-                placeholder={searchPlaceholder}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search transactions…"
+                aria-label="Search transactions"
                 className="input w-full rounded-full border-transparent bg-surface py-2.5 pl-10 shadow-inner"
               />
-            </div>
-            <div className="flex items-center gap-1">
+            </form>
+            <div className="ml-auto flex items-center gap-1 md:ml-0">
               <ThemeToggle />
-              <button type="button" className="btn-ghost rounded-full p-2.5">
-                <Bell className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                className="btn-ghost rounded-xl bg-accent p-2.5 text-accent-foreground hover:bg-accent-hover"
-              >
-                <Settings className="h-4 w-4" />
-              </button>
             </div>
           </header>
 
-          <main className="relative z-[1] flex-1 overflow-y-auto px-5 py-6 sm:px-7">
+          <main className="relative z-[1] min-w-0 flex-1 overflow-y-auto px-4 py-5 sm:px-7 sm:py-6">
             <PageTransition>
               <Outlet />
             </PageTransition>
