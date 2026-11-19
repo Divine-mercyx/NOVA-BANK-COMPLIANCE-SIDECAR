@@ -7,10 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.security import decode_access_token
-from app.models.entities import User, UserRole
-
-ANALYST_ROLES = (UserRole.ANALYST, UserRole.APPROVER, UserRole.ADMIN)
-APPROVER_ROLES = (UserRole.APPROVER, UserRole.ADMIN)
+from app.models.entities import User
 
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 CSRF_HEADER = "x-csrf-token"
@@ -50,18 +47,21 @@ async def get_current_user(request: Request, db: AsyncSession = Depends(get_db))
     return user
 
 
-def require_roles(*roles: UserRole):
+def require_permission(*permissions: str):
+    """Allow the request if the signed-in user holds any of `permissions` (see app/core/permissions.py).
+
+    Permissions are read from the user's current role and per-staff lists on every request, so a change
+    takes effect immediately, without waiting for the session to expire."""
+    from app.core.permissions import ALL_PERMISSIONS
+
+    unknown = set(permissions) - ALL_PERMISSIONS
+    if unknown or not permissions:
+        raise ValueError(f"Unknown permission(s): {sorted(unknown)}")
+
     async def checker(user: User = Depends(get_current_user)) -> User:
-        if user.role not in roles:
-            raise HTTPException(status.HTTP_403_FORBIDDEN, "Insufficient permissions")
+        held = user.permissions
+        if not any(p in held for p in permissions):
+            raise HTTPException(status.HTTP_403_FORBIDDEN, "You do not have access to this. Ask an administrator.")
         return user
 
     return checker
-
-
-def require_analyst():
-    return require_roles(*ANALYST_ROLES)
-
-
-def require_approver():
-    return require_roles(*APPROVER_ROLES)

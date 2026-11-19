@@ -92,7 +92,7 @@ export function ScreeningAlertsPage() {
               <RefreshCw className="h-4 w-4" />
               Refresh
             </button>
-            {canSimulateScreening(user?.role) && (
+            {canSimulateScreening(user) && (
               <button className="btn-primary" onClick={simulate} disabled={simulating}>
                 {simulating ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
                 Simulate flags
@@ -131,7 +131,7 @@ export function ScreeningAlertsPage() {
               title="No alerts in queue"
               description="Simulate incoming flagged transactions or wait for Finacle webhooks."
               action={
-                canSimulateScreening(user?.role) ? (
+                canSimulateScreening(user) ? (
                   <button className="btn-primary" onClick={simulate}>
                     Simulate flags
                   </button>
@@ -205,7 +205,7 @@ export function ScreeningAlertsPage() {
                 Received {formatDate(selected.created_at)}
               </div>
 
-              {selected.status === "pending" && canResolveAlerts(user?.role) && (
+              {selected.status === "pending" && canResolveAlerts(user) && (
                 <div className="mt-6 flex flex-wrap gap-2">
                   <button className="btn-primary" onClick={() => action(api.approveAlert)}>
                     <Check className="h-4 w-4" /> Approve (false positive)
@@ -213,7 +213,7 @@ export function ScreeningAlertsPage() {
                   <button className="btn-secondary" onClick={() => action(api.rejectAlert)}>
                     <X className="h-4 w-4" /> Reject transaction
                   </button>
-                  {canEscalateAlerts(user?.role) && (
+                  {canEscalateAlerts(user) && (
                     <button className="btn-secondary" onClick={() => action(api.escalateAlert)}>
                       <ArrowUpRight className="h-4 w-4" /> Escalate
                     </button>

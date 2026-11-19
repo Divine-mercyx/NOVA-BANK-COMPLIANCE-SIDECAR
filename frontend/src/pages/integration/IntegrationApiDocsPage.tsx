@@ -7,6 +7,7 @@ import { ApiResponsePanel } from "../../components/integration/ApiResponsePanel"
 import { PageHeader } from "../../components/ui";
 import { api, IntegrationInfo } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
+import { canManageApiKeys } from "../../lib/roles";
 import {
   CalendarDate,
   buildExtractionParams,
@@ -288,7 +289,7 @@ export function IntegrationApiDocsPage() {
                 OpenAPI
               </a>
             )}
-            {user?.role === "admin" && (
+            {canManageApiKeys(user) && (
               <Link to="/integration/keys" className="btn-primary">
                 <KeyRound className="h-4 w-4" />
                 API keys

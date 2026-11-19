@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, require_analyst, require_approver
+from app.api.deps import get_current_user, require_permission
 from app.core.database import get_db
 from app.models.entities import AlertStatus, AuditEvent, ScreeningAlert, User
 from app.schemas.screening import (
@@ -17,17 +17,17 @@ from app.services.screening.engine import ScreeningService
 router = APIRouter(prefix="/api/v1/screening", tags=["screening"], dependencies=[Depends(get_current_user)])
 
 
-@router.get("/dashboard", response_model=ScreeningDashboard)
+@router.get("/dashboard", response_model=ScreeningDashboard, dependencies=[Depends(require_permission("screening.view"))])
 async def screening_dashboard(db: AsyncSession = Depends(get_db)):
     return ScreeningDashboard(**await ScreeningService(db).dashboard_stats())
 
 
-@router.get("/performance", response_model=ScreeningPerformance)
+@router.get("/performance", response_model=ScreeningPerformance, dependencies=[Depends(require_permission("screening.view"))])
 async def screening_performance(db: AsyncSession = Depends(get_db)):
     return ScreeningPerformance(**await ScreeningService(db).performance_metrics())
 
 
-@router.get("/alerts", response_model=list[ScreeningAlertOut])
+@router.get("/alerts", response_model=list[ScreeningAlertOut], dependencies=[Depends(require_permission("screening.view"))])
 async def list_alerts(
     status: AlertStatus | None = Query(None),
     limit: int = Query(50, le=100),
@@ -37,7 +37,7 @@ async def list_alerts(
     return [ScreeningAlertOut.model_validate(a) for a in alerts]
 
 
-@router.get("/alerts/{alert_id}", response_model=ScreeningAlertOut)
+@router.get("/alerts/{alert_id}", response_model=ScreeningAlertOut, dependencies=[Depends(require_permission("screening.view"))])
 async def get_alert(alert_id: str, db: AsyncSession = Depends(get_db)):
     alert = await ScreeningService(db).get_alert(alert_id)
     if not alert:
@@ -49,7 +49,7 @@ async def get_alert(alert_id: str, db: AsyncSession = Depends(get_db)):
 async def simulate_alerts(
     body: SimulateRequest,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_analyst()),
+    user: User = Depends(require_permission("screening.action")),
 ):
     alerts = await ScreeningService(db).simulate_alerts(body.count, user.full_name)
     return [ScreeningAlertOut.model_validate(a) for a in alerts]
@@ -60,7 +60,7 @@ async def approve_alert(
     alert_id: str,
     body: AlertActionRequest,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_analyst()),
+    _: User = Depends(require_permission("screening.action")),
 ):
     try:
         alert = await ScreeningService(db).resolve(alert_id, AlertStatus.APPROVED, body.actor_name, body.notes)
@@ -74,7 +74,7 @@ async def reject_alert(
     alert_id: str,
     body: AlertActionRequest,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_analyst()),
+    _: User = Depends(require_permission("screening.action")),
 ):
     try:
         alert = await ScreeningService(db).resolve(alert_id, AlertStatus.REJECTED, body.actor_name, body.notes)
@@ -88,7 +88,7 @@ async def escalate_alert(
     alert_id: str,
     body: AlertActionRequest,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_approver()),
+    _: User = Depends(require_permission("screening.escalate")),
 ):
     try:
         alert = await ScreeningService(db).resolve(alert_id, AlertStatus.ESCALATED, body.actor_name, body.notes)
@@ -97,7 +97,7 @@ async def escalate_alert(
     return ScreeningAlertOut.model_validate(alert)
 
 
-@router.get("/audit", response_model=list[dict])
+@router.get("/audit", response_model=list[dict], dependencies=[Depends(require_permission("screening.view"))])
 async def screening_audit(db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(AuditEvent)

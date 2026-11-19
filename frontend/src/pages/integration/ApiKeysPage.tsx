@@ -5,11 +5,12 @@ import { Link } from "react-router-dom";
 import { EmptyState, PageHeader, StatusBadge } from "../../components/ui";
 import { api, ApiKey, ApiKeyCreated } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
+import { canManageApiKeys } from "../../lib/roles";
 import { savePartnerApiKey } from "../../lib/partnerApi";
 
 export function ApiKeysPage() {
   const { user } = useAuth();
-  const isAdmin = user?.role === "admin";
+  const isAdmin = canManageApiKeys(user);
   const [keys, setKeys] = useState<ApiKey[]>([]);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -220,7 +221,7 @@ export function ApiKeysPage() {
             </form>
           </div>
         </div>,
-          document.body,
+        document.body,
       )}
     </div>
   );

@@ -115,6 +115,7 @@ def test_integration_key_management_requires_admin():
         full_name="Viewer",
         role=UserRole.VIEWER,
         is_active=True,
+        permissions={"dashboard.view", "integration.view", "audit.view"},
     )
 
     app = _staff_app()

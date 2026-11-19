@@ -5,11 +5,19 @@ from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_current_user, require_roles
+from app.api.deps import get_current_user, require_permission
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.security import create_access_token, generate_csrf_token, generate_otp, hash_password, verify_password
-from app.models.entities import AuditEvent, OtpSession, User, UserRole
+from app.models.entities import AuditEvent, OtpSession, Role, User, UserRole
+from app.services.access import (
+    assert_access_admin_remains,
+    assert_can_grant,
+    assert_can_manage,
+    clean_permissions,
+    load_role,
+    load_user,
+)
 from app.schemas.auth import (
     AuthResponse,
     CreateStaffRequest,
@@ -134,25 +142,52 @@ async def logout(response: Response, user: User = Depends(get_current_user), db:
     return None
 
 
+def _legacy_role(role: Role) -> UserRole:
+    """The old fixed-role column, kept filled for older clients. Access never comes from it."""
+    try:
+        return UserRole(role.system_key) if role.system_key else UserRole.VIEWER
+    except ValueError:
+        return UserRole.VIEWER
+
+
+def _access_summary(user: User) -> dict:
+    return {
+        "email": user.email,
+        "role": user.access_role.name if user.access_role else None,
+        "extra_permissions": list(user.extra_permissions or []),
+        "revoked_permissions": list(user.revoked_permissions or []),
+        "is_active": user.is_active,
+    }
+
+
 @router.post("/staff", response_model=UserOut)
 async def create_staff(
     body: CreateStaffRequest,
     db: AsyncSession = Depends(get_db),
-    admin: User = Depends(require_roles(UserRole.ADMIN)),
+    admin: User = Depends(require_permission("team.manage")),
 ):
-    existing = await db.execute(select(User).where(User.email == body.email))
-    if existing.scalar_one_or_none():
+    existing = await db.execute(select(User).where(func.lower(User.email) == body.email.lower()))
+    if existing.unique().scalar_one_or_none():
         raise HTTPException(400, "Email already registered")
+
+    role = await load_role(db, body.role_id)
+    extra = clean_permissions(body.extra_permissions)
+    revoked = [p for p in clean_permissions(body.revoked_permissions) if p not in extra]
 
     staff = User(
         email=body.email,
-        full_name=body.full_name,
-        role=body.role,
+        full_name=body.full_name.strip(),
+        role=_legacy_role(role),
+        role_id=role.id,
+        extra_permissions=extra,
+        revoked_permissions=revoked,
         password_hash=hash_password(body.password),
         is_active=True,
     )
     db.add(staff)
     await db.flush()
+    staff = await load_user(db, staff.id)
+    assert_can_grant(admin, staff.permissions)
 
     db.add(
         AuditEvent(
@@ -161,29 +196,11 @@ async def create_staff(
             action="STAFF_CREATED",
             entity_type="user",
             entity_id=staff.id,
-            details={"email": staff.email, "role": staff.role.value},
+            details=_access_summary(staff),
         )
     )
     await db.commit()
-    await db.refresh(staff)
-    return UserOut.model_validate(staff)
-
-
-async def _get_user_or_404(db: AsyncSession, user_id: str) -> User:
-    result = await db.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
-    if not user:
-        raise HTTPException(404, "User not found")
-    return user
-
-
-async def _admin_count(db: AsyncSession) -> int:
-    result = await db.execute(
-        select(func.count())
-        .select_from(User)
-        .where(User.role == UserRole.ADMIN, User.is_active.is_(True))
-    )
-    return result.scalar_one() or 0
+    return UserOut.model_validate(await load_user(db, staff.id))
 
 
 @router.patch("/staff/{user_id}", response_model=UserOut)
@@ -191,63 +208,79 @@ async def update_staff(
     user_id: str,
     body: UpdateStaffRequest,
     db: AsyncSession = Depends(get_db),
-    admin: User = Depends(require_roles(UserRole.ADMIN)),
+    admin: User = Depends(require_permission("team.manage")),
 ):
-    user = await _get_user_or_404(db, user_id)
+    user = await load_user(db, user_id)
+    before = _access_summary(user)
+    changes_access = (
+        body.role_id is not None
+        or body.extra_permissions is not None
+        or body.revoked_permissions is not None
+        or body.is_active is not None
+    )
+    if changes_access and user.id == admin.id:
+        raise HTTPException(400, "You cannot change your own role, permissions or status. Ask another administrator.")
+    assert_can_manage(admin, user)
 
-    if body.email and body.email != user.email:
-        existing = await db.execute(select(User).where(User.email == body.email))
-        if existing.scalar_one_or_none():
+    if body.email and body.email.lower() != user.email.lower():
+        existing = await db.execute(select(User).where(func.lower(User.email) == body.email.lower()))
+        if existing.unique().scalar_one_or_none():
             raise HTTPException(400, "Email already registered")
         user.email = body.email
 
     if body.full_name is not None:
-        user.full_name = body.full_name
-    if body.role is not None:
-        if user.role == UserRole.ADMIN and body.role != UserRole.ADMIN:
-            if user.id == admin.id:
-                raise HTTPException(400, "You cannot demote your own admin account")
-            if await _admin_count(db) <= 1:
-                raise HTTPException(400, "Cannot demote the last active admin")
-        user.role = body.role
+        user.full_name = body.full_name.strip()
+    if body.role_id is not None:
+        role = await load_role(db, body.role_id)
+        user.role_id = role.id
+        user.role = _legacy_role(role)
+    if body.extra_permissions is not None:
+        user.extra_permissions = clean_permissions(body.extra_permissions)
+    if body.revoked_permissions is not None:
+        user.revoked_permissions = clean_permissions(body.revoked_permissions)
+    # A permission cannot be both added and removed: adding wins.
+    user.revoked_permissions = [p for p in (user.revoked_permissions or []) if p not in set(user.extra_permissions or [])]
     if body.is_active is not None:
-        if user.id == admin.id and not body.is_active:
-            raise HTTPException(400, "You cannot deactivate your own account")
-        if user.role == UserRole.ADMIN and not body.is_active and await _admin_count(db) <= 1:
-            raise HTTPException(400, "Cannot deactivate the last active admin")
         user.is_active = body.is_active
     if body.password:
         user.password_hash = hash_password(body.password)
 
+    await db.flush()
+    user = await load_user(db, user.id)
+    if changes_access:
+        assert_can_grant(admin, user.permissions)
+        await assert_access_admin_remains(db)
+
+    after = _access_summary(user)
     db.add(
         AuditEvent(
             actor_id=admin.id,
             actor_name=admin.full_name,
-            action="STAFF_UPDATED",
+            action="STAFF_PERMISSIONS_UPDATED" if before != after and changes_access else "STAFF_UPDATED",
             entity_type="user",
             entity_id=user.id,
-            details={"email": user.email, "role": user.role.value, "is_active": user.is_active},
+            details={"before": before, "after": after},
         )
     )
     await db.commit()
-    await db.refresh(user)
-    return UserOut.model_validate(user)
+    return UserOut.model_validate(await load_user(db, user.id))
 
 
 @router.delete("/staff/{user_id}", response_model=UserOut)
 async def remove_staff(
     user_id: str,
     db: AsyncSession = Depends(get_db),
-    admin: User = Depends(require_roles(UserRole.ADMIN)),
+    admin: User = Depends(require_permission("team.manage")),
 ):
-    user = await _get_user_or_404(db, user_id)
+    user = await load_user(db, user_id)
 
     if user.id == admin.id:
         raise HTTPException(400, "You cannot remove your own account")
-    if user.role == UserRole.ADMIN and await _admin_count(db) <= 1:
-        raise HTTPException(400, "Cannot remove the last active admin")
+    assert_can_manage(admin, user)
 
     user.is_active = False
+    await db.flush()
+    await assert_access_admin_remains(db)
 
     db.add(
         AuditEvent(
@@ -260,6 +293,4 @@ async def remove_staff(
         )
     )
     await db.commit()
-    await db.refresh(user)
-    return UserOut.model_validate(user)
-
+    return UserOut.model_validate(await load_user(db, user.id))

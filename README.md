@@ -63,6 +63,27 @@ Copy sample CSVs from UAT exports (see `docs/finacle/FIELD_MAPPING.md`).
 | Analyst | analyst@novabank.ng | Analyst@Nova2026 |
 | Viewer | viewer@novabank.ng | Viewer@Nova2026 |
 
+## Roles and permissions
+
+Access is role-based. **Team → Roles & permissions** lists the roles; an administrator creates and edits
+them there, picks a role when adding staff, and can add or remove individual permissions for one person on
+the Team page. A page the user has no permission for shows *Access denied*, and every staff API checks the
+same permission on the server.
+
+- The four seeded roles (Admin, Approver, Analyst, Viewer) start with the access they had before. Admin
+  always has every permission and cannot be narrowed or deleted.
+- Changes apply immediately, without signing out. Nobody can change their own access, hand out access they
+  do not have, or leave the portal with no one able to manage the team and roles.
+- The permission list is in `backend/app/core/permissions.py`. A new page or action needs a permission
+  there and a `require_permission(...)` on its route; `tests/test_rbac_rules.py` fails if a staff route has
+  none.
+
+## Branding
+
+The sidebar and sign-in logo load from novabank.ng by default and fall back to a NOVA wordmark if that
+site is unreachable (for example on a bank network without internet). To serve the logo from the portal
+itself, put the file in `frontend/public/` and set `VITE_NOVA_LOGO_URL=/nova-logo.png`.
+
 ## API docs
 
 http://localhost:8000/docs
@@ -72,6 +93,13 @@ http://localhost:8000/docs
 ```bash
 cd backend
 PYTHONPATH=. .venv/bin/python -m pytest tests/ -v
+```
+
+The role-based access tests that need a real database run when `NOVA_TEST_DATABASE_URL` points at a
+scratch PostgreSQL database (they drop and recreate its tables), and are skipped otherwise:
+
+```bash
+NOVA_TEST_DATABASE_URL=postgresql://nova:nova_dev@localhost:5433/nova_test PYTHONPATH=. .venv/bin/python -m pytest tests/ -v
 ```
 
 ## Documentation

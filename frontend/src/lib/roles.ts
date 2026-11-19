@@ -1,31 +1,23 @@
-import type { UserRole } from "./api";
+import type { User } from "./api";
 
-const ANALYST_ROLES: UserRole[] = ["analyst", "approver", "admin"];
-const APPROVER_ROLES: UserRole[] = ["approver", "admin"];
-
-export function canRunEtl(role: UserRole | undefined) {
-  return role ? ANALYST_ROLES.includes(role) : false;
+/** True when the user holds any of the given permissions (see backend app/core/permissions.py). */
+export function can(user: Pick<User, "permissions"> | null | undefined, ...permissions: string[]): boolean {
+  if (!user?.permissions) return false;
+  return permissions.some((p) => user.permissions.includes(p));
 }
 
-export function canGenerateReports(role: UserRole | undefined) {
-  return role ? ANALYST_ROLES.includes(role) : false;
-}
+type MaybeUser = Pick<User, "permissions"> | null | undefined;
 
-export function canApproveReports(role: UserRole | undefined) {
-  return role ? APPROVER_ROLES.includes(role) : false;
-}
-
-export function canSimulateScreening(role: UserRole | undefined) {
-  return role ? ANALYST_ROLES.includes(role) : false;
-}
-
-export function canResolveAlerts(role: UserRole | undefined) {
-  return role ? ANALYST_ROLES.includes(role) : false;
-}
-
-export function canEscalateAlerts(role: UserRole | undefined) {
-  return role ? APPROVER_ROLES.includes(role) : false;
-}
+export const canRunEtl = (user: MaybeUser) => can(user, "extraction.run");
+export const canControlDailyFeed = (user: MaybeUser) => can(user, "dtd.control");
+export const canGenerateReports = (user: MaybeUser) => can(user, "reports.generate");
+export const canApproveReports = (user: MaybeUser) => can(user, "reports.approve");
+export const canSimulateScreening = (user: MaybeUser) => can(user, "screening.action");
+export const canResolveAlerts = (user: MaybeUser) => can(user, "screening.action");
+export const canEscalateAlerts = (user: MaybeUser) => can(user, "screening.escalate");
+export const canManageApiKeys = (user: MaybeUser) => can(user, "apikeys.manage");
+export const canManageTeam = (user: MaybeUser) => can(user, "team.manage");
+export const canManageRoles = (user: MaybeUser) => can(user, "roles.manage");
 
 export function extractModeLabel(mode: string) {
   if (mode === "oracle") return "Oracle (live Finacle)";

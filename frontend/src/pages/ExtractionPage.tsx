@@ -124,7 +124,7 @@ export function ExtractionPage() {
               <RefreshCw className="h-4 w-4" />
               Refresh
             </button>
-            {canRunEtl(user?.role) && (
+            {canRunEtl(user) && (
               <button className="btn-primary" onClick={() => setExtractOpen(true)} disabled={running}>
                 {running ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
                 Run extraction
@@ -161,7 +161,7 @@ export function ExtractionPage() {
             title="No extraction runs"
             description="Run the pipeline to pull Finacle transactions for a chosen date range."
             action={
-              canRunEtl(user?.role) ? (
+              canRunEtl(user) ? (
                 <button className="btn-primary" onClick={() => setExtractOpen(true)}>
                   Run extraction
                 </button>
