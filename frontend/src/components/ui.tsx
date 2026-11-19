@@ -129,7 +129,7 @@ export function FeaturedKpiCard({
           {(change || hint) && (
             <div className="mt-3 flex flex-wrap items-center gap-2">
               {change && (
-                <span className={changeClass}>
+                <span className={`${changeClass} whitespace-nowrap`}>
                   {changeUp !== undefined && (changeUp ? "↑" : "↓")} {change}
                 </span>
               )}

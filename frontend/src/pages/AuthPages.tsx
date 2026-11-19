@@ -3,7 +3,7 @@ import { FormEvent, ReactNode, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { OtpInput } from "../components/OtpInput";
 import { useAuth } from "../lib/auth";
-import { NOVA_BANK_LOGO_URL } from "../lib/brand";
+import { BrandLogo } from "../components/BrandLogo";
 
 const OTP_SESSION_STORAGE_KEY = "nova_otp_session";
 
@@ -78,7 +78,7 @@ function AuthShell({ children, step }: { children: ReactNode; step: AuthFlowStep
         <aside className="auth-hero relative hidden min-h-[520px] w-[42%] lg:block xl:w-[44%]">
           <div className="auth-hero-mesh" aria-hidden />
           <div className="relative z-10 flex h-full flex-col p-10 xl:p-11">
-            <img src={NOVA_BANK_LOGO_URL} alt="Nova Bank" className="h-9 w-auto max-w-[172px] brightness-0 invert" />
+            <BrandLogo tone="light" className="h-9 w-auto max-w-[172px] brightness-0 invert" />
             <div className="mt-10 flex-1">
               <p className="text-xs font-medium tracking-wide text-white/55">Internal platform</p>
               <h1 className="mt-2 max-w-sm text-2xl font-semibold leading-snug tracking-tight text-white">
@@ -103,7 +103,7 @@ function AuthShell({ children, step }: { children: ReactNode; step: AuthFlowStep
         <section className="auth-panel">
           <div className="auth-panel-inner">
             <div className="auth-panel-brand lg:hidden">
-              <img src={NOVA_BANK_LOGO_URL} alt="Nova Bank" className="h-8 w-auto max-w-[150px]" />
+              <BrandLogo className="h-8 w-auto max-w-[150px]" />
             </div>
             <AuthFlowSteps active={step} />
             {children}

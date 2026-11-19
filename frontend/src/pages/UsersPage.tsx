@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { FormEvent, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   Mail,
@@ -223,6 +224,7 @@ export function UsersPage() {
             }
           />
         ) : (
+          <div className="overflow-x-auto">
           <table className="data-table">
             <thead>
               <tr>
@@ -295,6 +297,7 @@ export function UsersPage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 
@@ -393,7 +396,8 @@ export function UsersPage() {
 }
 
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
-  return (
+  // Rendered into <body>: inside the animated page container a fixed dialog is clipped and sits under the header.
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <button type="button" className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} aria-label="Close" />
       <div className="relative w-full max-w-md rounded-xl border border-border bg-surface-raised p-6 shadow-lg">
@@ -405,7 +409,8 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

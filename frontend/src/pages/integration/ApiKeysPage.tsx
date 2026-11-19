@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { Check, Copy, ExternalLink, Key, Plus, Trash2, X } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
@@ -177,7 +178,7 @@ export function ApiKeysPage() {
         </div>
       )}
 
-      {modalOpen && (
+      {modalOpen && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-md border border-border bg-surface-raised p-6">
             <div className="flex items-center justify-between">
@@ -218,7 +219,8 @@ export function ApiKeysPage() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+          document.body,
       )}
     </div>
   );

@@ -42,6 +42,7 @@ export function QualityPage() {
           </div>
 
           <div className="card overflow-hidden">
+            <div className="overflow-x-auto">
             <table className="data-table">
               <thead>
                 <tr>
@@ -69,6 +70,7 @@ export function QualityPage() {
                 })}
               </tbody>
             </table>
+            </div>
           </div>
 
           {withdrawals.length > 0 && (
@@ -79,6 +81,7 @@ export function QualityPage() {
                   Parsed customer names from Finacle <code className="text-xs">PARTICULAR</code> vs raw narration
                 </p>
               </div>
+              <div className="overflow-x-auto">
               <table className="data-table">
                 <thead>
                   <tr>
@@ -110,6 +113,7 @@ export function QualityPage() {
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
         </>

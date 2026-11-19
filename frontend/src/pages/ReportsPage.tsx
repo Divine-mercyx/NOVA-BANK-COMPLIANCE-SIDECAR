@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { FileText } from "lucide-react";
 import { TransactionFlags, transactionFlags } from "../components/TransactionFlags";
 import { EmptyState, KpiCard, PageHeader, TableToolbar, Tag } from "../components/ui";
@@ -20,7 +21,13 @@ export function ReportsPage() {
   const [metrics, setMetrics] = useState<DataQualityMetrics | null>(null);
   const [transactions, setTransactions] = useState<StagingTransaction[]>([]);
   const [selected, setSelected] = useState<StagingTransaction | null>(null);
-  const [search, setSearch] = useState("");
+  // The header search sends people here with ?q=…
+  const [params] = useSearchParams();
+  const [search, setSearch] = useState(() => params.get("q") ?? "");
+  useEffect(() => {
+    const q = params.get("q");
+    if (q !== null) setSearch(q);
+  }, [params]);
   const [flagFilter, setFlagFilter] = useState<FlagFilter>("all");
   const [loading, setLoading] = useState(true);
 
