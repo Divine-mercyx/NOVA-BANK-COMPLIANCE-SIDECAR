@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FileText, Pause, Play, RefreshCw } from "lucide-react";
 import { EmptyState, KpiCard, PageHeader, StatusBadge, Tag } from "../components/ui";
 import { api, DtdFeedStatus } from "../lib/api";
@@ -13,21 +13,28 @@ export function DailyTransactionsPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  /** The channel the table is narrowed to; "" shows every channel. */
+  const [channel, setChannel] = useState("");
+  const latest = useRef(0);
 
   const load = async () => {
+    const ticket = ++latest.current;
     try {
-      setData(await api.dtdStatus());
+      const next = await api.dtdStatus(channel || undefined);
+      if (ticket !== latest.current) return; // a newer filter or refresh has already answered
+      setData(next);
       setError("");
     } catch (e) {
+      if (ticket !== latest.current) return;
       setError(e instanceof Error ? e.message : "Could not load the daily feed.");
     } finally {
-      setLoading(false);
+      if (ticket === latest.current) setLoading(false);
     }
   };
 
   useEffect(() => {
     load();
-  }, []);
+  }, [channel]);
 
   useLiveRefresh(["dtd.run", "dtd.state"], load, { fallbackMs: data?.enabled ? 15_000 : undefined });
 
@@ -36,7 +43,8 @@ export function DailyTransactionsPage() {
     setBusy(true);
     setError("");
     try {
-      setData(data.enabled ? await api.dtdStop() : await api.dtdStart());
+      await (data.enabled ? api.dtdStop() : api.dtdStart());
+      await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not update the feed.");
     } finally {
@@ -52,7 +60,7 @@ export function DailyTransactionsPage() {
     <div>
       <PageHeader
         title="Day Transaction Detail"
-        subtitle="DTD is Finacle’s same-day book (TBAADM.DTD). History is HTD. This feed stages today’s posted transactions for the screening vendor — Nova does not screen names here."
+        subtitle="DTD is Finacle’s same-day book (TBAADM.DTD). History is HTD. This feed stages today’s posted transactions on every channel for the screening vendor — Nova does not screen names here."
         actions={
           <div className="flex flex-wrap gap-2">
             <button type="button" className="btn-secondary" onClick={load} disabled={busy}>
@@ -132,13 +140,21 @@ export function DailyTransactionsPage() {
         <section className="card overflow-hidden">
           <div className="border-b border-border px-5 py-4">
             <h2 className="font-semibold text-content">Staged today</h2>
-            <p className="mt-1 text-xs text-content-muted">Paired debit/credit with GAM names. Vendor API: GET /api/v1/export/dtd</p>
+            <p className="mt-1 text-xs text-content-muted">
+              Paired debit/credit with GAM names. Vendor API: <span className="font-mono">GET /api/v1/export/dtd</span> (NIP) ·{" "}
+              <span className="font-mono">GET /api/v1/export/dtd/all-channels</span> (every channel)
+            </p>
+            <ChannelFilter counts={data?.by_channel ?? {}} total={data?.staged_today ?? 0} value={channel} onChange={setChannel} />
           </div>
           {!data?.transactions.length ? (
             <EmptyState
               icon={FileText}
-              title="No same-day transactions staged yet"
-              description="Start the 30-minute feed to pull posted TBAADM.DTD rows. The screening vendor reads this warehouse — they do not need Nova’s alert queue."
+              title={channel ? `No ${channelLabel(channel)} transactions staged today` : "No same-day transactions staged yet"}
+              description={
+                channel
+                  ? "They appear here on the next pull once Finacle posts them. Pick All to see every channel."
+                  : "Start the 30-minute feed to pull posted TBAADM.DTD rows. The screening vendor reads this warehouse — they do not need Nova’s alert queue."
+              }
             />
           ) : (
             <div className="overflow-x-auto">
@@ -214,6 +230,55 @@ export function DailyTransactionsPage() {
           )}
         </section>
       </div>
+    </div>
+  );
+}
+
+/** One chip per channel staged today, with its count; "All" clears the filter. */
+function ChannelFilter({
+  counts,
+  total,
+  value,
+  onChange,
+}: {
+  counts: Record<string, number>;
+  total: number;
+  value: string;
+  onChange: (channel: string) => void;
+}) {
+  const channels = Object.entries(counts).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  if (value && !counts[value]) channels.push([value, 0]);
+  const chip = (key: string, label: string, count: number) => {
+    const on = value === key;
+    return (
+      <button
+        key={key || "all"}
+        type="button"
+        aria-pressed={on}
+        onClick={() => onChange(key)}
+        className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1 text-xs font-medium transition ${
+          on
+            ? "border-accent bg-accent-muted text-accent"
+            : "border-border text-content-muted hover:border-accent/50 hover:text-content"
+        }`}
+      >
+        {label}
+        <span className={on ? "text-accent" : "text-content-subtle"}>{formatNumber(count)}</span>
+      </button>
+    );
+  };
+  const onlyNip = channels.length > 0 && channels.every(([c]) => c === "NIP");
+  return (
+    <div className="mt-3">
+      <div className="flex flex-wrap gap-2" role="group" aria-label="Filter by channel">
+        {chip("", "All channels", total)}
+        {channels.map(([c, n]) => chip(c, channelLabel(c), n))}
+      </div>
+      {onlyNip && (
+        <p className="mt-2 text-[11px] text-content-subtle">
+          Only NIP has posted today. RTGS, SWIFT, cash and other channels show up here — and in the all-channels API — as soon as Finacle posts them.
+        </p>
+      )}
     </div>
   );
 }

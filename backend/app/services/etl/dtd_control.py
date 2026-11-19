@@ -9,7 +9,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.models.entities import DtdPullRun, DtdSchedulerState, DtdTransaction, ExtractionStatus, User
+from app.models.entities import DtdPullRun, DtdSchedulerState, DtdTransaction, ExtractionStatus, TransactionChannel, User
 from app.services.etl.dtd_pipeline import DtdPipeline, lagos_day_bounds
 
 STATE_ID = "default"
@@ -55,7 +55,8 @@ def resolve_posted_since(state: DtdSchedulerState, day: date, *, rescan: bool) -
     return max(naive, start_naive)
 
 
-async def snapshot(db: AsyncSession) -> dict:
+async def snapshot(db: AsyncSession, channel: TransactionChannel | None = None) -> dict:
+    """Feed state for the portal. `channel` narrows the recent-transactions list (counts stay whole-day)."""
     from app.services.etl.scheduler import dtd_job_next_run
 
     state = await get_state(db)
@@ -96,12 +97,19 @@ async def snapshot(db: AsyncSession) -> dict:
     )
     runs = list(runs_result.scalars().all())
 
-    tx_result = await db.execute(
-        select(DtdTransaction)
+    by_channel_rows = await db.execute(
+        select(DtdTransaction.channel, func.count())
         .where(DtdTransaction.business_date == business_start)
-        .order_by(DtdTransaction.created_at.desc())
-        .limit(50)
+        .group_by(DtdTransaction.channel)
     )
+    by_channel = {
+        (ch.value if hasattr(ch, "value") else str(ch)): count for ch, count in by_channel_rows.all()
+    }
+
+    tx_stmt = select(DtdTransaction).where(DtdTransaction.business_date == business_start)
+    if channel is not None:
+        tx_stmt = tx_stmt.where(DtdTransaction.channel == channel)
+    tx_result = await db.execute(tx_stmt.order_by(DtdTransaction.created_at.desc()).limit(50))
     transactions = list(tx_result.scalars().all())
 
     return {
@@ -123,6 +131,8 @@ async def snapshot(db: AsyncSession) -> dict:
         "dtd_means": "Day Transaction Detail — Finacle’s same-day transaction book (TBAADM.DTD). History lives in HTD.",
         "runs": runs,
         "transactions": transactions,
+        "by_channel": by_channel,
+        "channel_filter": channel.value if channel is not None else None,
     }
 
 

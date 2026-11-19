@@ -31,6 +31,53 @@ interface EndpointDef {
   params?: { name: string; required?: boolean; hint: string }[];
   run: () => Promise<void>;
   controls?: ReactNode;
+  /** Query string sent by "Try it" and shown in the curl example, when the endpoint defines its own. */
+  query?: Record<string, string | number | boolean | undefined>;
+}
+
+/** Channels the all-channels pulls accept in channels= (Finacle channels Nova classifies). */
+const EXPORT_CHANNELS = [
+  ["NIP", "NIP"],
+  ["RTGS", "RTGS"],
+  ["SWIFT", "SWIFT"],
+  ["NEFT", "NEFT"],
+  ["NAPS", "NAPS"],
+  ["CASH_DEPOSIT", "Cash deposit"],
+  ["CASH_WITHDRAWAL", "Cash withdrawal"],
+  ["MOBILE", "Mobile"],
+] as const;
+
+/** Multi-select for channels=; nothing picked means every channel. */
+function ChannelPicker({ value, onChange }: { value: string[]; onChange: (next: string[]) => void }) {
+  const toggle = (key: string) =>
+    onChange(
+      EXPORT_CHANNELS.map(([k]) => k as string).filter((k) => (k === key ? !value.includes(k) : value.includes(k))),
+    );
+  return (
+    <div>
+      <p className="mb-2 text-xs text-content-muted">
+        channels= {value.length ? <span className="font-mono text-content">{value.join(",")}</span> : "every channel (none picked)"}
+      </p>
+      <div className="flex flex-wrap gap-1.5" role="group" aria-label="Channels to request">
+        {EXPORT_CHANNELS.map(([key, label]) => {
+          const on = value.includes(key);
+          return (
+            <button
+              key={key}
+              type="button"
+              aria-pressed={on}
+              onClick={() => toggle(key)}
+              className={`rounded-full border px-2.5 py-0.5 text-xs font-medium transition ${
+                on ? "border-accent bg-accent-muted text-accent" : "border-border text-content-muted hover:text-content"
+              }`}
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 const SECTION_LABELS: Record<EndpointSection, string> = {
@@ -65,6 +112,8 @@ export function IntegrationApiDocsPage() {
   const [finacleRef, setFinacleRef] = useState("");
   const [reportId, setReportId] = useState("");
   const [pullLimit, setPullLimit] = useState("");
+  const [htdChannels, setHtdChannels] = useState<string[]>([]);
+  const [dtdChannels, setDtdChannels] = useState<string[]>([]);
   const [activeId, setActiveId] = useState("verify");
   const [runningId, setRunningId] = useState<string | null>(null);
   const [responses, setResponses] = useState<Record<string, PartnerRequestResult>>({});
@@ -106,6 +155,15 @@ export function IntegrationApiDocsPage() {
     const date = `${periodTo.year}-${String(periodTo.month).padStart(2, "0")}-${String(periodTo.day).padStart(2, "0")}`;
     return { date, limit: parsedPullLimit };
   }, [periodTo, parsedPullLimit]);
+
+  const transactionAllQuery = useMemo(
+    () => ({ ...transactionQuery, channels: htdChannels.join(",") || undefined }),
+    [transactionQuery, htdChannels],
+  );
+  const dtdAllQuery = useMemo(
+    () => ({ ...dtdQuery, channels: dtdChannels.join(",") || undefined }),
+    [dtdQuery, dtdChannels],
+  );
 
   const persistKey = (value: string) => {
     setApiKey(value);
@@ -186,6 +244,25 @@ export function IntegrationApiDocsPage() {
       run: async () => execute("transactions-ctr", "/api/v1/export/transactions/ctr", transactionQuery),
     },
     {
+      id: "transactions-all",
+      section: "transactions",
+      method: "GET",
+      path: "/api/v1/export/transactions/all-channels",
+      title: "All-channel staged transactions",
+      description:
+        "Every channel — NIP, RTGS, SWIFT, NEFT, NAPS, cash and mobile — in the same NFIU columns as the NIP pull, with the channel in Tran_Type. Channels the bank has not switched on yet simply return no rows; they appear here without any change on your side once Finacle posts them. Institution fields come from the NIP flow tables, so they are usually empty for other channels.",
+      params: [
+        { name: "date_from", required: true, hint: "YYYY-MM-DD or ISO datetime" },
+        { name: "date_to", required: true, hint: "Inclusive end date" },
+        { name: "channels", hint: "Optional, comma-separated (e.g. RTGS,SWIFT). Omit for every channel. Unknown names return 400." },
+        { name: "limit", hint: "Optional. Omit for all rows (server cap 50,000)." },
+        { name: "offset", hint: "Pagination offset (default 0)" },
+      ],
+      query: transactionAllQuery,
+      run: async () => execute("transactions-all", "/api/v1/export/transactions/all-channels", transactionAllQuery),
+      controls: <ChannelPicker value={htdChannels} onChange={setHtdChannels} />,
+    },
+    {
       id: "transaction-one",
       section: "transactions",
       method: "GET",
@@ -227,6 +304,24 @@ export function IntegrationApiDocsPage() {
         { name: "limit", hint: "Optional. Omit for all rows that day (server cap 50,000)." },
       ],
       run: async () => execute("dtd", "/api/v1/export/dtd", dtdQuery),
+    },
+    {
+      id: "dtd-all",
+      section: "dtd",
+      method: "GET",
+      path: "/api/v1/export/dtd/all-channels",
+      title: "Daily DTD — all channels",
+      description:
+        "Same-day TBAADM.DTD pairs from every channel, in the same NFIU columns as the NIP DTD pull (channel in Tran_Type). One Lagos calendar day via date=. Channels not yet live at the bank return no rows until Finacle posts them — then they flow through with no change to your integration.",
+      params: [
+        { name: "date", hint: "YYYY-MM-DD (Africa/Lagos). Docs tester sends the period **To** date below." },
+        { name: "channels", hint: "Optional, comma-separated (e.g. RTGS,SWIFT). Omit for every channel. Unknown names return 400." },
+        { name: "limit", hint: "Optional. Omit for all rows that day (server cap 50,000)." },
+        { name: "offset", hint: "Pagination offset (default 0)" },
+      ],
+      query: dtdAllQuery,
+      run: async () => execute("dtd-all", "/api/v1/export/dtd/all-channels", dtdAllQuery),
+      controls: <ChannelPicker value={dtdChannels} onChange={setDtdChannels} />,
     },
     {
       id: "reports",
@@ -434,7 +529,9 @@ export function IntegrationApiDocsPage() {
             const curl = buildExportCurl(
               ep.path.replace("{finacle_ref}", finacleRef || "FINACLE_REF").replace("{id}", reportId || "REPORT_ID"),
               apiKey,
-              ep.id === "verify"
+              ep.query
+                ? ep.query
+                : ep.id === "verify"
                 ? undefined
                 : ep.id === "transaction-one" || ep.id === "download"
                   ? undefined
