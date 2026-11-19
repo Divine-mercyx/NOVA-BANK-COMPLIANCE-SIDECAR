@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { AlertTriangle, Play, RefreshCw, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { DatePickerField } from "./DatePickerField";
@@ -87,7 +88,7 @@ export function ExtractionRunModal({ open, onClose, onRun, finacleMode, running,
     await onRun(buildExtractionParams(from, to));
   };
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <button
         type="button"
@@ -205,6 +206,7 @@ export function ExtractionRunModal({ open, onClose, onRun, finacleMode, running,
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
