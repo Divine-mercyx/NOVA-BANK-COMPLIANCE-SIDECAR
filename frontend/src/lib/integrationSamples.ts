@@ -47,6 +47,27 @@ const SAMPLE_TRANSACTION = {
   Tran_Type: "NIP",
 };
 
+/** A non-NIP leg: identical columns. Institution fields are filled from NIP flow tables, so they stay empty here. */
+const SAMPLE_RTGS_TRANSACTION = {
+  ...SAMPLE_TRANSACTION,
+  t_account_number: "1003004410",
+  t_trans_number: "M00000412-90000000-1003004410",
+  transaction_description: "RTGS PAYMENT EZE MOTORS LTD",
+  t_amount_local: 90000000,
+  t_source_institution_code: "",
+  t_source_institution_name: "",
+  t_source_account_number: "1003002275",
+  t_source_account_name: "ADA OBI",
+  t_source_person_first_name: "ADA",
+  t_source_person_last_name: "OBI",
+  t_dest_institution_code: "",
+  t_dest_institution_name: "",
+  t_dest_account_number: "1003004410",
+  t_dest_account_name: "EZE MOTORS LTD",
+  t_dest_entity_name: "EZE MOTORS LTD",
+  Tran_Type: "RTGS",
+};
+
 type ListMeta = {
   period_start: string;
   period_end: string;
@@ -61,11 +82,11 @@ type ListMeta = {
   generated_at: string;
 };
 
-function listResponse(meta: ListMeta) {
+function listResponse(meta: ListMeta, transactions: object[] = [SAMPLE_TRANSACTION]) {
   return JSON.stringify(
     {
       meta,
-      transactions: [SAMPLE_TRANSACTION],
+      transactions,
     },
     null,
     2,
@@ -118,6 +139,40 @@ export function integrationSampleResponse(endpointId: string): string | undefine
         limit: null,
         generated_at: SAMPLE_GENERATED_AT,
       });
+    case "transactions-all":
+      return listResponse(
+        {
+          period_start: "2026-10-20T00:00:00+01:00",
+          period_end: "2026-10-22T23:59:59.999999+01:00",
+          report_type: null,
+          scope: "all_channels",
+          channel: "ALL",
+          ctr_threshold_ngn: null,
+          total_matching: 1311,
+          returned: 2,
+          offset: 0,
+          limit: null,
+          generated_at: SAMPLE_GENERATED_AT,
+        },
+        [SAMPLE_TRANSACTION, SAMPLE_RTGS_TRANSACTION],
+      );
+    case "dtd-all":
+      return listResponse(
+        {
+          period_start: "2026-10-22T00:00:00+01:00",
+          period_end: "2026-10-22T23:59:59.999999+01:00",
+          report_type: null,
+          scope: "dtd_all_channels",
+          channel: "ALL",
+          ctr_threshold_ngn: null,
+          total_matching: 327,
+          returned: 2,
+          offset: 0,
+          limit: null,
+          generated_at: SAMPLE_GENERATED_AT,
+        },
+        [SAMPLE_TRANSACTION, SAMPLE_RTGS_TRANSACTION],
+      );
     case "transaction-one":
       return JSON.stringify(SAMPLE_TRANSACTION, null, 2);
     default:

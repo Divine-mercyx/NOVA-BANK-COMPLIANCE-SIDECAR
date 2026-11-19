@@ -295,3 +295,6 @@ class DtdFeedStatus(BaseModel):
     dtd_means: str
     runs: list[DtdPullRunOut]
     transactions: list[DtdTransactionOut]
+    # Today's staged pairs per channel (whole day), and the channel the transactions list is narrowed to.
+    by_channel: dict[str, int] = {}
+    channel_filter: str | None = None

@@ -305,6 +305,10 @@ export interface DtdFeedStatus {
   dtd_means: string;
   runs: DtdPullRun[];
   transactions: DtdLiveTransaction[];
+  /** Today's staged pairs per channel (whole day, not narrowed by the channel filter). */
+  by_channel: Record<string, number>;
+  /** The channel the transaction list is narrowed to, or null for every channel. */
+  channel_filter: string | null;
 }
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
@@ -454,7 +458,8 @@ export const api = {
   revokeApiKey: (id: string) =>
     request<ApiKey>(`/api/v1/integration/keys/${id}`, { method: "DELETE" }),
 
-  dtdStatus: () => request<DtdFeedStatus>("/api/v1/dtd/status"),
+  dtdStatus: (channel?: string) =>
+    request<DtdFeedStatus>(`/api/v1/dtd/status${channel ? `?channel=${encodeURIComponent(channel)}` : ""}`),
   dtdStart: () => request<DtdFeedStatus>("/api/v1/dtd/start", { method: "POST" }),
   dtdStop: () => request<DtdFeedStatus>("/api/v1/dtd/stop", { method: "POST" }),
 };

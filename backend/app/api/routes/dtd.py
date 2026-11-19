@@ -1,9 +1,9 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, require_permission
 from app.core.database import get_db
-from app.models.entities import User
+from app.models.entities import TransactionChannel, User
 from app.schemas.integration import DtdFeedStatus, DtdPullRunOut, DtdTransactionOut
 from app.services.etl import dtd_control
 
@@ -30,12 +30,17 @@ def _status(data: dict) -> DtdFeedStatus:
         dtd_means=data["dtd_means"],
         runs=[DtdPullRunOut.model_validate(r) for r in data["runs"]],
         transactions=[DtdTransactionOut.model_validate(t) for t in data["transactions"]],
+        by_channel=data.get("by_channel", {}),
+        channel_filter=data.get("channel_filter"),
     )
 
 
 @router.get("/status", response_model=DtdFeedStatus, dependencies=[Depends(require_permission("dtd.view"))])
-async def dtd_status(db: AsyncSession = Depends(get_db)):
-    return _status(await dtd_control.snapshot(db))
+async def dtd_status(
+    channel: TransactionChannel | None = Query(None, description="Show only this channel's recent transactions"),
+    db: AsyncSession = Depends(get_db),
+):
+    return _status(await dtd_control.snapshot(db, channel))
 
 
 @router.post("/start", response_model=DtdFeedStatus)

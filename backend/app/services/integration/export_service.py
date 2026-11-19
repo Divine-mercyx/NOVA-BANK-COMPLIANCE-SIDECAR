@@ -90,13 +90,18 @@ class ExportService:
         channel: TransactionChannel | None = None,
         limit: int | None = None,
         offset: int = 0,
-        scope: Literal["all", "ctr"] = "all",
+        scope: Literal["all", "ctr", "all_channels"] = "all",
+        channels: list[TransactionChannel] | None = None,
     ) -> NfiuTransactionsResponse:
+        """Staged transactions in the NFIU layout. `channel` pins one channel (the NIP vendor pulls);
+        `channels` limits to several; neither means every channel."""
         filters = list(self._period_filters(period_start, period_end))
         if valid_only:
             filters.append(StagingTransaction.is_valid.is_(True))
         if channel:
             filters.append(StagingTransaction.channel == channel)
+        if channels:
+            filters.append(StagingTransaction.channel.in_(channels))
         if scope == "ctr":
             filters.append(StagingTransaction.currency == "NGN")
             filters.append(StagingTransaction.amount >= settings.ctr_threshold_ngn)
@@ -122,7 +127,15 @@ class ExportService:
             period_end=period_end,
             report_type="CTR" if scope == "ctr" else (report_type.value if report_type else None),
             scope=scope,
-            channel=channel.value if channel else None,
+            channel=(
+                channel.value
+                if channel
+                else ",".join(c.value for c in channels)
+                if channels
+                else "ALL"
+                if scope == "all_channels"
+                else None
+            ),
             ctr_threshold_ngn=settings.ctr_threshold_ngn if scope == "ctr" else None,
             total_matching=total,
             returned=len(rows),
@@ -147,16 +160,21 @@ class ExportService:
         day: date_type,
         limit: int | None = None,
         offset: int = 0,
+        all_channels: bool = False,
+        channels: list[TransactionChannel] | None = None,
     ) -> NfiuTransactionsResponse:
+        """Staged DTD pairs for one Lagos day. NIP only, unless `all_channels` (optionally narrowed to
+        `channels`)."""
         business_start, _, _ = lagos_day_bounds(day)
         period_start, period_end = resolve_export_window(
             datetime.combine(day, time.min),
             datetime.combine(day, time.min),
         )
-        filters = [
-            DtdTransaction.business_date == business_start,
-            DtdTransaction.channel == VENDOR_EXPORT_CHANNEL,
-        ]
+        filters = [DtdTransaction.business_date == business_start]
+        if not all_channels:
+            filters.append(DtdTransaction.channel == VENDOR_EXPORT_CHANNEL)
+        elif channels:
+            filters.append(DtdTransaction.channel.in_(channels))
         count_stmt = select(func.count()).select_from(DtdTransaction).where(and_(*filters))
         total = await self._scalar(count_stmt)
         stmt = (
@@ -173,8 +191,14 @@ class ExportService:
             period_start=period_start,
             period_end=period_end,
             report_type=None,
-            scope="dtd",
-            channel=VENDOR_EXPORT_CHANNEL.value,
+            scope="dtd_all_channels" if all_channels else "dtd",
+            channel=(
+                VENDOR_EXPORT_CHANNEL.value
+                if not all_channels
+                else ",".join(c.value for c in channels)
+                if channels
+                else "ALL"
+            ),
             ctr_threshold_ngn=None,
             total_matching=total,
             returned=len(rows),

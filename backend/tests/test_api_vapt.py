@@ -53,7 +53,9 @@ EXPORT_GET_ROUTES = [
     "/api/v1/export/summary?date_from=2026-01-01&date_to=2026-01-01",
     "/api/v1/export/transactions?date_from=2026-01-01&date_to=2026-01-01",
     "/api/v1/export/transactions/ctr?date_from=2026-01-01&date_to=2026-01-01",
+    "/api/v1/export/transactions/all-channels?date_from=2026-01-01&date_to=2026-01-01",
     "/api/v1/export/dtd?date=2026-01-01",
+    "/api/v1/export/dtd/all-channels?date=2026-01-01",
     "/api/v1/export/reports",
 ]
 

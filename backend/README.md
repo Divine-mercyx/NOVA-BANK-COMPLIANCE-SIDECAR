@@ -83,8 +83,12 @@ Nova Bank IT pulls translated, NFIU-ready transactions using `X-API-Key` (create
 - `GET /api/v1/export/summary?date_from=&date_to=` — counts for a date range
 - `GET /api/v1/export/transactions?date_from=&date_to=` — staged **NIP** transactions (paginated)
 - `GET /api/v1/export/transactions/ctr?date_from=&date_to=` — **NIP** CTR (NGN ₦5,000,000 and above)
+- `GET /api/v1/export/transactions/all-channels?date_from=&date_to=[&channels=RTGS,SWIFT]` — staged transactions from **every channel** (NIP, RTGS, SWIFT, NEFT, NAPS, cash, mobile), same NFIU shape; channel in `Tran_Type`
 - `GET /api/v1/export/transactions/{finacle_ref}` — single transaction
 - `GET /api/v1/export/dtd?date=` — same-day **NIP** from TBAADM.DTD (one Lagos day; **same NFIU response shape** as `/transactions`)
+- `GET /api/v1/export/dtd/all-channels?date=[&channels=RTGS,SWIFT]` — same-day DTD from **every channel**, same NFIU shape
+
+The all-channels pulls return whatever channels Finacle has posted. A channel the bank has not switched on yet returns no rows; once it posts, it flows through these endpoints with no code or integration change. Institution fields come from the NIP flow tables, so they are usually empty for non-NIP rows. The DTD feed stores every channel; `/export/dtd` filters to NIP when it serves.
 - `GET /api/v1/export/reports` — list generated reports
 - `GET /api/v1/export/reports/{id}/download?format=xml|csv` — download report file
 
