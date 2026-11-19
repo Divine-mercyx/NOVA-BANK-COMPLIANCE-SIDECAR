@@ -55,6 +55,14 @@ EXPORT_DOCS = [
     ),
     IntegrationEndpointDoc(
         method="GET",
+        path="/api/v1/export/transactions/all-channels",
+        summary=(
+            "Pull staged transactions from every channel (NIP, RTGS, SWIFT, cash, mobile, ...) in the NFIU "
+            "sample-data column layout; optional channels=RTGS,SWIFT to narrow it"
+        ),
+    ),
+    IntegrationEndpointDoc(
+        method="GET",
         path="/api/v1/export/transactions/{finacle_ref}",
         summary="Pull a single translated transaction by Finacle reference",
     ),
@@ -163,6 +171,63 @@ async def export_ctr_transactions(
         limit=limit,
         offset=offset,
         scope="ctr",
+    )
+
+
+def _parse_channels(raw: str | None) -> list[TransactionChannel] | None:
+    """`channels=RTGS,SWIFT` (any case, spaces ignored). None or empty means every channel."""
+    if raw is None or not raw.strip():
+        return None
+    wanted: list[TransactionChannel] = []
+    unknown: list[str] = []
+    for part in raw.split(","):
+        name = part.strip().upper()
+        if not name:
+            continue
+        try:
+            channel = TransactionChannel(name)
+        except ValueError:
+            unknown.append(part.strip())
+            continue
+        if channel not in wanted:
+            wanted.append(channel)
+    if unknown:
+        allowed = ", ".join(c.value for c in TransactionChannel)
+        raise HTTPException(400, f"Unknown channel(s): {', '.join(unknown)}. Use any of: {allowed}")
+    return wanted or None
+
+
+# Declared before /transactions/{finacle_ref} so "all-channels" is never read as a Finacle reference.
+@partner_router.get("/transactions/all-channels", response_model=NfiuTransactionsResponse)
+async def export_all_channel_transactions(
+    period: tuple[datetime, datetime] = Depends(export_period_params),
+    channels: str | None = Query(
+        None,
+        description="Optional comma-separated channels, e.g. RTGS,SWIFT. Omit for every channel.",
+    ),
+    valid_only: bool = Query(False, description="If true, skip invalid staged rows"),
+    limit: int | None = Query(
+        None,
+        ge=1,
+        le=EXPORT_UNBOUNDED_CAP,
+        description="Max rows to return. Omit to fetch all matching rows (capped at 50,000).",
+    ),
+    offset: int = Query(0, ge=0),
+    client: ApiKey = Depends(get_api_client),
+    db: AsyncSession = Depends(get_db),
+):
+    """Staged transactions from every channel, not only NIP, in the same NFIU column layout as
+    /export/transactions. Institution codes are filled from the NIP flow tables, so for other channels
+    the source/destination institution fields are usually empty."""
+    period_start, period_end = period
+    return await ExportService(db).list_transactions(
+        period_start,
+        period_end,
+        valid_only=valid_only,
+        channels=_parse_channels(channels),
+        limit=limit,
+        offset=offset,
+        scope="all_channels",
     )
 
 
