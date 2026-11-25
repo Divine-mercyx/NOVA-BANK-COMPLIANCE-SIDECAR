@@ -10,8 +10,6 @@ type MaybeUser = Pick<User, "permissions"> | null | undefined;
 
 export const canRunEtl = (user: MaybeUser) => can(user, "extraction.run");
 export const canControlDailyFeed = (user: MaybeUser) => can(user, "dtd.control");
-export const canGenerateReports = (user: MaybeUser) => can(user, "reports.generate");
-export const canApproveReports = (user: MaybeUser) => can(user, "reports.approve");
 export const canSimulateScreening = (user: MaybeUser) => can(user, "screening.action");
 export const canResolveAlerts = (user: MaybeUser) => can(user, "screening.action");
 export const canEscalateAlerts = (user: MaybeUser) => can(user, "screening.escalate");

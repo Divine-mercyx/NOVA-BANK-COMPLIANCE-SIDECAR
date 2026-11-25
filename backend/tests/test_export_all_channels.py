@@ -122,3 +122,22 @@ async def test_needs_a_date_range_and_an_api_key(seeded):
     assert (await seeded.get("/api/v1/export/transactions/all-channels")).status_code == 400
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://api.test") as anon:
         assert (await anon.get("/api/v1/export/transactions/all-channels", params=WINDOW)).status_code == 401
+
+
+async def test_ctr_all_channels_is_naira_over_the_cap_from_every_channel(seeded):
+    r = await seeded.get("/api/v1/export/transactions/ctr/all-channels", params=WINDOW)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    # NIP-2 (7.5m), RTGS-1 (90m) and CASH-1 (6m) pass; NIP-1 is under the cap and SWIFT-1 is USD (FTR, not CTR).
+    assert sorted(t["t_trans_number"] for t in body["transactions"]) == ["CASH-1", "NIP-2", "RTGS-1"]
+    meta = body["meta"]
+    assert meta["scope"] == "ctr_all_channels" and meta["report_type"] == "CTR" and meta["channel"] == "ALL"
+    assert meta["ctr_threshold_ngn"] == 5_000_000.0 and meta["total_matching"] == 3
+
+
+async def test_ctr_all_channels_filters_and_keeps_nip_ctr_nip_only(seeded):
+    r = await seeded.get("/api/v1/export/transactions/ctr/all-channels", params={**WINDOW, "channels": "rtgs"})
+    assert [t["t_trans_number"] for t in r.json()["transactions"]] == ["RTGS-1"]
+    assert (await seeded.get("/api/v1/export/transactions/ctr/all-channels", params={**WINDOW, "channels": "BITCOIN"})).status_code == 400
+    nip = await seeded.get("/api/v1/export/transactions/ctr", params=WINDOW)
+    assert [t["t_trans_number"] for t in nip.json()["transactions"]] == ["NIP-2"]

@@ -82,7 +82,8 @@ Nova Bank IT pulls translated, NFIU-ready transactions using `X-API-Key` (create
 - `GET /api/v1/export/verify` — validate API key
 - `GET /api/v1/export/summary?date_from=&date_to=` — counts for a date range
 - `GET /api/v1/export/transactions?date_from=&date_to=` — staged **NIP** transactions (paginated)
-- `GET /api/v1/export/transactions/ctr?date_from=&date_to=` — **NIP** CTR (NGN ₦5,000,000 and above)
+- `GET /api/v1/export/transactions/ctr?date_from=&date_to=` — **NIP-only** CTR (NGN ₦5,000,000 and above)
+- `GET /api/v1/export/transactions/ctr/all-channels?date_from=&date_to=[&channels=RTGS,CASH_DEPOSIT]` — CTR (NGN ₦5,000,000 and above) from **every channel**; foreign-currency rows are FTR, never CTR
 - `GET /api/v1/export/transactions/all-channels?date_from=&date_to=[&channels=RTGS,SWIFT]` — staged transactions from **every channel** (NIP, RTGS, SWIFT, NEFT, NAPS, cash, mobile), same NFIU shape; channel in `Tran_Type`
 - `GET /api/v1/export/transactions/{finacle_ref}` — single transaction
 - `GET /api/v1/export/dtd?date=` — same-day **NIP** from TBAADM.DTD (one Lagos day; **same NFIU response shape** as `/transactions`)
