@@ -23,17 +23,14 @@ from app.schemas.compliance import (
     ExtractionLogOut,
     ExtractionRequest,
     ExtractionRunSummary,
-    ReportActionRequest,
-    ReportGenerateRequest,
     ReportOut,
     StagingTransactionOut,
     UserOut,
 )
-from app.services.analytics import AnalyticsService, AuditService, ReportWorkflowService
+from app.services.analytics import AnalyticsService, AuditService
 from app.services.etl.background import execute_etl_background
 from app.services.etl.pipeline import ETLPipeline
 from app.services.integration.period import resolve_export_window
-from app.services.reports.generator import ReportGenerator
 
 router = APIRouter(prefix="/api/v1", tags=["compliance"], dependencies=[Depends(get_current_user)])
 
@@ -160,70 +157,18 @@ async def data_quality(db: AsyncSession = Depends(get_db)):
     return await AnalyticsService(db).get_data_quality()
 
 
-@router.post("/reports/generate", response_model=ReportOut)
-async def generate_report(
-    body: ReportGenerateRequest,
-    db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_permission("reports.generate")),
-):
-    report = await ReportGenerator(db).generate(body.report_type, body.period_start, body.period_end)
-    return ReportOut.model_validate(report)
-
-
-@router.get("/reports", response_model=list[ReportOut], dependencies=[Depends(require_permission("reports.generate", "reports.approve", "transactions.view"))])
+@router.get("/reports", response_model=list[ReportOut], dependencies=[Depends(require_permission("transactions.view"))])
 async def list_reports(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(RegulatoryReport).order_by(desc(RegulatoryReport.created_at)))
     return [ReportOut.model_validate(r) for r in result.scalars().all()]
 
 
-@router.get("/reports/{report_id}", response_model=ReportOut, dependencies=[Depends(require_permission("reports.generate", "reports.approve", "transactions.view"))])
+@router.get("/reports/{report_id}", response_model=ReportOut, dependencies=[Depends(require_permission("transactions.view"))])
 async def get_report(report_id: str, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(RegulatoryReport).where(RegulatoryReport.id == report_id))
     report = result.scalar_one_or_none()
     if not report:
         raise HTTPException(404, "Report not found")
-    return ReportOut.model_validate(report)
-
-
-@router.post("/reports/{report_id}/approve", response_model=ReportOut)
-async def approve_report(
-    report_id: str,
-    body: ReportActionRequest,
-    db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_permission("reports.approve")),
-):
-    try:
-        report = await ReportWorkflowService(db).approve(report_id, body.actor_name)
-    except ValueError as exc:
-        raise HTTPException(404, str(exc)) from exc
-    return ReportOut.model_validate(report)
-
-
-@router.post("/reports/{report_id}/submit", response_model=ReportOut)
-async def submit_report(
-    report_id: str,
-    body: ReportActionRequest,
-    db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_permission("reports.approve")),
-):
-    try:
-        report = await ReportWorkflowService(db).submit(report_id, body.actor_name)
-    except ValueError as exc:
-        raise HTTPException(400, str(exc)) from exc
-    return ReportOut.model_validate(report)
-
-
-@router.post("/reports/{report_id}/reject", response_model=ReportOut)
-async def reject_report(
-    report_id: str,
-    body: ReportActionRequest,
-    db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_permission("reports.approve")),
-):
-    try:
-        report = await ReportWorkflowService(db).reject(report_id, body.actor_name, body.notes)
-    except ValueError as exc:
-        raise HTTPException(404, str(exc)) from exc
     return ReportOut.model_validate(report)
 
 

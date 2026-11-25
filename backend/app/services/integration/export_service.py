@@ -90,7 +90,7 @@ class ExportService:
         channel: TransactionChannel | None = None,
         limit: int | None = None,
         offset: int = 0,
-        scope: Literal["all", "ctr", "all_channels"] = "all",
+        scope: Literal["all", "ctr", "all_channels", "ctr_all_channels"] = "all",
         channels: list[TransactionChannel] | None = None,
     ) -> NfiuTransactionsResponse:
         """Staged transactions in the NFIU layout. `channel` pins one channel (the NIP vendor pulls);
@@ -102,7 +102,7 @@ class ExportService:
             filters.append(StagingTransaction.channel == channel)
         if channels:
             filters.append(StagingTransaction.channel.in_(channels))
-        if scope == "ctr":
+        if scope in ("ctr", "ctr_all_channels"):
             filters.append(StagingTransaction.currency == "NGN")
             filters.append(StagingTransaction.amount >= settings.ctr_threshold_ngn)
         elif report_type:
@@ -125,7 +125,7 @@ class ExportService:
         meta = ExportMeta(
             period_start=period_start,
             period_end=period_end,
-            report_type="CTR" if scope == "ctr" else (report_type.value if report_type else None),
+            report_type="CTR" if scope in ("ctr", "ctr_all_channels") else (report_type.value if report_type else None),
             scope=scope,
             channel=(
                 channel.value
@@ -133,10 +133,10 @@ class ExportService:
                 else ",".join(c.value for c in channels)
                 if channels
                 else "ALL"
-                if scope == "all_channels"
+                if scope in ("all_channels", "ctr_all_channels")
                 else None
             ),
-            ctr_threshold_ngn=settings.ctr_threshold_ngn if scope == "ctr" else None,
+            ctr_threshold_ngn=settings.ctr_threshold_ngn if scope in ("ctr", "ctr_all_channels") else None,
             total_matching=total,
             returned=len(rows),
             offset=offset,

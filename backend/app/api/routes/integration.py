@@ -55,6 +55,14 @@ EXPORT_DOCS = [
     ),
     IntegrationEndpointDoc(
         method="GET",
+        path="/api/v1/export/transactions/ctr/all-channels",
+        summary=(
+            "Pull CTR rows (NGN, ₦5m and above) from every channel, not only NIP, in the NFIU sample-data "
+            "column layout; optional channels=RTGS,CASH_DEPOSIT to narrow it"
+        ),
+    ),
+    IntegrationEndpointDoc(
+        method="GET",
         path="/api/v1/export/transactions/all-channels",
         summary=(
             "Pull staged transactions from every channel (NIP, RTGS, SWIFT, cash, mobile, ...) in the NFIU "
@@ -230,6 +238,39 @@ def _parse_channels(raw: str | None) -> list[TransactionChannel] | None:
     return wanted or None
 
 
+@partner_router.get("/transactions/ctr/all-channels", response_model=NfiuTransactionsResponse)
+async def export_ctr_all_channel_transactions(
+    period: tuple[datetime, datetime] = Depends(export_period_params),
+    channels: str | None = Query(
+        None,
+        description="Optional comma-separated channels, e.g. RTGS,CASH_DEPOSIT. Omit for every channel.",
+    ),
+    valid_only: bool = Query(False),
+    limit: int | None = Query(
+        None,
+        ge=1,
+        le=EXPORT_UNBOUNDED_CAP,
+        description="Max rows to return. Omit to fetch all matching CTR rows (capped at 50,000).",
+    ),
+    offset: int = Query(0, ge=0),
+    client: ApiKey = Depends(get_api_client),
+    db: AsyncSession = Depends(get_db),
+):
+    """CTR rows from every channel: NGN rows at or above the CTR cap (default ₦5,000,000), the same rule as
+    /export/transactions/ctr without the NIP-only limit. Foreign-currency rows are never CTR (they fall under
+    FTR), so a SWIFT USD row is not returned however large it is."""
+    period_start, period_end = period
+    return await ExportService(db).list_transactions(
+        period_start,
+        period_end,
+        valid_only=valid_only,
+        channels=_parse_channels(channels),
+        limit=limit,
+        offset=offset,
+        scope="ctr_all_channels",
+    )
+
+
 # Declared before /transactions/{finacle_ref} so "all-channels" is never read as a Finacle reference.
 @partner_router.get("/transactions/all-channels", response_model=NfiuTransactionsResponse)
 async def export_all_channel_transactions(
@@ -324,7 +365,8 @@ async def integration_info(_: User = Depends(require_permission("integration.vie
         finacle_mode=settings.finacle_mode,
         purpose=(
             "Nova Bank IT pulls staged Finacle transactions with X-API-Key. "
-            "GET /export/transactions and /export/transactions/ctr for NIP-only NFIU columns; "
+            "GET /export/transactions and /export/transactions/ctr for NIP-only NFIU columns "
+            "(…/ctr/all-channels and …/all-channels for every channel); "
             "GET /export/dtd for same-day NIP from TBAADM.DTD (one Lagos day, NFIU columns like /export/transactions)."
         ),
         auth_header="X-API-Key",

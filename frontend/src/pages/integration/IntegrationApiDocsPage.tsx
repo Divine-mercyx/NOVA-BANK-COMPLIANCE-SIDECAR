@@ -232,7 +232,7 @@ export function IntegrationApiDocsPage() {
       section: "transactions",
       method: "GET",
       path: "/api/v1/export/transactions/ctr",
-      title: "NIP CTR ₦5m and above",
+      title: "NIP-only CTR ₦5m and above",
       description:
         "NIP only: same NFIU columns, NGN rows with amount ≥ ₦5,000,000.",
       params: [
@@ -242,6 +242,25 @@ export function IntegrationApiDocsPage() {
         { name: "offset", hint: "Pagination offset (default 0)" },
       ],
       run: async () => execute("transactions-ctr", "/api/v1/export/transactions/ctr", transactionQuery),
+    },
+    {
+      id: "ctr-all",
+      section: "transactions",
+      method: "GET",
+      path: "/api/v1/export/transactions/ctr/all-channels",
+      title: "All-channel CTR ₦5m and above",
+      description:
+        "CTR from every channel (NIP, RTGS, NEFT, NAPS, cash, mobile and SWIFT), in the same NFIU columns: NGN rows with amount ≥ ₦5,000,000. Foreign-currency rows are never CTR (they are FTR), so a large USD SWIFT row is not returned here.",
+      params: [
+        { name: "date_from", required: true, hint: "YYYY-MM-DD or ISO datetime" },
+        { name: "date_to", required: true, hint: "Inclusive end date" },
+        { name: "channels", hint: "Optional, comma-separated (e.g. RTGS,CASH_DEPOSIT). Omit for every channel. Unknown names return 400." },
+        { name: "limit", hint: "Optional. Omit for all CTR rows (server cap 50,000)." },
+        { name: "offset", hint: "Pagination offset (default 0)" },
+      ],
+      query: transactionAllQuery,
+      run: async () => execute("ctr-all", "/api/v1/export/transactions/ctr/all-channels", transactionAllQuery),
+      controls: <ChannelPicker value={htdChannels} onChange={setHtdChannels} />,
     },
     {
       id: "transactions-all",

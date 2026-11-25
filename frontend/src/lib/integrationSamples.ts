@@ -125,6 +125,23 @@ export function integrationSampleResponse(endpointId: string): string | undefine
         limit: null,
         generated_at: SAMPLE_GENERATED_AT,
       });
+    case "ctr-all":
+      return listResponse(
+        {
+          period_start: "2026-10-20T00:00:00+01:00",
+          period_end: "2026-10-22T23:59:59.999999+01:00",
+          report_type: "CTR",
+          scope: "ctr_all_channels",
+          channel: "ALL",
+          ctr_threshold_ngn: 5000000,
+          total_matching: 57,
+          returned: 2,
+          offset: 0,
+          limit: null,
+          generated_at: SAMPLE_GENERATED_AT,
+        },
+        [SAMPLE_TRANSACTION, SAMPLE_RTGS_TRANSACTION],
+      );
     case "dtd":
       return listResponse({
         period_start: "2026-10-22T00:00:00+01:00",

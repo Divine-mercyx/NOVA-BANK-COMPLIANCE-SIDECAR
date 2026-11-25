@@ -394,26 +394,6 @@ export const api = {
   },
   quality: () => request<DataQualityMetrics>("/api/v1/analytics/quality"),
   reports: () => request<RegulatoryReport[]>("/api/v1/reports"),
-  generateReport: (report_type: ReportType, period_start: string, period_end: string) =>
-    request<RegulatoryReport>("/api/v1/reports/generate", {
-      method: "POST",
-      body: JSON.stringify({ report_type, period_start, period_end }),
-    }),
-  approveReport: (id: string, actor_name?: string) =>
-    request<RegulatoryReport>(`/api/v1/reports/${id}/approve`, {
-      method: "POST",
-      body: JSON.stringify({ actor_name: actor_name ?? "Compliance Officer" }),
-    }),
-  submitReport: (id: string, actor_name?: string) =>
-    request<RegulatoryReport>(`/api/v1/reports/${id}/submit`, {
-      method: "POST",
-      body: JSON.stringify({ actor_name: actor_name ?? "Compliance Officer" }),
-    }),
-  rejectReport: (id: string, actor_name?: string, notes?: string) =>
-    request<RegulatoryReport>(`/api/v1/reports/${id}/reject`, {
-      method: "POST",
-      body: JSON.stringify({ actor_name: actor_name ?? "Compliance Officer", notes }),
-    }),
   audit: () => request<AuditEvent[]>("/api/v1/audit"),
   users: () => request<User[]>("/api/v1/users"),
 

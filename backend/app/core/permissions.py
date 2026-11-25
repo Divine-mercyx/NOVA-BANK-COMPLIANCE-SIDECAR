@@ -30,8 +30,6 @@ CATALOGUE: tuple[Permission, ...] = (
     Permission("extraction.run", "Run extractions", "Reporting", "Start a Finacle extraction for a date range."),
     Permission("quality.view", "View data quality", "Reporting", "Validation rates, error breakdowns and spot-checks."),
     Permission("transactions.view", "View transactions", "Reporting", "Staged transactions and their CTR, FTR, PEP and STR flags."),
-    Permission("reports.generate", "Generate reports", "Reporting", "Create regulatory report files (API)."),
-    Permission("reports.approve", "Approve and submit reports", "Reporting", "Approve, reject or submit regulatory reports (API)."),
     Permission("audit.view", "View audit trail", "Reporting", "The log of every action in the portal."),
     # Daily feed
     Permission("dtd.view", "View day transaction detail", "Daily feed", "The same-day Finacle feed and its records."),
@@ -75,14 +73,12 @@ SYSTEM_ROLE_DEFAULTS: dict[str, dict] = {
     },
     "approver": {
         "name": "Approver",
-        "description": "Senior compliance / MLRO: runs the pipeline and approves reports and escalations.",
+        "description": "Senior compliance / MLRO: runs the pipeline, works screening alerts and takes escalations.",
         "all_permissions": False,
         "permissions": [
             *_VIEW,
             "extraction.run",
             "dtd.control",
-            "reports.generate",
-            "reports.approve",
             "screening.action",
             "screening.escalate",
         ],
@@ -91,7 +87,7 @@ SYSTEM_ROLE_DEFAULTS: dict[str, dict] = {
         "name": "Analyst",
         "description": "Compliance analyst: runs extractions and the daily feed, and works screening alerts.",
         "all_permissions": False,
-        "permissions": [*_VIEW, "extraction.run", "dtd.control", "reports.generate", "screening.action"],
+        "permissions": [*_VIEW, "extraction.run", "dtd.control", "screening.action"],
     },
     "viewer": {
         "name": "Viewer",

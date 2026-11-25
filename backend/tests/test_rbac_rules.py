@@ -36,10 +36,11 @@ def test_builtin_roles_keep_the_access_they_had_before():
 
     viewer, analyst, approver, admin = perms("viewer"), perms("analyst"), perms("approver"), perms("admin")
     assert admin == set(ALL_PERMISSIONS)
-    assert not any(p.endswith((".run", ".control", ".manage", ".generate", ".approve", ".action", ".escalate")) for p in viewer)
-    assert {"extraction.run", "dtd.control", "reports.generate", "screening.action"} <= analyst
-    assert not {"reports.approve", "screening.escalate"} & analyst
-    assert {"reports.approve", "screening.escalate"} <= approver
+    assert not any(p.endswith((".run", ".control", ".manage", ".action", ".escalate")) for p in viewer)
+    assert {"extraction.run", "dtd.control", "screening.action"} <= analyst
+    assert "screening.escalate" not in analyst
+    assert "screening.escalate" in approver
+    assert not any(p.startswith("reports.") for p in ALL_PERMISSIONS)  # report generate/approve is no longer part of the portal
     for role in (viewer, analyst, approver):
         assert not role & {"team.manage", "roles.manage", "apikeys.manage", "team.view"}
     assert viewer < analyst < approver < admin
