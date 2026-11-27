@@ -1,6 +1,6 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Mail, Pencil, Shield, ShieldCheck, Trash2, UserPlus, Users } from "lucide-react";
+import { KeyRound, Mail, Pencil, Shield, ShieldCheck, Trash2, UserPlus, Users } from "lucide-react";
 import { StaffPermissionChecklist } from "../components/access/PermissionChecklist";
 import { Modal } from "../components/Modal";
 import { EmptyState, InfoCallout, KpiCard, PageHeader, StatusBadge, TableToolbar, Tag } from "../components/ui";
@@ -54,6 +54,7 @@ export function UsersPage() {
   const [customiseNew, setCustomiseNew] = useState(false);
   const [editing, setEditing] = useState<User | null>(null);
   const [removing, setRemoving] = useState<User | null>(null);
+  const [resetting, setResetting] = useState<User | null>(null);
   const [form, setForm] = useState<StaffForm>(EMPTY_FORM);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -177,6 +178,23 @@ export function UsersPage() {
       if (self) await refreshUser();
     } catch (err) {
       setFormError(err instanceof Error ? err.message : "Failed to update member");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onResetTwoFactor = async () => {
+    if (!resetting) return;
+    setLoading(true);
+    setFormError("");
+    try {
+      await api.resetTwoFactor(resetting.id);
+      setMessage(`${resetting.full_name} will set up a new authenticator app the next time they sign in.`);
+      setError("");
+      setResetting(null);
+      await load();
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : "Failed to reset two-factor sign-in");
     } finally {
       setLoading(false);
     }
@@ -344,6 +362,10 @@ export function UsersPage() {
                       </td>
                       <td>
                         <StatusBadge status={u.is_active ? "active" : "idle"} />
+                        <p className="mt-1 flex items-center gap-1 text-xs text-content-subtle">
+                          <KeyRound className="h-3 w-3" />
+                          {u.two_factor_enabled ? "Authenticator on" : "Not set up yet"}
+                        </p>
                       </td>
                       {isManager && (
                         <td>
@@ -351,6 +373,20 @@ export function UsersPage() {
                             <button type="button" className="btn-ghost rounded-lg p-2" title="Edit" aria-label={`Edit ${u.full_name}`} onClick={() => openEdit(u)}>
                               <Pencil className="h-4 w-4" />
                             </button>
+                            {u.is_active && u.id !== currentUser?.id && u.two_factor_enabled && (
+                              <button
+                                type="button"
+                                className="btn-ghost rounded-lg p-2"
+                                title="Reset two-factor sign-in"
+                                aria-label={`Reset two-factor sign-in for ${u.full_name}`}
+                                onClick={() => {
+                                  setFormError("");
+                                  setResetting(u);
+                                }}
+                              >
+                                <KeyRound className="h-4 w-4" />
+                              </button>
+                            )}
                             {u.is_active && u.id !== currentUser?.id && (
                               <button
                                 type="button"
@@ -454,6 +490,30 @@ export function UsersPage() {
               <button type="submit" className="btn-primary" disabled={loading}>{loading ? "Saving..." : "Save changes"}</button>
             </div>
           </form>
+        </Modal>
+      )}
+
+      {resetting && isManager && (
+        <Modal title="Reset two-factor sign-in" onClose={() => setResetting(null)}>
+          <div className="flex items-start gap-4">
+            <div className="rounded-full bg-accent/10 p-3 text-accent">
+              <KeyRound className="h-6 w-6" />
+            </div>
+            <div>
+              <p className="font-medium text-content">Reset the authenticator app for {resetting.full_name}?</p>
+              <p className="mt-1 text-sm text-content-muted">
+                Use this when they have lost their phone and have no recovery codes left. Their old authenticator app and
+                recovery codes stop working; they sign in with their password and set up a new app. This is recorded in the audit trail.
+              </p>
+            </div>
+          </div>
+          {formError && <p className="mt-4 text-sm text-danger" role="alert">{formError}</p>}
+          <div className="mt-6 flex justify-end gap-2">
+            <button type="button" className="btn-secondary" onClick={() => setResetting(null)}>Cancel</button>
+            <button type="button" className="btn-primary" disabled={loading} onClick={onResetTwoFactor}>
+              {loading ? "Resetting..." : "Reset"}
+            </button>
+          </div>
         </Modal>
       )}
 

@@ -107,6 +107,8 @@ export interface User {
   /** What this person can actually do: role + extra - revoked. */
   permissions: string[];
   is_active: boolean;
+  /** Whether an authenticator app is connected for sign-in. */
+  two_factor_enabled?: boolean;
 }
 
 export interface PermissionInfo {
@@ -148,6 +150,27 @@ export interface DashboardStats {
 export interface LoginResponse {
   otp_session_id: string;
   message: string;
+  /** "verify": type the code from the authenticator app. "setup": first sign-in, connect the app first. */
+  two_factor: "verify" | "setup";
+}
+
+export interface TwoFactorSetup {
+  secret: string;
+  otpauth_url: string;
+  issuer: string;
+  account: string;
+}
+
+export interface TwoFactorEnableResponse {
+  user: User;
+  /** Shown once. */
+  recovery_codes: string[];
+}
+
+export interface TwoFactorStatus {
+  enabled: boolean;
+  recovery_codes_left: number;
+  enabled_at: string | null;
 }
 
 export interface AuthResponse {
@@ -354,11 +377,25 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ email, password }),
     }),
-  verifyOtp: (otp_session_id: string, code: string) =>
+  /** The code from the authenticator app, or one recovery code. */
+  verifyOtp: (otp_session_id: string, proof: { code: string } | { recoveryCode: string }) =>
     request<AuthResponse>("/api/v1/auth/verify-otp", {
+      method: "POST",
+      body: JSON.stringify(
+        "code" in proof
+          ? { otp_session_id, code: proof.code }
+          : { otp_session_id, recovery_code: proof.recoveryCode },
+      ),
+    }),
+  twoFactorSetup: (otp_session_id: string) =>
+    request<TwoFactorSetup>("/api/v1/auth/2fa/setup", { method: "POST", body: JSON.stringify({ otp_session_id }) }),
+  twoFactorEnable: (otp_session_id: string, code: string) =>
+    request<TwoFactorEnableResponse>("/api/v1/auth/2fa/enable", {
       method: "POST",
       body: JSON.stringify({ otp_session_id, code }),
     }),
+  resetTwoFactor: (userId: string) =>
+    request<User>(`/api/v1/auth/staff/${userId}/two-factor-reset`, { method: "POST" }),
   me: () => request<User>("/api/v1/auth/me"),
   logout: () => request<void>("/api/v1/auth/logout", { method: "POST" }),
   createStaff: (payload: CreateStaffRequest) =>

@@ -15,7 +15,7 @@ uvicorn app.main:app --reload --port 8000
 
 - Email: `admin@novabank.ng`
 - Password: `Admin@Nova2026`
-- OTP prints in the backend terminal
+- First sign-in connects an authenticator app (QR code); later sign-ins ask for its 6-digit code. See `../docs/TWO_FACTOR.md`
 
 ## Finacle extract (Module 1)
 
@@ -101,7 +101,7 @@ Interactive docs and live testing: portal → **Integration → API Docs**.
 # Terminal 1: start API
 ./scripts/start-backend.sh
 
-# Terminal 2: run smoke (enter OTP from Terminal 1, or set SMOKE_OTP)
+# Terminal 2: run smoke (type the code from your authenticator app, or set SMOKE_TOTP_SECRET to the key shown at setup)
 cd backend && PYTHONPATH=. python scripts/smoke_module4.py
 ```
 
@@ -141,7 +141,7 @@ PYTHONPATH=. python -m pytest tests/test_api_vapt.py tests/test_session_security
 |---------|------|
 | Portal `/api/v1/*` (compliance, DTD, screening, integration **info/keys**) | httpOnly session cookie; **CSRF** header on POST/PATCH/DELETE |
 | Partner `/api/v1/export/*` | **`X-API-Key`** only (no browser cookie) |
-| `/api/v1/auth/login`, `/verify-otp` | Public (rate-limit at reverse proxy in prod) |
+| `/api/v1/auth/login`, `/verify-otp`, `/2fa/setup`, `/2fa/enable` | Public (sign-in; a short-lived challenge from the password step is the credential. Rate-limit at the reverse proxy in prod) |
 | `/health` | Public (lock down in prod if required) |
 | `/api/v1/ws` | Session cookie + **Origin** allowlist |
 

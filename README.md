@@ -31,7 +31,7 @@ Open **http://localhost:5173**
 |-------|-------|
 | Email | `admin@novabank.ng` |
 | Password | `Admin@Nova2026` |
-| OTP | Printed in **backend terminal** after login |
+| Second step | Code from an **authenticator app** (Google Authenticator, Microsoft Authenticator, 1Password, Authy). The first sign-in shows a QR code to scan; nothing is sent by SMS or email. See [docs/TWO_FACTOR.md](docs/TWO_FACTOR.md). |
 
 Then: **Dashboard → Run extraction** (pulls from `TBAADM.HTD` + `TBAADM.GAM` when `FINACLE_MODE=oracle`).
 

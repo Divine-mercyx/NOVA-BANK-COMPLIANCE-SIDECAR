@@ -183,6 +183,8 @@ class UserOut(BaseModel):
     # What the user can actually do: role permissions + extra - revoked.
     permissions: list[str] = []
     is_active: bool
+    # Whether this person has an authenticator app connected (the team list shows who has not yet).
+    two_factor_enabled: bool = False
 
     model_config = {"from_attributes": True}
 
@@ -205,6 +207,7 @@ class UserOut(BaseModel):
             "revoked_permissions": normalize(getattr(data, "revoked_permissions", None)),
             "permissions": normalize(getattr(data, "permissions", None)),
             "is_active": data.is_active,
+            "two_factor_enabled": bool(getattr(data, "totp_enabled", False)),
         }
 
 

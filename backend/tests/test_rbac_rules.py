@@ -65,6 +65,11 @@ def _checks_a_permission(dependant) -> bool:
 SESSION_ONLY = {
     "/api/v1/auth/login",
     "/api/v1/auth/verify-otp",
+    # First sign-in (the challenge from the password step is the credential) and your own two-factor settings.
+    "/api/v1/auth/2fa/setup",
+    "/api/v1/auth/2fa/enable",
+    "/api/v1/auth/2fa",
+    "/api/v1/auth/2fa/recovery-codes",
     "/api/v1/auth/me",
     "/api/v1/auth/logout",
     "/api/v1/access/permissions",

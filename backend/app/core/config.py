@@ -58,7 +58,18 @@ class Settings(BaseSettings):
     jwt_secret: str = "nova-dev-secret-change-in-production"
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 480
+    # Kept so an existing environment file still loads; sign-in no longer uses it (see the two_factor_* settings).
     otp_expire_minutes: int = 10
+    # Two-factor sign-in with an authenticator app (docs/TWO_FACTOR.md).
+    # Key that seals each person's authenticator key in the database: 32 random bytes as hex or base64. Empty =
+    # derived from jwt_secret. Set it in production, and keep it outside the database.
+    two_factor_key: str | None = None
+    # The name an authenticator app shows next to the account.
+    two_factor_issuer: str = "Nova Compliance"
+    # How long a person has to type the code after the password, and to finish first-time setup.
+    two_factor_challenge_minutes: int = 5
+    two_factor_setup_minutes: int = 15
+    two_factor_max_attempts: int = 5
     admin_email: str = "admin@novabank.ng"
     admin_password: str = "Admin@Nova2026"
 

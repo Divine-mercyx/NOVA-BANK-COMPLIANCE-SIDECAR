@@ -6,7 +6,7 @@ import { RolesPage } from "./pages/RolesPage";
 import { AuthProvider } from "./lib/auth";
 import { SidebarProvider } from "./lib/sidebar";
 import { ThemeProvider } from "./lib/theme";
-import { LoginPage, OtpPage } from "./pages/AuthPages";
+import { LoginPage, OtpPage, SetupAuthenticatorPage } from "./pages/AuthPages";
 import { AuditPage } from "./pages/AuditPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { ExtractionPage } from "./pages/ExtractionPage";
@@ -26,6 +26,7 @@ export default function App() {
             <Routes>
               <Route path="/login" element={<LoginPage />} />
               <Route path="/verify-otp" element={<OtpPage />} />
+              <Route path="/set-up-authenticator" element={<SetupAuthenticatorPage />} />
               <Route element={<ProtectedRoute />}>
                 <Route element={<Layout />}>
                   <Route index element={<HomeRoute><DashboardPage /></HomeRoute>} />

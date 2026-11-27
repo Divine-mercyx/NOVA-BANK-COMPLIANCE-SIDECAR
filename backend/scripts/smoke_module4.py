@@ -13,6 +13,7 @@ import http.cookiejar
 import json
 import os
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -57,9 +58,24 @@ def partner_get(path: str, api_key: str, params: dict | None = None) -> dict:
         return json.loads(resp.read().decode())
 
 
+def _code_from_secret() -> str | None:
+    """The current code, when SMOKE_TOTP_SECRET holds the authenticator key (for automated runs)."""
+    secret = os.environ.get("SMOKE_TOTP_SECRET")
+    if not secret:
+        return None
+    from app.core import totp
+
+    return totp.code_at(secret, totp.step_at(time.time()))
+
+
 def login_admin() -> None:
     login = request("POST", "/api/v1/auth/login", {"email": ADMIN_EMAIL, "password": ADMIN_PASSWORD})
-    otp = os.environ.get("SMOKE_OTP") or input("Enter OTP from backend console: ").strip()
+    if login.get("two_factor") == "setup":
+        raise RuntimeError(
+            "This account has no authenticator app yet. Sign in once in the portal to set it up, "
+            "then set SMOKE_TOTP_SECRET to the key shown at setup (or type the code when asked)."
+        )
+    otp = os.environ.get("SMOKE_OTP") or _code_from_secret() or input("Enter the 6-digit code from your authenticator app: ").strip()
     request("POST", "/api/v1/auth/verify-otp", {"otp_session_id": login["otp_session_id"], "code": otp})
     print("✓ Admin authenticated (session cookie)")
 

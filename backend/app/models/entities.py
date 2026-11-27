@@ -4,7 +4,7 @@ import enum
 from datetime import datetime
 from uuid import uuid4
 
-from sqlalchemy import DateTime, Enum, Float, ForeignKey, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy import BigInteger, DateTime, Enum, Float, ForeignKey, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -83,6 +83,16 @@ class User(Base):
     is_active: Mapped[bool] = mapped_column(default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
+    # Two-factor sign-in with an authenticator app. Secrets are sealed (app/core/secret_box.py), never plain.
+    totp_secret: Mapped[str | None] = mapped_column(Text, nullable=True)
+    totp_pending_secret: Mapped[str | None] = mapped_column(Text, nullable=True)
+    totp_enabled: Mapped[bool] = mapped_column(default=False, server_default="false")
+    totp_enabled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # The last 30-second step a code was accepted for: only later steps are accepted, so a code works once.
+    totp_last_step: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    # Keyed hashes of the one-time recovery codes that are still unused.
+    recovery_code_hashes: Mapped[list] = mapped_column(JSONB, default=list, server_default="[]")
+
     access_role: Mapped[Role | None] = relationship(lazy="joined")
 
     @property
@@ -106,7 +116,12 @@ class OtpSession(Base):
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
     user_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("users.id"), index=True)
-    code: Mapped[str] = mapped_column(String(6))
+    # No longer used: the code comes from the person's authenticator app. Kept nullable for older rows.
+    code: Mapped[str | None] = mapped_column(String(6), nullable=True)
+    # "verify": the account already has an authenticator app. "setup": first sign-in, it must be set up now.
+    purpose: Mapped[str] = mapped_column(String(10), default="verify", server_default="verify")
+    # Wrong codes typed against this sign-in attempt; the attempt ends after the configured maximum.
+    attempts: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     used: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
